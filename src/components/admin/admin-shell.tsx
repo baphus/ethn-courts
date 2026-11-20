@@ -24,10 +24,11 @@ import ThemeToggle from "./theme-toggle";
 interface Props {
   email: string;
   name: string | null;
+  isOwner: boolean;
   children: React.ReactNode;
 }
 
-export default function AdminShell({ email, name, children }: Props) {
+export default function AdminShell({ email, name, isOwner, children }: Props) {
   const pathname = usePathname();
   const section = pathname.split("/")[2];
   const label = section
@@ -39,7 +40,7 @@ export default function AdminShell({ email, name, children }: Props) {
       <NextTopLoader color="var(--primary)" showSpinner={false} />
       <SidebarProvider>
         <div data-admin-shell className="contents">
-          <AdminSidebar email={email} name={name} />
+          <AdminSidebar email={email} name={name} isOwner={isOwner} />
           <SidebarInset className="min-w-0 overflow-x-clip">
             <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
               <div className="flex w-full items-center gap-2 px-4">

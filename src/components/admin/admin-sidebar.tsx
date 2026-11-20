@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CreditCard, LogOut, ExternalLink } from "lucide-react";
+import { CreditCard, LogOut, ExternalLink, Settings } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
-export default function AdminSidebar({ email }: { email: string; name: string | null }) {
+export default function AdminSidebar({ email, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
   const router = useRouter();
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -17,6 +17,7 @@ export default function AdminSidebar({ email }: { email: string; name: string | 
     <SidebarHeader><div className="px-3 py-4 font-semibold">ETHN <span className="text-muted-foreground">/ {email}</span></div></SidebarHeader>
     <SidebarContent><SidebarMenu>
       <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/payments" />} tooltip="Payments"><CreditCard /><span>Payments</span></SidebarMenuButton></SidebarMenuItem>
+      {isOwner && <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/settings" />} tooltip="Pricing settings"><Settings /><span>Pricing settings</span></SidebarMenuButton></SidebarMenuItem>}
       <SidebarMenuItem><SidebarMenuButton render={<Link href="/" />} tooltip="Public booking"><ExternalLink /><span>Public booking</span></SidebarMenuButton></SidebarMenuItem>
     </SidebarMenu></SidebarContent>
     <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={logout} tooltip="Sign out"><LogOut /><span>Sign out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
