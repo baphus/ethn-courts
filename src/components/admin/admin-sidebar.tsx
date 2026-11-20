@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CreditCard, LogOut, ExternalLink, Settings, Clock } from "lucide-react";
+import { CreditCard, LogOut, ExternalLink, Settings, Clock, Users, AlertTriangle } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
 export default function AdminSidebar({ email, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
@@ -17,6 +17,8 @@ export default function AdminSidebar({ email, isOwner }: { email: string; name: 
     <SidebarHeader><div className="px-3 py-4 font-semibold">ETHN <span className="text-muted-foreground">/ {email}</span></div></SidebarHeader>
     <SidebarContent><SidebarMenu>
       <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/payments" />} tooltip="Payments"><CreditCard /><span>Payments</span></SidebarMenuButton></SidebarMenuItem>
+      <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/exceptions" />} tooltip="Late exceptions"><AlertTriangle /><span>Late exceptions</span></SidebarMenuButton></SidebarMenuItem>
+      {isOwner && <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/staff" />} tooltip="Staff access"><Users /><span>Staff access</span></SidebarMenuButton></SidebarMenuItem>}
       {isOwner && <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/settings" />} tooltip="Pricing settings"><Settings /><span>Pricing settings</span></SidebarMenuButton></SidebarMenuItem>}
       {isOwner && <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/hours" />} tooltip="Court hours"><Clock /><span>Court hours</span></SidebarMenuButton></SidebarMenuItem>}
       <SidebarMenuItem><SidebarMenuButton render={<Link href="/" />} tooltip="Public booking"><ExternalLink /><span>Public booking</span></SidebarMenuButton></SidebarMenuItem>

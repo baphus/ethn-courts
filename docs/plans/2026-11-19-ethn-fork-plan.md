@@ -1,18 +1,51 @@
 # ETHN COURTS — isolated fork and simplified no-RPC implementation plan
 
-Date: 2026-11-19. Revision 3: all five overengineering findings applied—independent copy/connection/migration gates, held-item price snapshots, ordinary read queries, feature-local schema delivery and disposable probe retirement. **Planning only: no fork creation, application changes, package installation, provisioning or deployment authorized.**
+Created 2026-11-19; progress reconciled 2026-11-20. Revision 4: feature-first delivery. Earlier planning-only language and future-tense implementation sections below are historical design context, not current progress or standing execution permission. Completed work is recorded in checklist and dated `docs/checks/`. New specialist runs and hosted/deployment actions still require their scoped approvals. Prioritize smallest working features; defer cosmetic refinement and repeated browser polish while preserving authorization, exact money, transaction integrity and conflict protection.
 
 ## Steps
 
-- [ ] Review revised plan and explicit SRS amendments.
-- [ ] Resolve commercial-eligible free hosting and recovery/scheduler feasibility before production approval.
-- [ ] Separately authorize offline audited fork copy; no live database prerequisite for copying.
-- [ ] Before database integration, prove secure connection using chosen application driver.
-- [ ] Build core settings, roles, booking items, allocations and paid-only payment foundation; then prove its actual migrations install cleanly.
-- [ ] Deliver schedule-first ETHN booking, payment verification and prepaid walk-ins.
-- [ ] Deliver prepaid extensions, completion/no-show and information-only Open Plays.
-- [ ] Deliver paid sales, reconciled cash reports, persistent inbox and browser push.
-- [ ] Complete concurrency/security/restore/user acceptance gates and obtain launch approval.
+### Completed foundation and active core
+
+- [x] Review SRS amendments: no cancellation/refunds/rescheduling, no unpaid confirmed bookings, no application RPCs.
+- [x] Create isolated audited fork, sanitized configuration and fresh Git history; original source unchanged.
+- [x] Create local initial checkpoint `7ddaa68` and feature commits `f7932b5`, `9860d39`, `1f79a2d`; no remote/push/deployment.
+- [x] Verify hosted CA/hostname TLS and restricted application login.
+- [x] Implement core schema, allocations, frozen booking items, exact pricing and owner-bound idempotency; install actual schema locally and on disposable hosted project.
+- [x] Implement checkout, proof reservation/signing, strict-deadline submission, late-evidence capture and safe tracking.
+- [x] Cut customer booking UI over to ETHN endpoints and retire legacy writes server-side.
+- [x] Implement current staff authorization, full-payment approve/reject, private proof review and payment-review UI.
+- [x] Implement outcome emails, durable worker, opt-in scoped post-submit hook and authenticated bounded retry endpoint; fake/local SMTP tested.
+- [x] Implement owner-only court names/rates/GCash-instruction configuration; hosted/browser verified, existing snapshots preserved.
+- [x] Implement owner hours/activity API and UI with actual local conflict/rollback/checkout-race tests; migration 0010 applied to disposable hosted project.
+- [x] Implement owner staff-access API and UI with last-owner protection, existing-Auth-user verification and actual local concurrent-demotion/pricing-race tests.
+- [x] Implement late-payment exception review service, API and screens; review records an immutable private note only (booking stays expired, payment stays exception).
+- [x] Verify real hosted Auth/private Storage and core customer/staff browser flow; fix evidenced origin/accessibility/login-branding defects.
+- [x] Verify local stale/reload hours UI with explicit fixture responses; do not mislabel as hosted Auth proof.
+
+### Major feature backlog — smallest working slice first
+
+- [x] Owner staff-access management with transactional last-owner protection and revocation.
+- [x] Staff review of captured late-payment exceptions, without restoring slots or adding refund workflow.
+- [ ] Prepaid walk-in booking (full cash or verified GCash before confirmation).
+- [ ] Automatic completion and audited no-show outcome.
+- [ ] Prepaid extensions with protected added-time hold; failure leaves original booking intact.
+- [ ] Information-only Open Plays and conflict-safe court blocking; no registration/payment.
+- [ ] Paid manual sales and owner corrections; no POS/inventory.
+- [ ] ETHN expense/finance reports and exports reconciled to actual collections/sales.
+- [ ] Persistent operational inbox and browser push with denied/unsupported fallback.
+- [ ] Configurable timing-policy changes and court creation/management beyond current names/activity/hours, only where full SRS requires them.
+
+### Launch gates and deferred acceptance
+
+- [ ] Finish only missing hosted hours stale/reload/staff browser checks and native-time editing; stop repeated harness churn. Core local authorization/race evidence remains valid.
+- [ ] Supply owner-approved real rates, GCash instructions, contacts/policies and permanent owner/staff identities. Unset values keep paid checkout disabled.
+- [ ] Select commercially eligible production host, verify pooling/TLS/lifecycle/load and domain.
+- [ ] Configure production mail sender/delivery and provision authenticated scheduler; endpoint existence is not scheduler operation.
+- [ ] Establish retention and independent DB/Auth/Storage backup with restore drill.
+- [ ] Resolve or explicitly accept residual development dependency/legacy archive risks; complete final integrated security/mobile acceptance.
+- [ ] Obtain explicit deployment/launch approval. No free-tier uptime or delivery guarantee invented.
+
+Feature acceptance requires functioning service/API/UI as applicable, focused tests and relevant type/build checks. Local DB evidence required for money, access and allocation changes. Browser polish can follow working implementation; do not tick an entire mixed module because its schema or placeholder exists.
 
 ## 1. Goal, authority and change register
 
