@@ -1,0 +1,2331 @@
+{
+  "sourceCommit": "89cdad46a823051c88f5e9f108d1fac821899275",
+  "note": "Relative tracked-path classification; source SHA-256 supplied for copied source files. Sanitized env template assignments blanked; legacy source is not target bootstrap.",
+  "entries": [
+    {
+      "path": ".agents/skills/brandkit/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/design-taste-frontend-v1/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/design-taste-frontend/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/full-output-enforcement/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/gpt-taste/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/high-end-visual-design/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/image-to-code/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/imagegen-frontend-mobile/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/imagegen-frontend-web/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/industrial-brutalist-ui/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/minimalist-ui/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/redesign-existing-projects/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/stitch-design-taste/DESIGN.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".agents/skills/stitch-design-taste/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".env.example",
+      "decision": "sanitize",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "6c6578769d5da1c7ad3727a23066f55049c94b34a088d543e5ed4f2dda204be5"
+    },
+    {
+      "path": ".github/prompts/opsx-apply.prompt.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/prompts/opsx-archive.prompt.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/prompts/opsx-explore.prompt.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/prompts/opsx-propose.prompt.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/prompts/opsx-sync.prompt.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/skills/openspec-apply-change/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/skills/openspec-archive-change/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/skills/openspec-explore/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/skills/openspec-propose/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".github/skills/openspec-sync-specs/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".gitignore",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "69d46c8951c94fc554822d43e6b2986d814ebd17f2add71f1a13a0fd9efea71e"
+    },
+    {
+      "path": ".ignore",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".mcp.json",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/.gitignore",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/commands/opsx-apply.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/commands/opsx-archive.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/commands/opsx-explore.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/commands/opsx-propose.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/commands/opsx-sync.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/openspec-apply-change/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/openspec-archive-change/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/openspec-explore/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/openspec-propose/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/openspec-sync-specs/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-animation/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-fundamentals/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-geometry/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-interaction/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-lighting/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-loaders/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-materials/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-postprocessing/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-shaders/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": ".opencode/skills/threejs-textures/SKILL.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "AGENTS.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "9076dd1044a564c93d81daf52936200631718a8d574d34304ad7dc4b961a0eb9"
+    },
+    {
+      "path": "DESIGN.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "04632b15fb9e023b3b9188b38afa4972a4af68f38ef50cbfe044e33cf1c2b2fb"
+    },
+    {
+      "path": "README.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "f9a4ad9bdb075616b58d8ccb9a7032b33ab10b46cc2b2945ce24d1ebb875ec0f"
+    },
+    {
+      "path": "WEBSITE-AND-ADMIN-MANUAL.docx",
+      "decision": "exclude",
+      "reason": "Client manual, agreement or requirements artifact omitted"
+    },
+    {
+      "path": "WEBSITE-AND-ADMIN-MANUAL.html",
+      "decision": "exclude",
+      "reason": "Client manual, agreement or requirements artifact omitted"
+    },
+    {
+      "path": "build.log",
+      "decision": "exclude",
+      "reason": "Build output omitted"
+    },
+    {
+      "path": "components.json",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "7f89b1e9e3995be8620be3162df8e08b7dd512f894fb0accb559193138fdc390"
+    },
+    {
+      "path": "docs/BACKUPS.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "2776faf6da08ffe5533338c9bc7f883e5e194c79db3e6b5617c1e72b5e069a0c"
+    },
+    {
+      "path": "docs/DECISIONS.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "cd601030a433090ba0be581ea6aebfd7891ca748a0b406a083ba8e2eb7c9fe58"
+    },
+    {
+      "path": "docs/OPEN-QUESTIONS.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "fa0544552cea7c88030ff1910e5eeb3e7609693c50d056d8d74dc7e5509dceb2"
+    },
+    {
+      "path": "docs/Paddle_Culture_Freelance_Software_Development_Agreement.docx",
+      "decision": "exclude",
+      "reason": "Client manual, agreement or requirements artifact omitted"
+    },
+    {
+      "path": "docs/Paddle_Culture_Product_Requirements_Document.docx",
+      "decision": "exclude",
+      "reason": "Client manual, agreement or requirements artifact omitted"
+    },
+    {
+      "path": "docs/VERCEL_DEPLOY.md",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "3bda46c675988ae914e4b471966b34b39c4349fb540f17163c8a44e1bb35d8ed"
+    },
+    {
+      "path": "drizzle.config.ts",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "5d0642e8fc743682c821b28fee30d203b393bcad0050125ace842fc9921c0d7c"
+    },
+    {
+      "path": "drizzle/0000_panoramic_cyclops.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "abc05988705013260973140ede4bf9a3ecc5b3d3fffba2ee8a0ac0f7f7440e6d"
+    },
+    {
+      "path": "drizzle/0001_solid_angel.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1189f3f94bb8fa9d1ac96fac3fcf14e1ea9389e1ed9ce2540953d8edebe214ae"
+    },
+    {
+      "path": "drizzle/0002_rename_bands.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dab092b123ad47b282ffe076dff0ca5100476ac234954c65b396073436da586c"
+    },
+    {
+      "path": "drizzle/0003_lowly_leader.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "222b4f285e99770b89fe8856203e6ca088ec13f26df3e4fbf4a1bdfbc09d9cea"
+    },
+    {
+      "path": "drizzle/0004_play_date.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0d1523e868a429b64d01ddf5471ee5fd1f82342da80f12b60e1b8686dead3672"
+    },
+    {
+      "path": "drizzle/0005_outbox_claimed_at.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "31ab49b6a415a3ff5d2a366b9887674386cbb161d9a5fc3d7585e8fe40c1dde6"
+    },
+    {
+      "path": "drizzle/0006_booking_paid_cash.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "63ea9d7d13973cb246c069610948650588b1125a3b2ecdca877e8997858efd6f"
+    },
+    {
+      "path": "drizzle/0007_booking_approved_at.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "eaa72a5b4c546b3153f2d287fc8ee95362ccdd65b6f27c655c3874e269324842"
+    },
+    {
+      "path": "drizzle/meta/0000_snapshot.json",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "af8c331b6f5e41527d55a63b8308a28106315706b186c8d83586d601bd4d06e4"
+    },
+    {
+      "path": "drizzle/meta/0001_snapshot.json",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "2a85c1da8847639935ac2271eb5ac520f45ba0c9b56155edfeecf3590cb68e25"
+    },
+    {
+      "path": "drizzle/meta/0002_snapshot.json",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5c283c6081677addcd98fd71b3b376b41b1cf2c1b5eb3f1b5560e98ca71eaea9"
+    },
+    {
+      "path": "drizzle/meta/0003_snapshot.json",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "428edd6b7049e85484b20d8572a41d4874d40e85e0b0de184230b626dac00ac2"
+    },
+    {
+      "path": "drizzle/meta/_journal.json",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9f37c2c06a9edf6df4245951105781d44eec48d8afcd322a428570b5665eccb5"
+    },
+    {
+      "path": "next-env.d.ts",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "1b59d4c6b83807db275d43f3cf2cc8e9323f465fab764eea091cc5becd5bad37"
+    },
+    {
+      "path": "next.config.ts",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "0b7ea7694bcbd35ba6e6275e38aec3b45507a32035d1622e2db955f2115697bb"
+    },
+    {
+      "path": "openspec/changes/add-finance-dashboard/.openspec.yaml",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/changes/add-finance-dashboard/design.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/changes/add-finance-dashboard/proposal.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/changes/add-finance-dashboard/specs/expense-management/spec.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/changes/add-finance-dashboard/specs/finance-reporting/spec.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/changes/add-finance-dashboard/tasks.md",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/changes/archive/.gitkeep",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/config.yaml",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "openspec/specs/.gitkeep",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "package-lock.json",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "10917724ff921aabdddc817efd3cef3a5efbd5ca0866a9b3c8f37538d601b398"
+    },
+    {
+      "path": "package.json",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "2ef5b4bbf2ef6ce5d2cfc7d827610436ad0213006dc63ab8e1ba4149394d7ad1"
+    },
+    {
+      "path": "postcss.config.mjs",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "5b0bc4c78be977cd81f947fb5563aaa7cc6d451e6f1c53a3260b7656a7144d20"
+    },
+    {
+      "path": "public/3d models pickleball ref/pickleball_ball.glb",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/3d models pickleball ref/pickleball_paddle.glb",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/3d models pickleball ref/pickleball_set.glb",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/bdo.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/bpi.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/gcash.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/Pickleball.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/README.md",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/another pic.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/ck-grounds-logo.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/court-1.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/court-2.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/hero.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/net.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/paddle.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/94a3d3c0-3615-4ef2-afd8-a42832f90ee3.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/IMG_8241.JPG",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/IMG_8245.JPG",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/IMG_8248.JPG",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/another pic.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/heroo.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/images/venue/net.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/logo.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/activity.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/bookings.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/calendar.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/court-setup.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/dashboard.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/finance.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/new-booking-form.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/manual/users.png",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/payment-qr/.gitkeep",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/payment-qr/BDO_QR_CODE.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/payment-qr/BPI_QR_CODE.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/payment-qr/GCASH_QR_CODE.jpg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "public/pickleball-loader.svg",
+      "decision": "exclude",
+      "reason": "Source-client public asset or asset inventory omitted"
+    },
+    {
+      "path": "scripts/diagnose-outbox.sql",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "8eafd42cdbe5d2bec018ca29eec9f663f1c150343d945311b4fcd3eb1fa138c7"
+    },
+    {
+      "path": "scripts/drain-outbox.ts",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "c857fbcdb8bbaa6bd7d6a5252838ad0a24fda705607dcac7c6cd3af9fec958d2"
+    },
+    {
+      "path": "scripts/seed-production.mjs",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "3d3eb49b24cc107aba6149f6bd59a8e3c00adf8915b1393db55850da20d2d971"
+    },
+    {
+      "path": "scripts/seed-production.result.json",
+      "decision": "exclude",
+      "reason": "Generated seed result omitted"
+    },
+    {
+      "path": "scripts/sync-9router-models.mjs",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "sentry.client.config.ts",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "e041ad4bc30303e59ba5bba77b37aca79cce5ed21f58dcff0ffb13684f395d08"
+    },
+    {
+      "path": "sentry.server.config.ts",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "0562b801a82c646c18edd2ae54a3b854453ec4f988eaa50dbef47995bb761be2"
+    },
+    {
+      "path": "skills-lock.json",
+      "decision": "exclude",
+      "reason": "Agent, session or local tooling metadata omitted"
+    },
+    {
+      "path": "src/app/admin/activity/audit-table.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6d6677d22fea52f55528b4417695d1915bbdd8435edb312fc47094a0bb4aca63"
+    },
+    {
+      "path": "src/app/admin/activity/columns.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1188854ad31eadb9f1f8423ee3b936d3454212d6ce4c75349b0ce7368609c072"
+    },
+    {
+      "path": "src/app/admin/activity/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "536fd0369abcf4774256a3e22e7472107f41df3b59338705f4f0dcf15f9e5bbc"
+    },
+    {
+      "path": "src/app/admin/bookings/booking-actions.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f41866d74a3f19f3918f0040c549829f391ed5fd7e45a3699d597189eab64474"
+    },
+    {
+      "path": "src/app/admin/bookings/booking-card.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "554a79ab6b95fd43d1ac3af32ab17c6ff7aea7c87351c25f74d121045b4f3c86"
+    },
+    {
+      "path": "src/app/admin/bookings/bookings-table.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ef30c8f5471e1c5370dbbeb484f05db42bc782ac46c8a39c01f8191a62733f8f"
+    },
+    {
+      "path": "src/app/admin/bookings/columns.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8f3d8eda3bda7516f9ca197d2c1c5008ef8a424607959984dd8362be02fc19f4"
+    },
+    {
+      "path": "src/app/admin/bookings/new/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "751404de28c486b64ae34f5f538011aac33c0ae7dc1a6bff7efbb4e4c585ec90"
+    },
+    {
+      "path": "src/app/admin/bookings/occupancy-grid.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "28781b164caf60608054e04dc007ecf3c517e3b17d0493bb87ceb18df94051e6"
+    },
+    {
+      "path": "src/app/admin/bookings/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "cf96c5dab41b30e55e9035a0ac4d87d7bf217e069932174647d583cb3a9614a9"
+    },
+    {
+      "path": "src/app/admin/calendar/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "781db33a22eab188f3c08cbda9b7856d13950c53faf4f01cbed22701fb9dde33"
+    },
+    {
+      "path": "src/app/admin/courts/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0fccb523532086916c9bbd5ae8cac5c1b18493ac0548010a6004ac1846ec9864"
+    },
+    {
+      "path": "src/app/admin/finance/finance-controls.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b6dcdcc78b973e413fc6d8d25db21047f5a1a37ceaab8744dc7f24db98c19363"
+    },
+    {
+      "path": "src/app/admin/finance/loading.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c98166c1d33fb65788a7992d2df3c258f0dc1ed92c6b939cc3af9ac4acf4f09a"
+    },
+    {
+      "path": "src/app/admin/finance/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5eb6052c3784740a75b0381cffb9c8dcf862e5ab837ca160b85c4d39623c6524"
+    },
+    {
+      "path": "src/app/admin/hours/hours-manager.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "92165c3b381a697620d114e2fbd381844fcb5bbd2a4967834a11155ec3d60479"
+    },
+    {
+      "path": "src/app/admin/hours/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1ebc6a18f14fe1c3ad4de4f324bcdaad78c5f8866d74706d37f60995238c1c2d"
+    },
+    {
+      "path": "src/app/admin/invite-manager.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dad0d701e8d552e5f8e3927bfc6a3a412edbc621aa7ed48a042b998bfaff1039"
+    },
+    {
+      "path": "src/app/admin/layout.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "201076ed026f3806aee899f5dd81045ba1c4c67bdb78e47adca438b3fb35cfbb"
+    },
+    {
+      "path": "src/app/admin/manual/manual-contents.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "4899d4bbd4bbc81d265b8251da4535b4d599da833ad9baa6dbfd4bfb67814d5d"
+    },
+    {
+      "path": "src/app/admin/manual/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "3f853ff3edb9a6023660580cdb409267b54b0e773b285da1542f266ff280ccb4"
+    },
+    {
+      "path": "src/app/admin/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8dfcb4c893c62552224cfc24f489897dc9ecaf06b4516f9caf239b3b3b1d4134"
+    },
+    {
+      "path": "src/app/admin/recent-bookings-card.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6991358dbb2588a0f0f5440c9a51c7f13e3eaa36775381ee87c1bf0fe291237d"
+    },
+    {
+      "path": "src/app/admin/recent-bookings-table.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5c488a7584c93d904cc8ef59f287c6a48175db06dd9ee5cda38659202e3b01f1"
+    },
+    {
+      "path": "src/app/admin/revenue/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "52d3581bf11fb999ea9d7dd58fd3d228e9b7efc803d776d203870eae1db4a76b"
+    },
+    {
+      "path": "src/app/admin/revenue/revenue-export.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1ffff81af9316927904b2431ee873c8de95554238be99e8f7ec6f84abb875bf4"
+    },
+    {
+      "path": "src/app/admin/revenue/revenue-range-filter.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "232dce50c0bfc07f9ca5875ffd0b8bb047c3430a5f62294c669018c6990e96cc"
+    },
+    {
+      "path": "src/app/admin/revenue/revenue-tables.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ca9bd63547892a3aab8b5f788e3dd050f8170e69022b7aa27ceba6689aff5e2c"
+    },
+    {
+      "path": "src/app/admin/users/add-user-dialog.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ff306cb843cfaf1f03fa0443850266d675ea5f2c70a4e3e1d6030f3b2310642a"
+    },
+    {
+      "path": "src/app/admin/users/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b70134ba28d61326547c38f813caab8427f0bdff31f26b7452cdd465c19e987f"
+    },
+    {
+      "path": "src/app/admin/users/users-table.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "331d1203778a9c6d648374024a3fb6f792fb17c29d3057fd187a7ac83ee9f17c"
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/approve/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0e1d00e3e174b09729d3fb2800a36220df5a4a40711ac98bc0ac18ed2b030c7b"
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/delete/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d6c09fffe8811d57ccef92448f0392c2081341ac35a32fa328fe8199975725b0"
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/refund/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f2e6864989f8cec8c9d84f42c1140226cd1cef3041eb863ca5ed294a3e970608"
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/reject/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "01b9afb432cd3579ada8f7359b0f1072c91c0dd7a4cde116b5a75f9c461f2303"
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "81d872cd646b81b6da9813746d9eb2a69bb230862761774ae71e50853d5ab414"
+    },
+    {
+      "path": "src/app/api/admin/bookings/proof-upload-url/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "213f3ce40b04d1c11749e6feb720597dbc2cc147b05b25f6a6850c18fe8f738e"
+    },
+    {
+      "path": "src/app/api/admin/bookings/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9a027a737ff4262f1a3b27a1620c3fd7291bd7b540180bb314b6dcc4ff5100cf"
+    },
+    {
+      "path": "src/app/api/admin/calendar/events/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d08d320e1aa8e30b8061cdb591015ceed0e29758c1a8ae4393702ba79d77ddf6"
+    },
+    {
+      "path": "src/app/api/admin/closures/[id]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "934a43769883d06fe8d8de874e491990ef93770c4afb9c28b626a7b59cc74def"
+    },
+    {
+      "path": "src/app/api/admin/closures/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a84bcd7f02b1c0332b6d4d8d4801658cb7ac41bbebb2a2186a1c924e60d74915"
+    },
+    {
+      "path": "src/app/api/admin/courts/[id]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ba31b3f171034fb707349217c49e1c21c38a52b452decbacf8755b7eb111723e"
+    },
+    {
+      "path": "src/app/api/admin/courts/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8d9c3d5274f0227f86b565581016795604c8934875f45056f2ed6d03c5facd4c"
+    },
+    {
+      "path": "src/app/api/admin/expenses/[id]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "060032459d96759ee2924ebe30945c793de82ed3512c4165f0e446579f731703"
+    },
+    {
+      "path": "src/app/api/admin/expenses/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "cd71f18d640f19a681f5cb953b035626df04a14bc4b86a29fae49862848ea209"
+    },
+    {
+      "path": "src/app/api/admin/hours/[id]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "cc9ba514b7e2097512516589f43d6bf74c10515468d597482cd03686c83cc8f8"
+    },
+    {
+      "path": "src/app/api/admin/hours/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "71c1bc62c037b4941900d2386cb98502da3bd5e4eed59bd219ab8fb3cf196e74"
+    },
+    {
+      "path": "src/app/api/admin/notifications/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f60cdc88f6750c5a67c21ea4982af21b323613feae35b274dd1a6646da286ab9"
+    },
+    {
+      "path": "src/app/api/admin/outbox/process/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b04520d03af27d5870a1ae5d13a4a41b39bd395ab643aa8e89361aa7d4e6e49c"
+    },
+    {
+      "path": "src/app/api/admin/pricing/[id]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d0e78b17db3be3f7f4234b01e463375b0e74b77bbaf3d481369ef697785e2108"
+    },
+    {
+      "path": "src/app/api/admin/pricing/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "59e6b77e66ddb9958159c3150cee62a129ff046ac5790941412c85f4dedc155a"
+    },
+    {
+      "path": "src/app/api/admin/proofs/read/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "21dc832df2f6a7b5f4cdeb81a492d7a11e95d7cc79873dce47bae4a386c7803b"
+    },
+    {
+      "path": "src/app/api/admin/users/[userId]/deactivate/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8da9720c64b933356afc5af8503d8a217fb1edc94350c73b6bcb4b74f4d3cf8a"
+    },
+    {
+      "path": "src/app/api/admin/users/[userId]/reactivate/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dd2af0a830e548a257dbcaf352bc81eeb8615a7e5d667c9040d3ad70b8d23e9c"
+    },
+    {
+      "path": "src/app/api/admin/users/[userId]/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "655e784fb2b2b6893c3abf3317c2e703e76e1760415604c05c85fbc8b52db3a0"
+    },
+    {
+      "path": "src/app/api/admin/users/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b59c6071eed1accca617aab32431fe37899622aa9b43028a268613d8fb5160a7"
+    },
+    {
+      "path": "src/app/api/auth/forgot-password/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a678e5b652e308a1c9acfb2a0cc77a676dece13f4008c9fda75608a2f559bb5d"
+    },
+    {
+      "path": "src/app/api/auth/invites/revoke/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c5007aeb86de30692898e16da80970678edbe772396c35b029790f7cec1fadac"
+    },
+    {
+      "path": "src/app/api/auth/invites/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "838f1933425d900cff1d5c3e2ccfa23460de7987da45672c50f422869b2cf1e1"
+    },
+    {
+      "path": "src/app/api/auth/invites/validate/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "63d227a9597a8623bdb63a6be6a5bbd693d63c404a27faff1939af2e45f80560"
+    },
+    {
+      "path": "src/app/api/auth/login/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "4a0e262f2c2e39aa10d8af68e59d1f2cbde3deef7c91b0a075dc82aa61530fea"
+    },
+    {
+      "path": "src/app/api/auth/logout/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1a596f6249b8bbf8fc68a54347be88da29074686d17b7bd19b5768375ab26745"
+    },
+    {
+      "path": "src/app/api/auth/profile/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6fb6282a2074eb52b5755c5d206afef786014b851682e6faf18bb7f2f415d585"
+    },
+    {
+      "path": "src/app/api/auth/register/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a48f0c4ed6c5476ef702ab16fa1727784312025d1c652179c10bd0281e9cb6b0"
+    },
+    {
+      "path": "src/app/api/auth/reset-password/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f43265a73b53a3194afda75c519248a90bf0dbd4a9a15113f816574d3833cd9b"
+    },
+    {
+      "path": "src/app/api/auth/session/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ebf0d4dd8d8eaf3eb37365dceebfbb37c5e2e2a70feca1e1e6a8445f1d38bc8b"
+    },
+    {
+      "path": "src/app/api/availability/month/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "134efdc2709d9fd21daa465e6d35aee90c7a9755ffd10b9a3ce045146b37d05d"
+    },
+    {
+      "path": "src/app/api/availability/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5c3a511593a481373e3afd98f27749a60e507b9fc812ffca180c23c4dd184e49"
+    },
+    {
+      "path": "src/app/api/booking/track/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1d5aa9af79bd5065378cd356d519afa2957422dd84c3dabc19b618b515559203"
+    },
+    {
+      "path": "src/app/api/courts/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c66dca2b6340c235d4e6f5472d3f16fbbe9dbc908ebbb1ecc45a769cd143c702"
+    },
+    {
+      "path": "src/app/api/cron/keepalive/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "58f560afae007ef7ac8f61aa4acc7e516905fb962e427671b03ccceff8c040de"
+    },
+    {
+      "path": "src/app/api/cron/outbox/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c05434572ccedfd470378851dc7e6106f763ffad8dcf0f9362d419f871b57d4f"
+    },
+    {
+      "path": "src/app/api/cron/proof-prune/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8882f8599652647f4eb9435e97f038c2f1bf367f23c0b7f1502ee810c4f54b2d"
+    },
+    {
+      "path": "src/app/api/cron/retention/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c1283fd44c5a3f600a62a1c7a1c845d6dac1c99519207443327ef5861fca3d2e"
+    },
+    {
+      "path": "src/app/api/health/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b7807ee9d82199bbc47f19bd453ac2c4244ba3d707f3560f3a3138de0a5c93d6"
+    },
+    {
+      "path": "src/app/api/holds/reclaim/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c2fadfa36fd6c7a20806a586be43868b0819ceeb7915a505f1d2154746f75f8a"
+    },
+    {
+      "path": "src/app/api/holds/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a233f50b5d164c30be316e97c001e281ac809e86994536c1951a3d539d865ce5"
+    },
+    {
+      "path": "src/app/api/pricing/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f026f3b73269271eb026544ff9aa2880f3be231a13bc75addb533e115e42cd24"
+    },
+    {
+      "path": "src/app/api/proofs/upload-url/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f45b9a5afbd2329cad4f451ef58f471d24560633e9c9295ab48369fa0cb9e3eb"
+    },
+    {
+      "path": "src/app/api/submit/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "14f8579f891c7d92502350e965e7cf5abf4bfb6d2d7a5d50ec45e5fe3d7928dc"
+    },
+    {
+      "path": "src/app/auth/callback/route.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "32b8da1edc0b8db813238bc13d511194a2a15b61642de0235fad24d0d099cd14"
+    },
+    {
+      "path": "src/app/auth/error/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b5c082a9d39f6a0f928580e25ac170dcffc28832d59d13125e16508b21fa3002"
+    },
+    {
+      "path": "src/app/book/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a57ab8132973b06201713aeacc699ae10da7c60eab2c3cbeaa817c2302070df6"
+    },
+    {
+      "path": "src/app/contact/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "31ff297f87387b25d0da32bb8222d99ca6493c8e14b6aee9d8832c8c1091fbaf"
+    },
+    {
+      "path": "src/app/error.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "73aa6ba9f1ae68272f59b9029010dd93a90aacf2cd1143ccfb91115e96640a50"
+    },
+    {
+      "path": "src/app/forgot-password/forgot-password-form.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c4785d4eea46b781a8ea3748a072b73b853d67b62718cdc702dbc98bc2a4b605"
+    },
+    {
+      "path": "src/app/forgot-password/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "4490e2d71b4589962321fa2632acc557b0622f03c9f2ac888075082675de3429"
+    },
+    {
+      "path": "src/app/global-error.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c312a80dd15da726d6a7c1157636f68c8ffa31f43e5246942cdaf52057341078"
+    },
+    {
+      "path": "src/app/globals.css",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8e8596b88dca4d1566552a650be0851d9f30953687cc3b13625e746ae921cceb"
+    },
+    {
+      "path": "src/app/how-it-works/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "49ee5344e4492aa1a634e53e2316438df49ece787f57f6366f2bd83e2b927866"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a37e43ec96cd4c86fcf8c9a519991e3e784185311f92b46b14c70bfd447e8b6c"
+    },
+    {
+      "path": "src/app/loading.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5a47d1efd2b2ce69928e29d2ad21a26fd78865cbc2ed69cd7f534d916e447c1e"
+    },
+    {
+      "path": "src/app/login/login-form.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "4461d55bb18057147325ffefe74876571eed3e23dd3f241d5ae3a4fa88a45dcd"
+    },
+    {
+      "path": "src/app/login/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bf109d2cc2a86aad6881116c31a2905514b6ce205f0e3c193367284133ef8448"
+    },
+    {
+      "path": "src/app/not-found.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "3ad59a277446602b9488e37e6c8dbfc1272f692344b59e10db3cb4b491f23931"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "76e02ea8ac54f77bddad72df68b4a39a8659408c90d37e1649e8a7527fd789a0"
+    },
+    {
+      "path": "src/app/privacy/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "df3b69473231751b2fdb6577d608876fd7fc200aafa1d63f662a3fc5e461447c"
+    },
+    {
+      "path": "src/app/register/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e1e958385d6bcea1295e2822be5fe9c522211443ba618405ac08d4ca8e629b89"
+    },
+    {
+      "path": "src/app/register/register-form.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "aa744b4e6535d94deeb5182bddba6058f261c5e16e67e403ee851a92e8c18217"
+    },
+    {
+      "path": "src/app/reset-password/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b5c32e06377681433a50c60a1e32224c8534365cb8a786adf876eccd76b826c7"
+    },
+    {
+      "path": "src/app/reset-password/reset-password-form.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e7ff945fc06b4b66b641108b41a5916056f0c4faaf8d991cd94f1953bfbb5d9d"
+    },
+    {
+      "path": "src/app/terms/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c639d584c57ac6777134c7fc0cdac7799ccedcfc3390d1857aad9a0772ec6397"
+    },
+    {
+      "path": "src/app/track/[token]/page.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "cb16e6bb92eb2017b34edb76df403dad95a89abf8444a221f50757f8a722c752"
+    },
+    {
+      "path": "src/components/admin/admin-filter-dropdown.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "210e6f37e3a9bb04cca9e661bd2c29b7c1934402c36716b56e0a89f47fabfc34"
+    },
+    {
+      "path": "src/components/admin/admin-pagination.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "06bc9e7285e872802d43715cef154040b5865102b8d8fc140204f34438a3e8d2"
+    },
+    {
+      "path": "src/components/admin/admin-shell.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d2d2c28a8317a20f4ebdafaab90bfa29e33740ea046c16de95c02506e957eaac"
+    },
+    {
+      "path": "src/components/admin/admin-sidebar.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "54287c705db9da61f83004d88023a4382fdd66cf3ab5ec94123515ecc58dfa7b"
+    },
+    {
+      "path": "src/components/admin/admin-toolbar.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bbfcdd7957b4d3abcf82636cd03656cd5e0fe125a689126f298f77c2be9e38ee"
+    },
+    {
+      "path": "src/components/admin/booking-create-form.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d4782acd27d41d3772820f48276322823df5e41966124dd6a35c8a133f7f546b"
+    },
+    {
+      "path": "src/components/admin/booking-detail-dialog.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c0c75b0a26a7e018d60351a42552592b9783a1389a7259d47c260a9a52eccf39"
+    },
+    {
+      "path": "src/components/admin/calendar-view.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6ae032073912c6619bb8b27ffcb3cb0f403ba8ba7227618dc8b1eb70ac7d33d3"
+    },
+    {
+      "path": "src/components/admin/confirm-dialog.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1e4dd4156054e076aca9a2fb5ac4b119608f399450b2111be9a154d005d3124c"
+    },
+    {
+      "path": "src/components/admin/finance-chart.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "51bfc68f54c833122fd2a326c2955597d63a4c68c59725fa9eb8a1a682ee0cce"
+    },
+    {
+      "path": "src/components/admin/notification-bell.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "87ffa70556680de9ae9df2308d3491de24d51b816eb9fcf64b5e098ef6d7a796"
+    },
+    {
+      "path": "src/components/admin/page-header.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "3daebf1605a79cab28b4370f78daca93559f4cc80c5981c9ee7b51e4d7e39d50"
+    },
+    {
+      "path": "src/components/admin/profile-dialog.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "47203ef0216c56bcefcf253da9a75629e63570565fbb2184bec72b9038c534aa"
+    },
+    {
+      "path": "src/components/admin/revenue-chart-loader.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "fd8cc2d362d2966242eb419c1682309c72ee05820bbd94b0474bdd642b9e747e"
+    },
+    {
+      "path": "src/components/admin/revenue-chart.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "82e6aee1062facf7be77104ee044029442b3a16d8c6aba06c846423137173f3a"
+    },
+    {
+      "path": "src/components/admin/stat-card.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7ef72870c325974b3cc4df0f1b62616a3e513c6f83f1e3297bc243119b17462a"
+    },
+    {
+      "path": "src/components/admin/status-badge.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5c65ade8fa946a9eb456621f5e0e6c17b219fc7b2dabf75693eb6641d99f092f"
+    },
+    {
+      "path": "src/components/admin/theme-toggle.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b83bdd081695bb8c68f006954c5bba8163ca519b76b51a3c7b330ca815de593e"
+    },
+    {
+      "path": "src/components/booking/booking-flow.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1975542a7f5cd9f662d76b308eb25691ec755bdc1f269b39271696f4ab2ab1db"
+    },
+    {
+      "path": "src/components/booking/booking-invoice.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0414bf2abeb78bfffe03ed6b8f8f27bfde260c5c63fca90ca0eff97d43f9bc45"
+    },
+    {
+      "path": "src/components/booking/booking-summary-panel.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e9729a9307b9bbb74202924c2976db71670a78f608d6822ee8efac60525a4928"
+    },
+    {
+      "path": "src/components/booking/confirmation-step.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c51e8b4efda039b5abe364fee9ed910e11c7f67c59d6f0bcc58703340bdcbea7"
+    },
+    {
+      "path": "src/components/booking/details-form.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e90838325b4b4543eb364d89ea95806d64a1101056792b63b65d0712562d88f3"
+    },
+    {
+      "path": "src/components/booking/payment-step.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "89b5918f43663ce545d6e62a2912bc9f5261fa1f6ca49cccea373659f3668a62"
+    },
+    {
+      "path": "src/components/booking/step1-date-time.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "fefc9c38edfc43b46f1be6f1c6227d84a840dfea8a1c09e0856c226d0dc8d2ef"
+    },
+    {
+      "path": "src/components/landing/book-track.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dd2311e474160cc67f505054abcf8f2fddfc7d6fb3232e8777cfd0d0037dab0a"
+    },
+    {
+      "path": "src/components/landing/courts.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "27078a83b50897ba34c6adb5eb80a044efc5786dd05331af5bd4d446b1cfc3b2"
+    },
+    {
+      "path": "src/components/landing/developer-promo.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "116dc27e10a278769f99e3be4c7690c956575dc620a02e29a7a647ac6f7d510a"
+    },
+    {
+      "path": "src/components/landing/faq.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "931c87b31ab3bf6afc204881615e6cb27d9ff2b262f7e2c781364915d74c406e"
+    },
+    {
+      "path": "src/components/landing/footer.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7658245f9a14b9cf786ae52e383fe8a06193450c17fa3bcd1b872459c411f91c"
+    },
+    {
+      "path": "src/components/landing/header.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f03770f0cb3748c783543fa948d6c3842ea3255301ab4936f96a479768df3213"
+    },
+    {
+      "path": "src/components/landing/hero-3d.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5cda814b732ab3082498533466d3f08172af61842d638f7b0175c77360c854dc"
+    },
+    {
+      "path": "src/components/landing/hero.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a7049b4f1e8bf091476f46b8124e8f0c51f1997d1186fae82c1f3465838d26a4"
+    },
+    {
+      "path": "src/components/landing/how-it-works.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0c51ed4cf567bc4ddc7806edefc7ad862634e40104f47464576de0429d976e67"
+    },
+    {
+      "path": "src/components/landing/landing-image.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f0afe446e44457dae35df30e2f14f66b86a5a917e461add545b8971f8edad0b7"
+    },
+    {
+      "path": "src/components/landing/location.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8363057b5573485af8331f34e31c5f871d304d405746a9dd6cbbdc14e7b548f0"
+    },
+    {
+      "path": "src/components/landing/rentals.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6299201b1febe9a9b9c518a830f49bb16391c789332dd4138a272860199de338"
+    },
+    {
+      "path": "src/components/landing/track-input.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0d8cf54d991b0a6fdad0761a2924d34ab26c570acc804247a8930dd382b5ca71"
+    },
+    {
+      "path": "src/components/landing/venue-gallery.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "3fef2516bd90938c42c12ce51a2a91d4e898a5da675a1958c8a42047c41c1335"
+    },
+    {
+      "path": "src/components/tracking/track-view.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "200cbaae7b56cb87dd8b9399823bb673e9125629f2dcd301d9d72aa0d04c44b5"
+    },
+    {
+      "path": "src/components/ui/avatar.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bff76087ea9af25c6aa5a5306088dc66e62204a126752c38561736acff00717f"
+    },
+    {
+      "path": "src/components/ui/badge.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d9fb280e266119c4b62a4c518e63152de27b094c68d3e5f8929d05bfb0c1bc6c"
+    },
+    {
+      "path": "src/components/ui/breadcrumb.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "cbd2b85e7a0097438855ff1bba8ac0cc3d1229e4c94bda3d52176fd22ea2ac62"
+    },
+    {
+      "path": "src/components/ui/button.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6340356f1a180410f0a829bb2cb6e467e766a3d24486ee8d40fbbce638c8cbc7"
+    },
+    {
+      "path": "src/components/ui/calendar.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "230deed9f3ba9a7e11c5a73dadae75ebc19b78bac7e6abd63a9fed4205cd9dc6"
+    },
+    {
+      "path": "src/components/ui/card.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8ad3a18d36bda0598dc0e9aa96ea22854944d5443ee4946f1d173815e115375f"
+    },
+    {
+      "path": "src/components/ui/data-table.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "fb1a7faf97743cc8a22ca9f7bf504268d7ffcdd6db0babc6378c469937ade4a2"
+    },
+    {
+      "path": "src/components/ui/dialog.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e450deb6edc191d7f747f08111a8724c8c85f2b6c0ca5fb74fa3d69116d7c144"
+    },
+    {
+      "path": "src/components/ui/dropdown-menu.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ffd69006ed9c79e16ffefffbf8a9ebbf1c34ca38f40cb9939c946a71943127d7"
+    },
+    {
+      "path": "src/components/ui/field.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8e54d2838051eeb741f6925863b690c98928b25bbb26f3cd26a5b75121d06acb"
+    },
+    {
+      "path": "src/components/ui/input.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dab990dfefa0ba78854ab6602ad074270dba9d7d1262184d9bfbb62bd990903b"
+    },
+    {
+      "path": "src/components/ui/label.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b3b7b21d2877838fc73713df48a47248392de04a3b3fafa8961369f33ab14530"
+    },
+    {
+      "path": "src/components/ui/loading-animation.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1393054d7cee06161d6f974281502a1fbe5956144a9da4254bd996ae462c6515"
+    },
+    {
+      "path": "src/components/ui/popover.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "92d231804c421aac71d9e1c81d152fefbbac0741d511e701a8f58fddf8f389e7"
+    },
+    {
+      "path": "src/components/ui/separator.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9a80ff8c110e0c55489509f4f82ebcc929c0174b59544047147b7134f86a54e7"
+    },
+    {
+      "path": "src/components/ui/sheet.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b9e56b1232a0e5bc954f6cab7237d6b9ac4d3da79105e457d7c8af92026a300e"
+    },
+    {
+      "path": "src/components/ui/sidebar.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c2f841a03b48ae594d806858c91708f2a8db48e237edce973c96e1ecc48a56bf"
+    },
+    {
+      "path": "src/components/ui/skeleton.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "4c2af7fa9c645358a0fb188779deab6f0b981733b62befc25e18aaebea1350dc"
+    },
+    {
+      "path": "src/components/ui/sonner.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e6a76361d6a9be64e0bd6932c26c33efbfbc0c5b8f161a6411a9333ca4c1c3ff"
+    },
+    {
+      "path": "src/components/ui/switch.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d232e2ffcfa122c59099872bcb8395eaad36d42fa9d2e0e40382ad19994065e2"
+    },
+    {
+      "path": "src/components/ui/table.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dcf75bc4bbe7de27cc1ed46bcb3de3f3fa6f9d2170c0bb9cedc8c716db43deee"
+    },
+    {
+      "path": "src/components/ui/tooltip.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f83d5f511812573f4ac98b866d397a46fda0f27eeb0af0ea89af01969eefbc5a"
+    },
+    {
+      "path": "src/components/ui/view-toggle.tsx",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d6d2a46e65811a2e886cbe1906ee1e7e1516c2ae6ca84630559f9e1fbbd757ea"
+    },
+    {
+      "path": "src/db/client.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6ba17ab1427d4bd90c353c32066182d05aad3747321086eeaa56392e847990ca"
+    },
+    {
+      "path": "src/db/schema.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "19d729f6706f58c6d87f8b8d319ada6ac3c9a3dc3760c12162372078994e00fc"
+    },
+    {
+      "path": "src/hooks/use-mobile.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "72142660c8a29d0a8e5db9edc9c0728ab203e9bd98dd2dd90bfbd27b90422730"
+    },
+    {
+      "path": "src/instrumentation.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "93610860c1d6265c8fc9e4b1e345e3cd6a9633f03a6dff28d449c7c7721f1be6"
+    },
+    {
+      "path": "src/lib/admin/bookings.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b5e3654a352605a670c8981db9ca33983ac5742d4ba122ad91838bf76a5f1bee"
+    },
+    {
+      "path": "src/lib/admin/calendar.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8ebff520168610b06b821d83271c4938645c2a631376df739c85b73ebacf2b7c"
+    },
+    {
+      "path": "src/lib/admin/config.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "467f7a81a7671bccacf5d473c252afb0606bd97bd9946f7d91df854e3669d079"
+    },
+    {
+      "path": "src/lib/admin/dashboard.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "885e896455f7dc91daa452d47e70b27139e52674aab8341589012c866e988edd"
+    },
+    {
+      "path": "src/lib/admin/decisions.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "fe0902e1659fbc6a4edeb1785cbd7fe2ca1b11839737819cccf9cc1d3965b45b"
+    },
+    {
+      "path": "src/lib/admin/expenses.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "22cba6c807967beec9bf36e1e7943b34c6f1cbaebe302f247305aeb9f85ddf00"
+    },
+    {
+      "path": "src/lib/admin/finance-export.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "38b1e1c7bb2573d444d697be8f7bf8dd44d3c57710012491c0129dbd5f8a51e8"
+    },
+    {
+      "path": "src/lib/admin/finance.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a59d53ad30eebd94d5057eddd59a5a333b61b85f400e09e6a5fa5cc9cfc801f4"
+    },
+    {
+      "path": "src/lib/admin/hours-format.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "42d77b068bac629fb374733c3d9da68b3708bab23f575061a385ecd67f178f9e"
+    },
+    {
+      "path": "src/lib/admin/notifications.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1c0c9ccace7a63bf1bc1f46e09a3625784377edae61feb54c7582ccb1e1e2226"
+    },
+    {
+      "path": "src/lib/admin/occupancy.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d263651e81818aa2f7449472b074e77a3546d02d878ab09eeca81f7ef70f1cea"
+    },
+    {
+      "path": "src/lib/admin/session.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "81c3b24abd26fcce29dead57baa40f1dafc52013c6719ffd2f5f2c34b1c08046"
+    },
+    {
+      "path": "src/lib/admin/users.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f571b86ece8ee1c02a8712702f3080cd9a2b94b9f4c5d97c23b15e55a1192376"
+    },
+    {
+      "path": "src/lib/admin/validation.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "28a9bc32d607966aa8936aeafd4dc8ffbf0192ed5921b7808fff29b67cb5e4a5"
+    },
+    {
+      "path": "src/lib/app-url.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "04e81a2bc337851cda914151c8a7c2fbb0bbc99157618033b4054b48fe17df3d"
+    },
+    {
+      "path": "src/lib/booking/availability.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "2a2b8292296a11fc0b1098f79dd7053da99f86af131497338f2a7554d0595a36"
+    },
+    {
+      "path": "src/lib/booking/calendar.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "689f013e8b57ce490e2fa570288f8c87af9ea97f12ac19dcee7c38d63c121daf"
+    },
+    {
+      "path": "src/lib/booking/constants.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c0411f9b72d836e10518b47b6fe5e35c7e3fcca2b2fd4760b44ff779b933e436"
+    },
+    {
+      "path": "src/lib/booking/draft.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "39627af94234ede3f5fe78f39746bad41f3324ce31253a932ef6e0b473cb50f3"
+    },
+    {
+      "path": "src/lib/booking/email.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "3987187acc7f9a0c33bfb18b7ab736031b1e955b9ad54afee28e0ca9b9065ed0"
+    },
+    {
+      "path": "src/lib/booking/errors.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "cf1527ee9962498cfa01e3bbda002635efee609ddb6bd48ad1cebb786a236f0a"
+    },
+    {
+      "path": "src/lib/booking/hold-owner.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f47da074d08ace0f842993e01c1732548d01741e9f6e6134e0c03a29f6ff6819"
+    },
+    {
+      "path": "src/lib/booking/hours.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bdeb166c3339501342b42a7bdcc263d46f361678a1a0c9c4968eb1755276ccac"
+    },
+    {
+      "path": "src/lib/booking/phone.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d9289f2e0863b72bfa6fed1d7b3e7b46bbba016718cebbcd631506c7747546de"
+    },
+    {
+      "path": "src/lib/booking/pricing.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9ef5fce9e7eedaf82913a7ab4ca249ac580c091f513814b9c04918404a2d5ebf"
+    },
+    {
+      "path": "src/lib/booking/proof.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "000369926ff75e819785f2bce031116fe2f531b1b23944231d4a6e3d9599dd95"
+    },
+    {
+      "path": "src/lib/booking/redact.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9544497f0956c360da60e8c829efc8c40c4d303ad74fcf889fe175e8f7464b45"
+    },
+    {
+      "path": "src/lib/booking/slot-display.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "096e0af10f964172460675115e19c05f9e1047fcda60e02b97db58f1d16c2149"
+    },
+    {
+      "path": "src/lib/booking/slots.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7df7d4de55d279fa0fd7ceb7698837007946a3536bc86df6a605514111619881"
+    },
+    {
+      "path": "src/lib/booking/tracking.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0d8c7f2354ae0b249c0bab68ff33de2ab320cd928699c7ceba4c801fa0f8f6e6"
+    },
+    {
+      "path": "src/lib/booking/validation.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "873a945e3c14049d9b4c93377deea36740e6df57c20ffc529d33eb0dc72c3ad9"
+    },
+    {
+      "path": "src/lib/booking/windows.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7e06a5040e9ce8c1b49696c640a3c28ae22ba63bf8fe8aad130a272ec8ec8a8e"
+    },
+    {
+      "path": "src/lib/courts.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bbc0fde6163b5502d1495f61d504e50e4c034e01b312675486c52e093c82fc80"
+    },
+    {
+      "path": "src/lib/cron/auth.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7a474c636b8d54f9b64330c389d95216f1434b7fbb46fc078275c4fde06a4e78"
+    },
+    {
+      "path": "src/lib/mail/templates.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f68c8e17df534f84ffc3bb4eb08cc1b086f60691bc8c165a32ae5505cb44f2ec"
+    },
+    {
+      "path": "src/lib/mail/transport.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e3df7ed735706ea77c9cfe8a2caf1fb094f25835c15443b28218baf9b4ec343c"
+    },
+    {
+      "path": "src/lib/mail/worker.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "42034955ead096c139de78c7cf30b63d6e3ec03fb4e8aed9992f0dc32c4fc283"
+    },
+    {
+      "path": "src/lib/payment-methods.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "06198e780bf615b6f39adf673faf469ff98eed057081d0a3c90f410507f917ec"
+    },
+    {
+      "path": "src/lib/pricing-display.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "385de729ff39a3270f50112d32d26753380a9c88831b72fdeaa284af2230c323"
+    },
+    {
+      "path": "src/lib/proof-client.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "dbb179836410cd714eb4409a5bbcf68c8c131e4aa887ec4887ceb966e2305c1a"
+    },
+    {
+      "path": "src/lib/supabase/proxy.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1bd07ff1118f0414f35669e9d67bc7d70673137fee9120dc72f15cee2d1f1d22"
+    },
+    {
+      "path": "src/lib/supabase/server.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1dea6136f52b27f46f003824a3122cf6513e668ab44714bff0855008ca13abb6"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "14300d758170c270c75b057f38fedb3793a5920ea872f0477e29fb131185e8a7"
+    },
+    {
+      "path": "src/lib/venue.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a4d3a1cd2eb7b1f1c9173345fdf6f071d1238bf6f49cafe58e212845a533e89d"
+    },
+    {
+      "path": "src/proxy.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a1738585110f925b1332307c9132a9a7315490b998cdcffa4bd57efc49b6eef7"
+    },
+    {
+      "path": "supabase/audit-rls.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "34978d21b99f7238b5cc039c5f02417e8ac3f9c19309d7a4ade6a0af3c4a1cd0"
+    },
+    {
+      "path": "supabase/booking-delete.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0912a22134d8f42e84c5b06b0a72ae2c76fff01ff167f7a2437a7e3da699b30e"
+    },
+    {
+      "path": "supabase/expenses.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b5bc79420fdbee5a297d0795f8008d7685dc0efeb3ce3ceee0f8b200ba1edc78"
+    },
+    {
+      "path": "supabase/hours-rates.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b9389e78f95bcfe104def958e7b7f9092fcf5db0576f113e37dd92127e71287f"
+    },
+    {
+      "path": "supabase/outbox-cron.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f39c76aa4447efd622e3f6e1a9834b81080e50537f32840c324caad523f67bd5"
+    },
+    {
+      "path": "supabase/pricing-windows.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9f155f321b5d5cf2182aa4a129af9372585ecbb86a8b7a4f37760aead0bc9e30"
+    },
+    {
+      "path": "supabase/proof-bucket.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "2580a546589efb0fecfba986d8b4f44454957886fbad3cf5c509c883504aadc6"
+    },
+    {
+      "path": "supabase/refund.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e2a003827b30e28f0190cbee585daa0519f6183a559682dae9afb2b9166538a6"
+    },
+    {
+      "path": "supabase/rpc-functions.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e28244905f42e728e789f2a01cbbfa65299e607207391bba1c3c7ef634903616"
+    },
+    {
+      "path": "supabase/security-lockdown.sql",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "274c2702f5da2ac40c6c241c04e150101d52a6ff849fe68f3824b8ba84d41bbe"
+    },
+    {
+      "path": "test/active-filters.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e82ec93ac3248a13885e80b3dfc9fb1d282afb14eb68ebe85d4d411afe239c06"
+    },
+    {
+      "path": "test/admin-expenses.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6ada5977d5b1de96b4872180dc3202620bbe0af410d1f8ac242bc50fa1b52569"
+    },
+    {
+      "path": "test/admin-filter-dropdown.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7f132c86c18e4b920b6aba30ac7133a7a18e0ede0322dab73608388e43325306"
+    },
+    {
+      "path": "test/admin-finance.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9b8b89a6a53e42e9b95db65b1163c494445592aec1fdd357d984b91850556e3b"
+    },
+    {
+      "path": "test/admin-slot-ranges.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "e61be17a1baae5a1a64725c42a47f44ad45e51f55635a43e9738e37ce7177dcd"
+    },
+    {
+      "path": "test/app-url.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "56358a92959ad1628d75324374adc9d6a9a3d91cc94f81ba378a71661131352d"
+    },
+    {
+      "path": "test/availability-month.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "91766049e8a887992298cdcb11144c1195726357e3513040be03bc7e1023150c"
+    },
+    {
+      "path": "test/booking-calendar.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "48c6bdf70245d6d76f07688b364b40113a15b5bbefcb0373996e75a385aaf528"
+    },
+    {
+      "path": "test/booking-redact.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0f2e910a0ba448c5eb2b98d0e40c8aa6d02b602f850d171831916f44a1a4d9a0"
+    },
+    {
+      "path": "test/booking-submit-error-classification.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "eba4f628fcced92aad8eddc6e035ac43eb6e79c1f897504af929065376a6ecd7"
+    },
+    {
+      "path": "test/booking.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "62ce3e6497957dc384d48490c99d7702f40d2f26e7c11044f67869496ac4f6f1"
+    },
+    {
+      "path": "test/bookings-filter-url.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "edc0401737a523e188b46e17b342dc2d6e2e2c258158cb0ecdfa89399db81e4b"
+    },
+    {
+      "path": "test/bookings-format.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ebdf2e8ac3987da6e3c87fe2b41cab5f589da0fc0e7b7def017990d56c8e4fc5"
+    },
+    {
+      "path": "test/bookings-pagination.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "a08cb62019e2f1399b8a7e09f9454111ccbb64f9b4f86644e4e9466c9495ff36"
+    },
+    {
+      "path": "test/build-page-list.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "6032b55dd99accd358c0e7149cf819b7ce16d07257a1e506e7487ba98bea1583"
+    },
+    {
+      "path": "test/calendar-url.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "de9981f25916cd90e62b48542160c4ea7da79ab19f6a99f92cf5e62ae083b30d"
+    },
+    {
+      "path": "test/court-slot-groups.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "c549faadd7183d5484f8eb0d40aa8fb9c7e3eba1fb4681c4a4cb1b0016144b0c"
+    },
+    {
+      "path": "test/daily-occupancy.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "b777df2eb7e4d6800c41ed5c10c5ea1477a1c47bd459729a002f9af70ab84158"
+    },
+    {
+      "path": "test/draft.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d61c24ce420dbd1aaf825adecd6fe347af3c126745dc1415e4db86c7779ddc58"
+    },
+    {
+      "path": "test/email-suggest.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5394e6e5f3113e42ec5173b394acb85d14b224c3841840d0f352e69162f0e16d"
+    },
+    {
+      "path": "test/hours-format.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "44a2ac8f4f7631d2aa5f759ee6c90dd164eb81cdf3af5be8f07eed213ba08e0d"
+    },
+    {
+      "path": "test/hours-rates.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "4ea3cb2f595aaa856509348ad708f8c0e12a034457f116a0d7b217b8768339b6"
+    },
+    {
+      "path": "test/manila-clock.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5d5471e8db779cdfbe31b628bd3124ad042382a15e16596b1deb5c547120d6b9"
+    },
+    {
+      "path": "test/no-instant-slicing.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "1bc92b4ff1aee43cbbc9d4b3dc5aeabc8162913b265133bbc9163410f0f9b36d"
+    },
+    {
+      "path": "test/notifications.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "71de270c9c7110694217d0e827bab1eab8564762bfc56026dbc8ec83cd3fe9bf"
+    },
+    {
+      "path": "test/payment-error-recovery.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5d88572ec592c23cb14812940adc5bc4490947f4022638de06e7d1bb45c18b6f"
+    },
+    {
+      "path": "test/phone.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "9d69500ffe5804bdb147a1d4c8d33bea6312d51d8272e55fcf2264500f8f87c9"
+    },
+    {
+      "path": "test/play-date-fallback.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f3600ba69d73ca7409c789037778e8ae99fe774cb966617496e83ae04bf85518"
+    },
+    {
+      "path": "test/play-date-sql.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "8ca7b8b246c6f0bcfd6632e2295da59b165a945aadcd56505715f30f2c17dc87"
+    },
+    {
+      "path": "test/play-date.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "ea23620b1995f30091d149740fb1042020ffe0862102be6d1b2ff8a700d60808"
+    },
+    {
+      "path": "test/register-loader.mjs",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "aba947a6e1210f8f20f430aae563376b882ce34f090a0fa136e1ac6fc755e57e"
+    },
+    {
+      "path": "test/rpc-sql-idempotent.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "d3be564eb60305d8c6d22a48374b9db59baacae20bc5e837ce16571a519f3604"
+    },
+    {
+      "path": "test/same-day-booking.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "0ca323dfc8a6d448bd88938a03899abd7c27fc864422e5ab0a329d0c05a2038b"
+    },
+    {
+      "path": "test/slot-date-labels.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "7b2c7ebcfb1db621de8b4074305c2d7c9ee4fea7ba015a52a363d494ca3520f5"
+    },
+    {
+      "path": "test/slot-display.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bdd0fede3ba8ce0e19da4db72b760e6f78286528cb6f533055b1f9853b7eb715"
+    },
+    {
+      "path": "test/slot-taken-diagnostics.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "487d502aafccbfbf4ccd8516ae1341b6b299f53ac3aef52bef2af67984422f5f"
+    },
+    {
+      "path": "test/slot-taken-pairs.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "f9417cb67b40c6e2ea4a36e05b3dec629d5cdce28ac795c38b58482ab46eac94"
+    },
+    {
+      "path": "test/submit-receipt-recovery.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "343c040d2a5cb6f33ef90c10b9e1413344871f4e3e3d89ab8a6a9c4c6a0908df"
+    },
+    {
+      "path": "test/ts-resolve-loader.mjs",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "5e68378ad140e1d283900ac37f8c3be075eb0db4dc35758db60d91f12ebddc55"
+    },
+    {
+      "path": "test/windows.test.ts",
+      "decision": "copy",
+      "reason": "Legacy application, test, migration or SQL reference",
+      "sourceSha256": "bfb44248f3897e7d45291bfe745b1b21bda8eba275feabd6a5fc840f48245f1c"
+    },
+    {
+      "path": "tsconfig.json",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "53852df5457f35b28910acb53fa823c4cec7b275bdd8f545b993e93ae5447c9d"
+    },
+    {
+      "path": "vercel.json",
+      "decision": "copy",
+      "reason": "Legacy source/configuration reference",
+      "sourceSha256": "a9ca3e5c89fd2d92ca4940a7c72f695b052008cfb365b6ea388dac9e7a5f50ed"
+    }
+  ],
+  "assetReferenceFiles": [
+    "src/app/admin/hours/hours-manager.tsx",
+    "src/app/admin/manual/page.tsx",
+    "src/app/layout.tsx",
+    "src/app/login/login-form.tsx",
+    "src/app/register/register-form.tsx",
+    "src/components/admin/admin-sidebar.tsx",
+    "src/components/booking/step1-date-time.tsx",
+    "src/components/landing/courts.tsx",
+    "src/components/landing/footer.tsx",
+    "src/components/landing/header.tsx",
+    "src/components/landing/hero.tsx",
+    "src/components/landing/landing-image.tsx",
+    "src/components/landing/rentals.tsx",
+    "src/components/landing/venue-gallery.tsx",
+    "src/components/ui/loading-animation.tsx",
+    "src/lib/mail/templates.ts",
+    "src/lib/payment-methods.ts"
+  ]
+}

@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# env (never commit real secrets; .env.example is the template)
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.dump
+*.backup
+*.sql.gz
+
+# deepwork session state (git-local)
+.slim/deepwork/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+next-env.d.ts
+.kiro
+.agents

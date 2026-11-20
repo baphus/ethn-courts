@@ -1,0 +1,71 @@
+// Holds + submit lane constants (ADR-02 / ADR-03).
+export const MANILA_TZ = "Asia/Manila";
+
+// Each business day has 24 hourly starts anchored at 7:00 AM Manila and runs
+// 7 AM that day → 6 AM next calendar day, so slots past midnight belong to the
+// day the customer selected. Court operating hours and closures determine
+// which of those starts can actually be booked.
+export const DAY_START_HOUR_MANILA = 7;
+export const SLOT_COUNT = 24;
+// Effectively no limit: a selection day offers 24 slot starts and courts are
+// capped at 10 by the API schemas, so 240 is the largest legal (court, slot)
+// cross product and will never bite a real booking. Kept as a schema bound,
+// not a business rule.
+export const MAX_SLOTS_PER_BOOKING = 240;
+
+// Hold time-to-live (ADR-03: countdown cosmetic client-side, server enforces
+// expires_at > now() on every read).
+export const HOLD_TTL_MINUTES = 10;
+
+// Reclaim window (ADR-03). A hold row now carries an `owner_token` minted in
+// the browser, so the customer who created it can restore it after a refresh
+// or a trip to their banking app — but only for this long past expires_at.
+// Inside the window POST /api/holds/reclaim re-inserts the same (court, slot)
+// pairs if they are still free; outside it the slots are genuinely released
+// and the customer has to book again. Bounds how long a paid-but-unsubmitted
+// booking can hold inventory: HOLD_TTL_MINUTES + this = 40 min worst case.
+export const HOLD_GRACE_MINUTES = 30;
+
+// Session-scoped owner token carried by POST /api/holds and used as the
+// alternative credential for reclaim / proof-upload / submit. 128-bit uuid
+// from crypto.randomUUID(), so it is unguessable like a hold token.
+export const HOLD_OWNER_TOKEN_MIN_LENGTH = 16;
+export const HOLD_OWNER_TOKEN_MAX_LENGTH = 128;
+
+// Payment-proof hard gate (ADR-02, frozen).
+export const PROOF_BUCKET = "proofs";
+export const PROOF_MAX_BYTES = 5 * 1024 * 1024;
+export const PROOF_ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"] as const;
+
+// All customer-minted upload paths live under this prefix: `incoming/<32hex>.<ext>`.
+// The submit hard gate rejects any proof path outside it, so a submit can
+// never reference another booking's file or an arbitrary bucket object.
+export const PROOF_INCOMING_PREFIX = "incoming/";
+
+// Signed admin read URLs (view/zoom/download) live 5 minutes.
+export const PROOF_READ_TTL_SECONDS = 300;
+
+// Proof files + payment_proofs rows are pruned this many days after upload
+// (rpc_delete_expired_proofs + /api/cron/proof-prune).
+export const PROOF_RETENTION_DAYS = 90;
+
+// Outbox templates written by the submit transaction (ADR-05: customer
+// submission email + owner alert; the approve/reject email is written by the
+// admin-decision lane, not here).
+export const OUTBOX_TEMPLATE_CUSTOMER_SUBMITTED = "booking_customer_submitted";
+export const OUTBOX_TEMPLATE_OWNER_ALERT = "booking_owner_alert";
+export const OWNER_ALERT_EMAIL = "ckgrounds1@gmail.com";
+
+// Venue contact number for user-facing pages + email footers.
+export const VENUE_PHONE_DISPLAY = "0961 633 3337";
+export const VENUE_PHONE_LINK = "tel:09616333337";
+
+// Booking slot states considered "live" for overlap + availability. No writer
+// produces "held" (rpc_submit_booking writes "pending"; rpc_apply_decision
+// flips it to approved/rejected), so it is not listed here.
+// The DB side is deliberately wider: the booking_slots_no_overlap_idx partial
+// unique index in src/db/schema.ts:159 and rpc_submit_booking
+// (supabase/rpc-functions.sql:299) still include 'held' so any legacy row
+// cannot be overlapped. If you ever drop 'held' from the DB, keep them in
+// lockstep.
+export const LIVE_SLOT_STATES = ["pending", "approved"] as const;

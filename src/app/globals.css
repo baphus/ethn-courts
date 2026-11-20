@@ -1,0 +1,381 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* The public site keeps its cream/ink palette: only the admin shell follows
+   the shadcn tokens, so a dark admin never leaks onto the landing pages.
+   Setting the tokens (not just `color`) on the shell is what lets form
+   controls resolve them inside portals — checkboxes, radios and native
+   selects do not inherit `color` from their ancestors. */
+/* Chart series colours live here rather than in :root so the admin shell can
+   swap them per theme (--chart-* is remapped to --admin-chart-* below). The
+   palette carries the brand's flame/pine hues instead of shadcn's greyscale —
+   greyscale series are nearly invisible against a dark admin surface. */
+@layer base {
+  :root {
+    --chart-1: oklch(0.62 0.17 45); /* flame */
+    --chart-2: oklch(0.64 0.16 46); /* revenue: flame */
+    --chart-3: oklch(0.52 0.07 155); /* bookings: pine */
+    --chart-4: oklch(0.68 0.12 85); /* amber */
+    --chart-5: oklch(0.58 0.1 250); /* columbia blue */
+  }
+
+  .dark {
+    --chart-1: oklch(0.75 0.16 48);
+    --chart-2: oklch(0.75 0.16 48);
+    --chart-3: oklch(0.78 0.13 150);
+    --chart-4: oklch(0.82 0.14 88);
+    --chart-5: oklch(0.76 0.11 248);
+  }
+}
+
+@layer base {
+  [data-admin-shell] {
+    --background: var(--admin-background);
+    --foreground: var(--admin-foreground);
+    --card: var(--admin-card);
+    --card-foreground: var(--admin-card-foreground);
+    --popover: var(--admin-popover);
+    --popover-foreground: var(--admin-popover-foreground);
+    --primary: var(--admin-primary);
+    --primary-foreground: var(--admin-primary-foreground);
+    --secondary: var(--admin-secondary);
+    --secondary-foreground: var(--admin-secondary-foreground);
+    --muted: var(--admin-muted);
+    --muted-foreground: var(--admin-muted-foreground);
+    --accent: var(--admin-accent);
+    --accent-foreground: var(--admin-accent-foreground);
+    --destructive: var(--admin-destructive);
+    --border: var(--admin-border);
+    --input: var(--admin-input);
+    --ring: var(--admin-ring);
+    --chart-1: var(--admin-chart-1);
+    --chart-2: var(--admin-chart-2);
+    --chart-3: var(--admin-chart-3);
+    --chart-4: var(--admin-chart-4);
+    --chart-5: var(--admin-chart-5);
+
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  /* Portalled surfaces (menus, dialogs, popovers, tooltips) mount on <body>,
+     outside the shell, so they read the tokens straight off a .dark ancestor.
+     Each is listed by its own data-slot because shadcn names them per
+     component (dropdown-menu-content, sheet-content, …), not generically. */
+  .dark [data-slot="menu-popup"],
+  .dark [data-slot="dropdown-menu-content"],
+  .dark [data-slot="dropdown-menu-sub-content"],
+  .dark [data-slot="dialog-content"],
+  .dark [data-slot="sheet-content"],
+  .dark [data-slot="popover-content"],
+  .dark [data-slot="select-content"],
+  .dark [data-slot="tooltip-content"] {
+    color: var(--foreground);
+  }
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* Wipe transition for the theme toggle. The View Transitions API captures
+   before/after snapshots of the page; we override the default crossfade
+   with a circular `clip-path` reveal that expands from the toggle icon
+   (origin set via --wipe-x / --wipe-y on :root by ThemeToggle). The old
+   snapshot sits underneath, unmoved, so the new theme's colors wipe in
+   smoothly over it — no full-screen white/black flash. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+  clip-path: circle(0% at var(--wipe-x, 50%) var(--wipe-y, 50%));
+  animation: theme-wipe-reveal 0.45s ease-out forwards;
+}
+
+@keyframes theme-wipe-reveal {
+  to {
+    clip-path: circle(150% at var(--wipe-x, 50%) var(--wipe-y, 50%));
+  }
+}
+
+/* Respect users who prefer reduced motion: skip the wipe, flip instantly. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    clip-path: none;
+  }
+}
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* CK Grounds brand tokens (DESIGN.md body values win) */
+  --color-cream: #fff8ef;
+  --color-oat: #fff3d4;
+  --color-parchment: #fdf4e7;
+  --color-card-elevated: #ffffff;
+  --color-flame: #ea662c;
+  --color-flame-hover: #d85820;
+  --color-flame-light: #fff0e6;
+  --color-pine: #26422a;
+  --color-pine-high: #1d3421;
+  --color-pine-ink: #eaefea;
+  --color-cocoa: #42302d;
+  --color-ink: #3c3835;
+  --color-warm-muted: #7a7268;
+  --color-line: #e8ddc8;
+  --color-line-warm: #e5d9bb;
+  --color-live: #eaf5ec;
+  --color-live-dot: #2e7d32;
+  --color-columbia: #d2e8ff;
+  --color-error: #ba1a1a;
+  --color-surface-dim: #f0d4cf;
+
+  /* Progressive-reveal entrance (paired with motion-reduce:animate-none) */
+  --animate-rise: rise 0.35s ease-out both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  --admin-background: oklch(1 0 0);
+  --admin-foreground: oklch(0.145 0 0);
+  --admin-card: oklch(1 0 0);
+  --admin-card-foreground: oklch(0.145 0 0);
+  --admin-popover: oklch(1 0 0);
+  --admin-popover-foreground: oklch(0.145 0 0);
+  --admin-primary: oklch(0.205 0 0);
+  --admin-primary-foreground: oklch(0.985 0 0);
+  --admin-secondary: oklch(0.97 0 0);
+  --admin-secondary-foreground: oklch(0.205 0 0);
+  --admin-muted: oklch(0.97 0 0);
+  --admin-muted-foreground: oklch(0.556 0 0);
+  --admin-accent: oklch(0.97 0 0);
+  --admin-accent-foreground: oklch(0.205 0 0);
+  --admin-destructive: oklch(0.577 0.245 27.325);
+  --admin-border: oklch(0.922 0 0);
+  --admin-input: oklch(0.922 0 0);
+  --admin-ring: oklch(0.708 0 0);
+  --admin-chart-1: oklch(0.62 0.17 45);
+  --admin-chart-2: oklch(0.64 0.16 46);
+  --admin-chart-3: oklch(0.52 0.07 155);
+  --admin-chart-4: oklch(0.68 0.12 85);
+  --admin-chart-5: oklch(0.58 0.1 250);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
+  --admin-background: oklch(0.145 0 0);
+  --admin-foreground: oklch(0.985 0 0);
+  --admin-card: oklch(0.205 0 0);
+  --admin-card-foreground: oklch(0.985 0 0);
+  --admin-popover: oklch(0.205 0 0);
+  --admin-popover-foreground: oklch(0.985 0 0);
+  --admin-primary: oklch(0.922 0 0);
+  --admin-primary-foreground: oklch(0.205 0 0);
+  --admin-secondary: oklch(0.269 0 0);
+  --admin-secondary-foreground: oklch(0.985 0 0);
+  --admin-muted: oklch(0.269 0 0);
+  --admin-muted-foreground: oklch(0.708 0 0);
+  --admin-accent: oklch(0.269 0 0);
+  --admin-accent-foreground: oklch(0.985 0 0);
+  --admin-destructive: oklch(0.704 0.191 22.216);
+  --admin-border: oklch(1 0 0 / 10%);
+  --admin-input: oklch(1 0 0 / 15%);
+  --admin-ring: oklch(0.556 0 0);
+  --admin-chart-1: oklch(0.75 0.16 48);
+  --admin-chart-2: oklch(0.75 0.16 48);
+  --admin-chart-3: oklch(0.78 0.13 150);
+  --admin-chart-4: oklch(0.82 0.14 88);
+  --admin-chart-5: oklch(0.76 0.11 248);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans scroll-smooth;
+  }
+  body {
+    @apply bg-cream text-ink antialiased;
+  }
+  /* Native controls don't inherit `color`; give them the ambient token so a
+     checkbox or select on a dark surface isn't drawn near-black. */
+  [data-admin-shell] button,
+  [data-admin-shell] input,
+  [data-admin-shell] select,
+  [data-admin-shell] textarea,
+  [data-admin-shell] label,
+  .dark button,
+  .dark input,
+  .dark select,
+  .dark textarea,
+  .dark label {
+    color: inherit;
+  }
+  ::selection {
+    background: #ea662c;
+    color: #fff;
+  }
+  :where(a, button, input, [tabindex]):focus-visible {
+    outline: 2px solid #ea662c;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+}
+
+/* Toast responsive positioning — bottom-right on desktop, top-center on mobile.
+
+   Sonner already handles the mobile case itself: below 600px it pins the
+   toaster with `left: var(--mobile-offset-left); right: var(--mobile-offset-right)`
+   and sizes each toast to the remaining width. That is what makes the toast
+   span the viewport minus its gutter.
+
+   The previous override fought that contract: it forced `left: 50%` plus a
+   `translateX(-50%)`, and because sonner still styled the toast as
+   `width: calc(100% - var(--mobile-offset-left) * 2)` *of the absolutely
+   positioned toaster*, the toast rendered flush to the left edge instead of
+   centered. Driving the offsets also keeps the toast above a safe area on
+   notched phones. */
+@media (max-width: 600px) {
+  [data-sonner-toaster] {
+    /* shortcut: env() resolves to 0 unless the viewport is viewport-fit=cover,
+       which layout.tsx already exports. */
+    --mobile-offset-top: max(16px, env(safe-area-inset-top));
+    --mobile-offset-right: 16px;
+    --mobile-offset-bottom: 16px;
+    --mobile-offset-left: 16px;
+  }
+}
