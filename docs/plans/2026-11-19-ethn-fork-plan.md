@@ -26,7 +26,7 @@ Created 2026-11-19; progress reconciled 2026-11-20. Revision 4: feature-first de
 
 - [x] Owner staff-access management with transactional last-owner protection and revocation.
 - [x] Staff review of captured late-payment exceptions, without restoring slots or adding refund workflow.
-- [ ] Prepaid walk-in booking (full cash or verified GCash before confirmation).
+- [x] Prepaid walk-in booking (full cash or verified GCash before confirmation).
 - [ ] Automatic completion and audited no-show outcome.
 - [ ] Prepaid extensions with protected added-time hold; failure leaves original booking intact.
 - [ ] Information-only Open Plays and conflict-safe court blocking; no registration/payment.
