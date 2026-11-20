@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CreditCard, LogOut, ExternalLink, Settings } from "lucide-react";
+import { CreditCard, LogOut, ExternalLink, Settings, Clock } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
 export default function AdminSidebar({ email, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
@@ -18,6 +18,7 @@ export default function AdminSidebar({ email, isOwner }: { email: string; name: 
     <SidebarContent><SidebarMenu>
       <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/payments" />} tooltip="Payments"><CreditCard /><span>Payments</span></SidebarMenuButton></SidebarMenuItem>
       {isOwner && <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/settings" />} tooltip="Pricing settings"><Settings /><span>Pricing settings</span></SidebarMenuButton></SidebarMenuItem>}
+      {isOwner && <SidebarMenuItem><SidebarMenuButton render={<Link href="/admin/hours" />} tooltip="Court hours"><Clock /><span>Court hours</span></SidebarMenuButton></SidebarMenuItem>}
       <SidebarMenuItem><SidebarMenuButton render={<Link href="/" />} tooltip="Public booking"><ExternalLink /><span>Public booking</span></SidebarMenuButton></SidebarMenuItem>
     </SidebarMenu></SidebarContent>
     <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={logout} tooltip="Sign out"><LogOut /><span>Sign out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
