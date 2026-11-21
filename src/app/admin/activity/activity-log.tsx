@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Filters = { from: string; to: string; action: string; q: string };
 type Row = { id: string; occurredAt: string; label: string; actorLabel: "Staff" | "Customer" | "System"; actorId: string | null; bookingId: string | null; summary: string };
@@ -22,6 +23,8 @@ export default function ActivityLog() {
   const [error, setError] = useState("");
   const [inputError, setInputError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeCount = Object.values(filters).filter(Boolean).length;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -52,14 +55,17 @@ export default function ActivityLog() {
     const q = draft.q.trim();
     if (q && !uuid.test(q)) { setInputError("Enter a complete booking UUID."); return; }
     if (draft.from && draft.to && draft.from > draft.to) { setInputError("From date must be before or equal to the to date."); return; }
-    setInputError(""); setPage(1); setFilters({ ...draft, q });
+    setInputError(""); setPage(1); setFilters({ ...draft, q }); setFiltersOpen(false);
   }
 
   return <div className="mx-auto w-full max-w-6xl space-y-6 pb-12">
     <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">OWNER SETTINGS</p><h1 className="text-3xl font-semibold tracking-tight">Activity history</h1><p className="max-w-2xl text-muted-foreground">Review recorded booking and administrative activity. Dates and times use Manila time.</p></header>
-    <section className="rounded-xl border bg-card p-5">
+    <div className="flex flex-wrap items-center gap-3">
+      <Popover open={filtersOpen} onOpenChange={open => { setFiltersOpen(open); if (open) { setDraft(filters); setInputError(""); } }}>
+        <PopoverTrigger render={<Button variant="outline" />}>Filters{activeCount > 0 && ` (${activeCount})`}</PopoverTrigger>
+        <PopoverContent className="w-[min(24rem,calc(100vw-2rem))] p-4">
       <h2 className="text-lg font-semibold">Filter activity</h2><p className="mt-1 text-sm text-muted-foreground">Dates refer to when activity occurred, not the booking date.</p>
-      <form onSubmit={apply} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <form onSubmit={apply} className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm font-medium" htmlFor="activity-from">From date<Input id="activity-from" type="date" value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
         <label className="space-y-1 text-sm font-medium" htmlFor="activity-to">To date<Input id="activity-to" type="date" value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
         <label className="space-y-1 text-sm font-medium" htmlFor="activity-action">Action<select id="activity-action" className="flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.action} onChange={e => setDraft({ ...draft, action: e.target.value })}><option value="">All actions</option>{actions.map(action => <option key={action} value={action}>{action}</option>)}</select></label>
@@ -67,7 +73,10 @@ export default function ActivityLog() {
         {inputError && <p role="alert" className="text-sm text-destructive sm:col-span-2 lg:col-span-4">{inputError}</p>}
         <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4"><Button type="submit">Apply filters</Button><Button type="button" variant="outline" onClick={() => { setDraft(empty); setFilters({ ...empty }); setPage(1); setInputError(""); }}>Clear filters</Button></div>
       </form>
-    </section>
+        </PopoverContent>
+      </Popover>
+      {activeCount > 0 && <><span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{activeCount} active {activeCount === 1 ? "filter" : "filters"}</span><Button type="button" variant="ghost" onClick={() => { setDraft(empty); setFilters({ ...empty }); setPage(1); setInputError(""); }}>Clear</Button></>}
+    </div>
     <section className="rounded-xl border bg-card p-5" aria-labelledby="activity-results">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 id="activity-results" className="text-lg font-semibold">Recorded activity</h2>{result && <p className="text-sm text-muted-foreground">{result.total} {result.total === 1 ? "event" : "events"}</p>}</div>
       {loading && <p role="status" className="mt-4 text-sm text-muted-foreground">Loading activity…</p>}

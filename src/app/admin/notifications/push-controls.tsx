@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const storageKey = "ethn-push-subscription-id";
 
@@ -16,6 +17,7 @@ export default function PushControls() {
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const available = window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -68,15 +70,21 @@ export default function PushControls() {
     finally { setBusy(false); }
   }
 
-  return <section aria-label="Browser push notifications" className="rounded-xl border bg-card p-5">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="space-y-1"><h2 className="text-lg font-semibold">Browser push</h2><p className="text-sm text-muted-foreground">Optional alerts on this browser. Your staff inbox works whether push is on or off.</p>
+  return <section aria-label="Browser push notifications" className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+    <div><h2 className="text-sm font-semibold">Browser push</h2><p className="text-sm text-muted-foreground">Optional alerts · Your inbox works without push.</p></div>
+    <Dialog open={open} onOpenChange={next => { if (!busy) setOpen(next); }}>
+      <DialogTrigger render={<Button variant="outline" size="sm" />}>Push settings</DialogTrigger>
+      <DialogContent>
+        <DialogTitle className="font-sans">Browser push</DialogTitle>
+        <DialogDescription>Optional alerts on this browser. Your staff inbox works whether push is on or off.</DialogDescription>
+      <div className="space-y-2">
         {!supported && <p className="text-sm text-muted-foreground">Push requires a supported browser and a secure connection.</p>}
         {supported && permission === "denied" && <p className="text-sm text-muted-foreground">Notifications are blocked in your browser settings. Your inbox still works.</p>}
         {supported && config && !config.configured && <p className="text-sm text-muted-foreground">Push is not configured yet.</p>}
       </div>
       <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => void enable()} disabled={busy || !supported || !config?.configured || !config.publicKey || permission === "denied"}>Enable push</Button><Button type="button" variant="outline" onClick={() => void disable()} disabled={busy || !supported}>Disable push</Button></div>
-    </div>
-    {status && <p role="status" className="mt-4 text-sm">{status}</p>}
+    {status && <p role="status" className="text-sm">{status}</p>}
+      </DialogContent>
+    </Dialog>
   </section>;
 }

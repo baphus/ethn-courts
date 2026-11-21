@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 type QueueItem = { extensionId:string|null; paymentId: string; bookingId: string; operatingDate: string; guestName: string | null; total: string; claimedReference: string | null; claimedAmount: string | null; createdAt: string; proofAvailable: boolean };
 type Detail = QueueItem & { review: { note: string; reviewedAt: string; reviewedBy: string } | null };
@@ -25,6 +26,7 @@ export default function ExceptionReview() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [note, setNote] = useState("");
+  const [unknown, setUnknown] = useState(false);
   const [proof, setProof] = useState<{ signedUrl: string; expiresAt: number } | null>(null);
   const selection = useRef(0);
   const inflight = useRef(false);
@@ -45,6 +47,12 @@ export default function ExceptionReview() {
     finally { if (selection.current === sequence) setLoadingDetail(false); }
   }
 
+  function closeReview() {
+    if (busy || inflight.current || unknown) return;
+    if (note.trim() && !window.confirm("Discard this review note?")) return;
+    ++selection.current; setSelected(null); setDetail(null); setProof(null); setNote(""); setError(""); setLoadingDetail(false);
+  }
+
   async function loadProof() {
     if (!detail || inflight.current) return;
     inflight.current = true; setBusy(true); setError(""); setProof(null);
@@ -59,7 +67,7 @@ export default function ExceptionReview() {
     if (!detail || busy) return;
     const trimmed = note.trim();
     if (!trimmed || trimmed.length > 500) { setError("Enter a review note of 1 to 500 characters."); return; }
-    if (!window.confirm("Record this review note? The expired reservation is not restored, the payment stays an exception, and no slot, refund or acceptance is created.")) return;
+    if (!window.confirm(`Record this review note? ${detail.extensionId ? "The expired extension is not restored." : "The expired reservation is not restored."} The payment stays an exception, and no slot, refund or acceptance is created.`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/ethn/admin/exceptions/${detail.paymentId}/review`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: trimmed }) });
@@ -72,15 +80,16 @@ export default function ExceptionReview() {
       setNotice("Review recorded. This exception is no longer in the pending queue.");
       setDetail(null); setSelected(null); setProof(null);
       await loadQueue();
-    } catch { setError("Could not confirm whether the review was saved. Reload before trying again."); }
+    } catch { setError("Could not confirm whether the review was saved. Reload before trying again."); setUnknown(true); }
     finally { setBusy(false); }
   }
 
   return <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
-    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF REVIEW</p><h1 className="text-3xl font-semibold tracking-tight">Late payment exceptions</h1><p className="max-w-2xl text-muted-foreground">Payments submitted after the hold expired. Reviewing evidence records your assessment only: the expired reservation is not restored, the payment stays an exception, and nothing is restored, refunded or accepted.</p></header>
-    {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/exceptions">Sign in</a>}</div>}
+    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF REVIEW</p><h1 className="text-3xl font-semibold tracking-tight">Late payment exceptions</h1><p className="max-w-2xl text-muted-foreground">Payments submitted after a reservation or extension hold expired. Reviewing evidence records your assessment only; the expired hold is not restored, the payment stays an exception, and nothing is refunded or accepted.</p></header>
+    {!selected && error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/exceptions">Sign in</a>}</div>}
     {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
     {queue && queue.length === 0 && <p className="rounded-lg border bg-muted p-4 text-sm">No unreviewed exceptions.</p>}
+    <Dialog open={selected !== null} onOpenChange={open => { if (!open) closeReview(); }}>
     {queue && queue.length > 0 && <section className="rounded-xl border bg-card p-5">
       <h2 className="text-lg font-semibold">Pending review <span className="text-sm font-normal text-muted-foreground">· {queue.length}</span></h2>
       <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
@@ -91,21 +100,28 @@ export default function ExceptionReview() {
           <td className="py-2 pr-3">{money(item.total)}</td>
           <td className="py-2 pr-3">{money(item.claimedAmount)}{item.claimedReference ? <span className="block text-xs text-muted-foreground">{item.claimedReference}</span> : null}</td>
           <td className="py-2 pr-3">{dateTime(item.createdAt)}</td>
-          <td className="py-2 text-right"><Button type="button" variant={selected === item.paymentId ? undefined : "outline"} disabled={busy || loadingDetail} onClick={() => void open(item)}>Review</Button></td>
+          <td className="py-2 text-right"><DialogTrigger render={<Button type="button" variant="outline" disabled={busy || loadingDetail} onClick={() => void open(item)} />}>Review</DialogTrigger></td>
         </tr>)}</tbody>
       </table></div>
     </section>}
-    {loadingDetail && <p role="status" className="text-sm text-muted-foreground">Loading exception…</p>}
-    {detail && <section className="rounded-xl border bg-card p-5 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{detail.operatingDate} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · expired reservation is not restored</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy} onClick={() => { setDetail(null); setSelected(null); setProof(null); }}>Close</Button></div></div>
+    <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl" showCloseButton={!busy && !unknown}>
+      <DialogTitle>Exception assessment</DialogTitle>
+      <DialogDescription>Review the claim and record an assessment. No slot, refund or payment acceptance is created.</DialogDescription>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {unknown && <Button type="button" onClick={() => window.location.reload()}>Reload exceptions</Button>}
+      {loadingDetail && <p role="status" className="text-sm text-muted-foreground">Loading exception…</p>}
+    {detail && <section className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{detail.operatingDate} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · {detail.extensionId ? "expired extension is not restored" : "expired reservation is not restored"}</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy || unknown} onClick={closeReview}>Close</Button></div></div>
       {proof && (Date.now() < proof.expiresAt ? <a className="inline-block text-sm underline" href={proof.signedUrl} target="_blank" rel="noreferrer">Open private proof (expires {Math.max(0, Math.round((proof.expiresAt - Date.now()) / 1000))}s)</a> : <p className="text-sm text-muted-foreground">Proof link expired. Load it again.</p>)}
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"><div><dt className="text-muted-foreground">Claimed reference</dt><dd className="font-medium">{detail.claimedReference ?? "Not provided"}</dd></div><div><dt className="text-muted-foreground">Claimed amount</dt><dd className="font-medium">{money(detail.claimedAmount)}</dd></div><div><dt className="text-muted-foreground">Amount due</dt><dd className="font-medium">{money(detail.total)}</dd></div><div><dt className="text-muted-foreground">Proof attached</dt><dd className="font-medium">{detail.proofAvailable ? "Yes" : "No"}</dd></div></dl>
       {detail.review ? <div className="rounded-lg border bg-muted/40 p-4 text-sm"><p className="font-medium">Reviewed {dateTime(detail.review.reviewedAt)}</p><p className="mt-1 whitespace-pre-wrap">{detail.review.note}</p></div> : <div className="space-y-2">
         <label className="block text-sm font-medium" htmlFor="review-note">Review note <span className="font-normal text-muted-foreground">· visible to staff only, 1–500 characters</span></label>
-        <textarea id="review-note" rows={3} maxLength={500} className="w-full rounded-md border bg-background p-3 text-sm" value={note} onChange={e => setNote(e.target.value)} />
-        <div className="flex items-center gap-3"><Button type="button" disabled={busy || !note.trim()} onClick={() => void submit()}>{busy ? "Saving…" : "Record review"}</Button><span className="text-xs text-muted-foreground">Records assessment only. No slot, refund or acceptance is created.</span></div>
+        <textarea id="review-note" disabled={busy || unknown} rows={3} maxLength={500} className="w-full rounded-md border bg-background p-3 text-sm" value={note} onChange={e => setNote(e.target.value)} />
+        <div className="flex items-center gap-3"><Button type="button" disabled={busy || unknown || !note.trim()} onClick={() => void submit()}>{busy ? "Saving…" : "Record review"}</Button><span className="text-xs text-muted-foreground">Records assessment only. No slot, refund or acceptance is created.</span></div>
       </div>}
     </section>}
+    </DialogContent>
+    </Dialog>
     {!queue && <Button variant="outline" onClick={() => void loadQueue()}>Try again</Button>}
   </div>;
 }
