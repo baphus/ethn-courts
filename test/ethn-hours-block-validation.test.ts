@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { validateEthnHours } from '../src/lib/admin/ethn-hours-validation';
+const court=(hours:any[],active=true)=>({id:'1',active,hours});
+const row=(weekday:number,opens:string,closes:string)=>({weekday,opens,closes,hourly_rate:null});
+const block={courtId:'1',operatingDate:'2026-11-21',start:new Date('2026-11-20T22:00:00Z'),end:new Date('2026-11-21T06:00:00Z'),state:'block',expiresAt:null};
+const base={settings:{anchorMinutes:420,interval:30,minimum:30},now:new Date('2026-11-20T00:00:00Z'),allocations:[block]};
+test('block outside original hours needs no new hours coverage',()=>assert.deepEqual(validateEthnHours({...base,courts:[court([row(6,'07:00','03:00')])],oldHours:[{...row(6,'07:00','03:00'),court_id:'1'}]}),{ok:true}));
+test('block portion inside old hours must remain covered',()=>assert.deepEqual(validateEthnHours({...base,courts:[court([row(6,'09:00','03:00')])],oldHours:[{...row(6,'07:00','03:00'),court_id:'1'}]}),{error:'HOURS_CONFLICT'}));
+test('active block prevents court deactivation',()=>assert.deepEqual(validateEthnHours({...base,courts:[court([row(6,'07:00','03:00')],false)],oldHours:[{...row(6,'07:00','03:00'),court_id:'1'}]}),{error:'HOURS_CONFLICT'}));

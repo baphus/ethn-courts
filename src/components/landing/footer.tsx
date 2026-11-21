@@ -12,7 +12,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
   return (
     <footer
       id="contact"
-      className="scroll-mt-20 border-t border-line bg-oat/60 text-ink"
+      className="scroll-mt-20 border-t border-white/10 bg-[#16384d] text-white"
       aria-labelledby="footer-heading"
     >
       <div className="mx-auto w-full max-w-6xl px-4 pt-12 pb-6 sm:px-6">
@@ -20,23 +20,22 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
           <div className="space-y-3">
             <p className="flex items-center gap-2.5" id="footer-heading">
               <Image
-                src="/logo.jpg"
-                alt="CK Grounds — home"
+                src="/ethn-courts-mark.png"
+                alt="ETHN Courts — home"
                 width={36}
                 height={36}
                 className="size-9 rounded-full object-cover"
               />
-              <span className="text-lg font-extrabold tracking-tight">CK Grounds</span>
+              <span className="text-sm font-extrabold tracking-[.16em]">ETHN <span className="text-flame">COURTS</span></span>
             </p>
-            <p className="max-w-xs text-[13px] leading-5 text-ink/70">
-              Championship outdoor and covered canopy pickleball courts in Tabuelan,
-              Cebu. Premier cushioned surface with instant reservations.
+            <p className="max-w-xs text-[13px] leading-5 text-white/65">
+              Outdoor pickleball courts in Tabuelan, Cebu. Choose a court time and request your reservation online.
             </p>
 
           </div>
 
           <nav className="space-y-2.5" aria-label="Quick links">
-            <p className="text-[11px] font-extrabold tracking-[0.14em] text-ink/60 uppercase">
+            <p className="text-[11px] font-extrabold tracking-[0.14em] text-white/65 uppercase">
               Quick Links
             </p>
             {[
@@ -49,7 +48,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
               <a
                 key={l.label}
                 href={l.href}
-                className="block w-fit text-sm font-medium text-ink/75 hover:text-flame hover:underline"
+                className="block w-fit text-sm font-medium text-white/70 hover:text-flame hover:underline"
               >
                 {l.label}
               </a>
@@ -57,10 +56,10 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
           </nav>
 
           <div className="space-y-2.5">
-            <p className="text-[11px] font-extrabold tracking-[0.14em] text-ink/60 uppercase">
+            <p className="text-[11px] font-extrabold tracking-[0.14em] text-white/65 uppercase">
               Location
             </p>
-            <p className="flex items-start gap-2 text-[13px] leading-5 text-ink/75">
+            <p className="flex items-start gap-2 text-[13px] leading-5 text-white/70">
               <MapPin className="mt-0.5 size-4 shrink-0 text-flame" aria-hidden />
               RVF9+6XW, Poblacion, Tabuelan, Cebu, Philippines
             </p>
@@ -75,40 +74,40 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
           </div>
 
           <div className="space-y-2.5">
-            <p className="text-[11px] font-extrabold tracking-[0.14em] text-ink/60 uppercase">
+            <p className="text-[11px] font-extrabold tracking-[0.14em] text-white/65 uppercase">
               Direct Contact
             </p>
-            <p className="text-[13px] leading-5 text-ink/70">
+            <p className="text-[13px] leading-5 text-white/70">
               Questions, private tournaments, or venue bookings? Reach us directly:
             </p>
-            <p className="text-[11px] font-extrabold tracking-[0.12em] text-ink/50 uppercase">
+            <p className="text-[11px] font-extrabold tracking-[0.12em] text-white/55 uppercase">
               Email us
             </p>
             <a
               href="mailto:ckgrounds1@gmail.com"
-              className="flex items-center gap-2 text-[13px] font-bold break-all text-ink hover:text-flame hover:underline"
+              className="flex items-center gap-2 text-[13px] font-bold break-all text-white/85 hover:text-flame hover:underline"
             >
               <Mail className="size-4 shrink-0 text-flame" aria-hidden />
               ckgrounds1@gmail.com
             </a>
-            <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-ink/50 uppercase">
+            <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-white/55 uppercase">
               Call or text
             </p>
             <a
               href={VENUE_PHONE_LINK}
-              className="flex items-center gap-2 text-[13px] font-bold text-ink hover:text-flame hover:underline"
+              className="flex items-center gap-2 text-[13px] font-bold text-white/85 hover:text-flame hover:underline"
             >
               <Phone className="size-4 shrink-0 text-flame" aria-hidden />
               {VENUE_PHONE_DISPLAY}
             </a>
-            <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-ink/50 uppercase">
+            <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-white/55 uppercase">
               Facebook
             </p>
             <a
               href={VENUE_FACEBOOK_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-[13px] font-bold text-ink hover:text-flame hover:underline"
+              className="flex items-center gap-2 text-[13px] font-bold text-white/85 hover:text-flame hover:underline"
             >
               <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 24 24" fill="#1877F2">
                 <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.883v2.26h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
@@ -118,14 +117,14 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-2 border-t border-line pt-5 text-xs text-ink/60 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © 2026 CK Grounds. All rights reserved. · Website & booking system built by{" "}
+            © 2026 ETHN Courts. All rights reserved. · Website & booking system built by{" "}
             <a
               href={SEPHUS_PORTFOLIO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold text-ink/80 hover:text-flame hover:underline"
+              className="font-bold text-white/80 hover:text-flame hover:underline"
             >
               Sephus
             </a>

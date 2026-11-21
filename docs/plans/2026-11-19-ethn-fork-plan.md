@@ -22,18 +22,32 @@ Created 2026-11-19; progress reconciled 2026-11-20. Revision 4: feature-first de
 - [x] Verify real hosted Auth/private Storage and core customer/staff browser flow; fix evidenced origin/accessibility/login-branding defects.
 - [x] Verify local stale/reload hours UI with explicit fixture responses; do not mislabel as hosted Auth proof.
 
+### Current delivery target — prototype identity, retained fork features
+
+Latest user direction: preserve the original fork's supported features while applying the prototype's logo, layout and aesthetic; no numeric visual-parity requirement. Approved exclusions (rentals, cancellation/refunds/rescheduling, unpaid confirmed bookings) remain. Do not restore retired legacy RPC routes or copy prototype mock actions.
+
+Source coverage inventory: `docs/checks/2026-11-20-fork-feature-coverage.md`. This is source evidence, not runtime acceptance. “Incomplete” does not mean excluded: persistent inbox/push, Open Plays and paid sales remain roadmap items below. Extensions are an added ETHN requirement, not an original-fork feature.
+
+- [x] Restore public landing/navigation/footer composition and prototype logo/identity while keeping real booking prominent. Homepage desktop/mobile screenshots reviewed; this is not full prototype parity or comprehensive content acceptance.
+- [x] Perform bounded local desktop/mobile rendering checks: homepage captures plus populated/empty synthetic module fixtures and Observer review. Fixtures omit authenticated shell/fonts; full user-journey/accessibility acceptance remains a launch gate, not proved by screenshots.
+- [x] Restore authorized ETHN dashboard/recent-booking and booking search/detail views, without mock metrics or excluded mutations. Restricted PostgreSQL and final regression/type/build passed; browser and hosted acceptance remain unverified.
+- [x] Restore ETHN calendar/occupancy and one-off maintenance/private blocks against shared allocation authority; restricted CRUD/race/upgrade tests and final regression/type/build passed. Court creation, browser/HTTP acceptance and DB-integrated hours/block edits remain separate gaps.
+- [x] Restore owner-only read-only ETHN audit history with safe event projections, filters and pagination. Restricted PostgreSQL behavior and final regression/type/build pass; browser/hosted acceptance remain unverified.
+- [x] Restore first-slice owner finance/custom-period reports and immutable paid expenses using verified booking collections; restricted PostgreSQL reconciliation and final regression/type/build pass. Later local integration includes XLSX, expense corrections and manual sales; browser/live-provider/hosted acceptance remains separate.
+- [x] Complete walk-in temporary-hold-before-payment workflow with staff-bound frozen quote, exact full-payment confirmation, overnight end date and live-hold recovery. Restricted database checks pass; real cash/GCash receipt and hosted/browser acceptance remain external verification.
+
 ### Major feature backlog — smallest working slice first
 
 - [x] Owner staff-access management with transactional last-owner protection and revocation.
 - [x] Staff review of captured late-payment exceptions, without restoring slots or adding refund workflow.
-- [x] Prepaid walk-in booking (full cash or verified GCash before confirmation).
-- [ ] Automatic completion and audited no-show outcome.
-- [ ] Prepaid extensions with protected added-time hold; failure leaves original booking intact.
-- [ ] Information-only Open Plays and conflict-safe court blocking; no registration/payment.
-- [ ] Paid manual sales and owner corrections; no POS/inventory.
-- [ ] ETHN expense/finance reports and exports reconciled to actual collections/sales.
-- [ ] Persistent operational inbox and browser push with denied/unsupported fallback.
-- [ ] Configurable timing-policy changes and court creation/management beyond current names/activity/hours, only where full SRS requires them.
+- [x] Prepaid walk-in core: service/API/UI, explicit full-payment and price acknowledgement, actor-scoped retry replay; restricted PostgreSQL concurrency tests and final type/build/regression pass. Later local integration adds server live-hold recovery and explicit overnight end date; browser/hosted and real payment acceptance remain separate gates.
+- [x] Local completion/no-show implementation: authenticated bounded completion worker and audited correctable attendance outcome; pending extension review delays completion. Scheduler remains unprovisioned.
+- [x] Local prepaid extension implementation: protected added-time hold, staff full-payment verification and timely proof-pending/approve/reject/late-exception states; original remains unchanged on failure. Live Storage/provider and hosted acceptance remain gates.
+- [x] Local information-only Open Plays with versioned multi-court edits and conflict-safe allocation blocks; no registration/payment.
+- [x] Local paid manual sales and separately dated immutable owner record corrections; no POS/inventory or refunds.
+- [x] Local finance/XLSX includes verified booking/extension receipts, paid sales and dated sales/expense corrections with exact reconciliation; not formal accounting profit.
+- [x] Local persistent recipient inbox and opt-in Web Push implementation with denied/unsupported fallback; mocked-sender database tests only, VAPID/scheduler/real-device delivery unconfigured.
+- [x] Local owner court creation (inactive/unpriced until configured), existing name/activity/hours management and validated versioned timing-policy changes; active inventory prevents policy changes.
 
 ### Launch gates and deferred acceptance
 

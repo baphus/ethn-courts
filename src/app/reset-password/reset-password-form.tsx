@@ -56,11 +56,13 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <Card className="p-0">
+    <Card className="overflow-hidden rounded-2xl border-white/15 bg-white p-0 text-[#17252e] shadow-2xl shadow-black/25">
       <CardContent className="p-0">
         <form onSubmit={onSubmit} className="flex flex-col gap-6 p-6 md:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Set a new password</h1>
+            <img src="/ethn-courts-mark.png" alt="" className="size-14 rounded-xl object-cover" />
+            <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
+            <h1 className="font-display text-4xl leading-none tracking-wide text-[#16384d]">Set a new password</h1>
             <p className="text-sm text-balance text-muted-foreground">
               Choose a password with at least 8 characters
             </p>

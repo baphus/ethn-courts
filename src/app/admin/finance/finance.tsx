@@ -1,0 +1,124 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { addDaysManilaStr, manilaTodayStr } from "@/lib/courts";
+import { financeExportRows, type Report } from "./finance-export";
+import { ExpenseCorrection } from '@/components/admin/expense-correction';
+type Expense = { id: string; title: string; category: string; amount: string; effectiveAmount:string; lastCorrectionId:string|null; paidDate: string };
+type Expenses = { rows: Expense[]; page: number; limit: number; total: number };
+const categories = ["Other", "Utilities", "Maintenance", "Supplies", "Staff"];
+type Payload = { title: string; category: string; amount: string; paidDate: string; idempotencyKey: string };
+const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
+const button = "rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
+const money = (value: string) => `₱${value}`;
+
+export default function Finance() {
+  const [today] = useState(() => manilaTodayStr());
+  const [draft, setDraft] = useState(() => ({ from: `${manilaTodayStr().slice(0, 7)}-01`, to: manilaTodayStr() }));
+  const [filters, setFilters] = useState(draft);
+  const [page, setPage] = useState(1);
+  const [report, setReport] = useState<Report | null>(null);
+  const [expenses, setExpenses] = useState<Expenses | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
+  const [filterError, setFilterError] = useState("");
+  const [refresh, setRefresh] = useState(0);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paidDate, setPaidDate] = useState(today);
+  const [pending, setPending] = useState<Payload | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  async function exportReport() {
+    if (!report || loading || error || exporting) return;
+    setExporting(true); setExportError("");
+    try {
+      const { default: writeXlsxFile } = await import("write-excel-file/browser");
+      await writeXlsxFile(financeExportRows(report), { sheet: "Finance", columns: [18, 20, 20, 32, 26, 32].map(width => ({ width })) }).toFile(`finance-${report.from}-to-${report.to}.xlsx`);
+    } catch { setExportError("Could not export report. Please try again."); }
+    finally { setExporting(false); }
+  }
+
+  useEffect(() => {
+    try { const saved = sessionStorage.getItem("ethn-finance-pending"); if (saved) setPending(JSON.parse(saved)); } catch { setSaveMessage("Could not restore pending expense. Check the expense list before recording another."); }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setReport(null); setError("");
+    fetch(`/api/ethn/admin/finance?${new URLSearchParams(filters)}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => { if (!response.ok) throw new Error(); return response.json(); })
+      .then(data => { if (!controller.signal.aborted) setReport(data); })
+      .catch(() => { if (!controller.signal.aborted) setError("Report unavailable. Please try again."); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [filters, refresh]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setListLoading(true); setExpenses(null); setListError("");
+    fetch(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => { if (!response.ok) throw new Error(); return response.json(); })
+      .then(data => { if (!controller.signal.aborted) setExpenses(data); })
+      .catch(() => { if (!controller.signal.aborted) setListError("Expenses unavailable. Please try again."); })
+      .finally(() => { if (!controller.signal.aborted) setListLoading(false); });
+    return () => controller.abort();
+  }, [filters, page, refresh]);
+
+  async function save(payload: Payload) {
+    try { sessionStorage.setItem("ethn-finance-pending", JSON.stringify(payload)); } catch { setSaveMessage("Cannot safely save retry details in this browser. Expense was not sent."); return; }
+    setPending(payload); setSaving(true); setSaveMessage("");
+    try {
+      const response = await fetch("/api/ethn/admin/expenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (response.status >= 500 || response.status === 409) throw new Error();
+      if (!response.ok) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Expense was not accepted. Check the details and try again."); return; }
+      const record = await response.json();
+      if (!record || typeof record.id !== "string" || record.title !== payload.title.trim() || record.category !== payload.category || typeof record.amount !== "string" || record.paidDate !== payload.paidDate) throw new Error();
+      sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setTitle(""); setAmount(""); setSaveMessage("Expense recorded."); setPage(1); setRefresh(n => n + 1);
+    } catch {
+      setSaveMessage("Result uncertain. Retry the same expense, or check the expense list before discarding it.");
+    } finally { setSaving(false); }
+  }
+
+  function applyFilters(event: React.FormEvent) {
+    event.preventDefault();
+    if (!draft.from || !draft.to || draft.from > draft.to || draft.to > today || draft.to > addDaysManilaStr(draft.from, 365)) { setFilterError("Choose a date range of up to 366 days, ending no later than today in Manila."); return; }
+    setFilterError(""); setPage(1); setFilters({ ...draft });
+  }
+
+  return <main className="mx-auto max-w-7xl space-y-8 p-4 text-slate-900 sm:p-8">
+    <header className="space-y-3"><p className="text-xs font-bold uppercase tracking-[.2em] text-orange-700">Owner / Finance</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Collections & expenses</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Verified booking/extension collections and paid manual sales use the Manila receipt date. Record corrections apply on their own date, not the original transaction date; they do not represent cash returned. This is a cash-record report, not formal accounting profit.</p></header>
+    <form onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-5">
+      <label className="text-sm font-semibold">From<input className={`${input} mt-1`} type="date" required value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
+      <label className="text-sm font-semibold">To<input className={`${input} mt-1`} type="date" required value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
+      <button className={button}>Apply dates</button><button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Download XLSX"}</button>{filterError && <p role="alert" className="text-sm text-red-700">{filterError}</p>}{exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
+    </form>
+    <section aria-label="Finance summary" aria-busy={loading}>
+      {report?.components&&<p className="text-sm text-muted-foreground">Verified bookings/extensions {money(report.components.bookingAndExtensionCollections)} · Manual sales after dated corrections {money(report.components.manualSalesAfterCorrections)}</p>}
+      {loading ? <p>Loading report…</p> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : report && <div className="grid gap-4 md:grid-cols-3">
+        {[["Recorded collections after corrections", report.totals.collected], ["Recorded expenses", report.totals.expenses], ["Net after recorded expenses", report.totals.net]].map(([label, value], index) => <div key={label} className={`rounded-2xl p-6 ${index === 2 ? "bg-slate-900 text-white" : "border border-slate-200 bg-white"}`}><p className="text-sm font-medium opacity-75">{label}</p><p className="mt-4 text-3xl font-bold tracking-tight">{money(value)}</p>{index === 0 && <p className="mt-3 text-sm opacity-75">Cash {money(report.totals.cash)} · GCash {money(report.totals.gcash)}</p>}</div>)}
+      </div>}
+    </section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="text-xl font-bold">Daily breakdown</h2><p className="mt-1 text-sm text-slate-600">Manila calendar dates · {filters.from} to {filters.to}</p></div>
+      {loading ? <p>Loading daily breakdown…</p> : error ? <p>Daily breakdown unavailable.</p> : report?.daily.length ? <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="border-b text-slate-500"><tr>{["Date", "Cash", "GCash", "Recorded collections after corrections", "Recorded expenses", "Net after recorded expenses"].map(x => <th className="px-3 py-3 font-semibold" key={x}>{x}</th>)}</tr></thead><tbody>{report.daily.map(row => <tr key={row.date} className="border-b border-slate-100"><td className="px-3 py-3">{row.date}</td>{[row.cash, row.gcash, row.collected, row.expenses, row.net].map((v, i) => <td className="px-3 py-3 tabular-nums" key={i}>{money(v)}</td>)}</tr>)}</tbody></table></div> : <p className="text-sm text-slate-600">No activity in this date range.</p>}
+    </section>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Recorded expenses</h2><p className="mt-1 text-sm text-slate-600">Original paid dates within selected range. History is immutable; owner corrections append current-date records without processing cash returns.</p>
+        {listLoading ? <p className="mt-5">Loading expenses…</p> : listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : expenses?.rows.length ? <><div className="mt-5 divide-y divide-slate-100">{expenses.rows.map(row => <div key={row.id} className="flex flex-wrap items-start justify-between gap-4 py-4"><div><p className="font-semibold">{row.title}</p><p className="mt-1 text-sm text-slate-500">{row.category} · {row.paidDate}</p></div><div><p className="font-semibold tabular-nums">Original {money(row.amount)} · Effective {money(row.effectiveAmount)}</p><details className="mt-2"><summary className="cursor-pointer text-sm underline">Correct entry</summary><ExpenseCorrection expenseId={row.id} lastCorrectionId={row.lastCorrectionId} onCorrect={()=>setRefresh(n=>n+1)}/></details></div></div>)}</div><div className="mt-4 flex items-center gap-4 text-sm"><button disabled={page <= 1} onClick={() => setPage(page - 1)} className="underline disabled:opacity-40">Previous</button><span>Page {page} · {expenses.total} expenses</span><button disabled={page * expenses.limit >= expenses.total} onClick={() => setPage(page + 1)} className="underline disabled:opacity-40">Next</button></div></> : <p className="mt-5 text-sm text-slate-600">No recorded expenses in this date range.</p>}
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Original entries are permanent and audited. Owner corrections append a separately dated record; they never delete history or process a cash return.</p>
+        <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) void save({ title, category, amount, paidDate, idempotencyKey: crypto.randomUUID() }); }}>
+          <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><label className="block text-sm font-semibold">Title<input required maxLength={100} className={`${input} mt-1`} value={title} onChange={e => setTitle(e.target.value)} /></label><label className="block text-sm font-semibold">Category<select required className={`${input} mt-1`} value={category} onChange={e => setCategory(e.target.value)}><option value="">Select category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></label><label className="block text-sm font-semibold">Amount (PHP)<input required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" className={`${input} mt-1`} value={amount} onChange={e => setAmount(e.target.value)} /></label><label className="block text-sm font-semibold">Paid date<input required type="date" max={today} className={`${input} mt-1`} value={paidDate} onChange={e => setPaidDate(e.target.value)} /></label><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
+          {saveMessage && <p role="status" className="text-sm text-slate-700">{saveMessage}</p>}
+          {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {pending.paidDate}</p><p>Retry only while signed in to the same account that recorded this expense.</p><button type="button" disabled={saving} className={button} onClick={() => void save(pending)}>Retry same expense</button><button type="button" disabled={saving} className="block underline" onClick={() => { if (window.confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?")) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</button></div>}
+        </form>
+      </section>
+    </div>
+  </main>;
+}

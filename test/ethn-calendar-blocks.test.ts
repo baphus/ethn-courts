@@ -1,0 +1,38 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { Pool } from "pg";
+import { randomUUID } from "node:crypto";
+import { createEthnBlock, getEthnCalendar, releaseEthnBlock } from "../src/lib/admin/ethn-calendar";
+const url=process.env.ETHN_CALENDAR_BLOCK_TEST_DATABASE_URL, adminUrl=process.env.ETHN_CALENDAR_BLOCK_TEST_ADMIN_URL;
+const owner="00000000-0000-4000-8000-000000000031",staff="00000000-0000-4000-8000-000000000032",disabled="00000000-0000-4000-8000-000000000033";
+const uuid=()=>randomUUID();
+const overlap=(start:Date,end:Date,kind="maintenance")=>({courtId:"1",startsAt:start.toISOString(),endsAt:end.toISOString(),reason:"maintenance",kind});
+test("block database contract and staff calendar on restricted disposable ETHN role",{skip:!url||!adminUrl},async()=>{
+ const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:adminUrl});
+ try{
+  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true),($3,'staff',false)",[owner,staff,disabled]);
+  const roles=(await admin.query("SELECT has_table_privilege('ethn_checkout','ethn.court_blocks','DELETE') AS del,has_column_privilege('ethn_checkout','ethn.court_blocks','created_at','UPDATE') AS upd")).rows[0];assert.deepEqual(roles,{del:false,upd:false});
+  const now=(await admin.query("SELECT clock_timestamp() AS now")).rows[0].now as Date,start=new Date(now.getTime()+3600000),end=new Date(now.getTime()+7200000);
+  await assert.rejects(createEthnBlock(pool,async()=>owner,overlap(new Date(now.getTime()-60000),new Date(now.getTime()+60000))),/INVALID_INPUT/);
+  await assert.rejects(createEthnBlock(pool,async()=>owner,overlap(new Date(now.getTime()+40*86400000),new Date(now.getTime()+41*86400000))),/INVALID_INPUT/);
+  await assert.rejects(createEthnBlock(pool,async()=>disabled,overlap(start,end)),/FORBIDDEN/);
+  const races=await Promise.allSettled([createEthnBlock(pool,async()=>staff,overlap(start,end)),createEthnBlock(pool,async()=>owner,overlap(start,end,"private"))]);
+  assert.equal(races.filter(r=>r.status==="fulfilled").length,1);assert.equal(races.filter(r=>r.status==="rejected").length,1);
+  const a=(races.find(r=>r.status==="fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<typeof createEthnBlock>>>).value;
+  assert.deepEqual(Object.keys(a).sort(),["id","courtId","startsAt","endsAt","reason","kind"].sort());
+  const adjacent=await createEthnBlock(pool,async()=>owner,overlap(end,new Date(end.getTime()+3600000)));assert.equal(adjacent.startsAt,end.toISOString());
+  const checkout=await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'checkout','2026-11-21','held',clock_timestamp()+interval '10 minutes',100,1) RETURNING id",[uuid()]);
+  const item=uuid();await admin.query("INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,1,$3,$4,100,60,100,30,30)",[item,checkout.rows[0].id,new Date(end.getTime()+3600000),new Date(end.getTime()+7200000)]);
+  await admin.query("INSERT INTO ethn.court_allocations(id,item_id,court_id,starts_at,ends_at,state,expires_at) VALUES($1,$2,1,$3,$4,'held',clock_timestamp()+interval '10 minutes')",[uuid(),item,new Date(end.getTime()+3600000),new Date(end.getTime()+7200000)]);
+  await assert.rejects(createEthnBlock(pool,async()=>owner,overlap(new Date(end.getTime()+3600000),new Date(end.getTime()+7200000))),/SLOT_TAKEN/);
+  await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[checkout.rows[0].id]);
+  const afterExpiry=await createEthnBlock(pool,async()=>owner,overlap(new Date(end.getTime()+3600000),new Date(end.getTime()+7200000)));assert.equal((await admin.query("SELECT status FROM ethn.bookings WHERE id=$1",[checkout.rows[0].id])).rows[0].status,"expired");
+  const date=(await admin.query("SELECT to_char(($1::timestamptz - interval '7 hour') AT TIME ZONE 'Asia/Manila','YYYY-MM-DD') AS d",[start])).rows[0].d as string;
+  const calendar=await getEthnCalendar(pool,async()=>staff,date);assert.ok(calendar.courts.find(c=>c.id==="1")?.intervals.some(i=>i.blockId===a.id&&i.kind==="maintenance"));assert.ok(!JSON.stringify(calendar).includes("email"));
+  const countBefore=(await admin.query("SELECT count(*)::int AS n FROM ethn.audit WHERE action='calendar.block.release'")).rows[0].n;
+  await releaseEthnBlock(pool,async()=>staff,a.id);await releaseEthnBlock(pool,async()=>staff,a.id);await releaseEthnBlock(pool,async()=>owner,adjacent.id);await releaseEthnBlock(pool,async()=>owner,afterExpiry.id);
+  assert.equal((await admin.query("SELECT count(*)::int AS n FROM ethn.audit WHERE action='calendar.block.release'")).rows[0].n-countBefore,3);
+  await assert.rejects(releaseEthnBlock(pool,async()=>staff,uuid()),/BLOCK_NOT_FOUND/);
+  assert.equal((await admin.query("SELECT state FROM ethn.court_allocations WHERE block_id=$1",[a.id])).rows[0].state,"released");
+ }finally{await pool.end();await admin.end();}
+});

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { parsePesos, priceItems } from "./core";
 import { resolveSchedule } from "./schedule";
+import { expireExtensionHolds } from './extension-expiry';
 
 type CheckoutInput = {
   ownerToken: string; idempotencyKey: string; date: string;
@@ -44,6 +45,7 @@ export async function createCheckout(pool: Pick<Pool, "connect">, input: Checkou
     if (!settings || typeof settings.merchant !== "string" || !settings.merchant.trim()) throw new Error("NOT_CONFIGURED");
     // shortcut: all-court lock serializes small venue inventory; revisit on measured contention.
     const courts = (await client.query("SELECT id::text, active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
+    await expireExtensionHolds(client);
     const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
     const candidates = (await client.query("SELECT DISTINCT b.id FROM ethn.bookings b JOIN ethn.booking_items i ON i.booking_id = b.id JOIN ethn.court_allocations a ON a.item_id = i.id JOIN unnest($1::bigint[], $2::timestamptz[], $3::timestamptz[]) AS r(court_id, starts_at, ends_at) ON r.court_id = a.court_id AND tstzrange(r.starts_at, r.ends_at, '[)') && tstzrange(a.starts_at, a.ends_at, '[)') WHERE b.status = 'held' AND a.state = 'held' ORDER BY b.id", [ranges.map(r => r.courtId), ranges.map(r => r.start), ranges.map(r => r.end)])).rows.map(r => r.id);
     await client.query("SELECT id FROM ethn.bookings WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", [candidates]);

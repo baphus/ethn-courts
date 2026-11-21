@@ -1,0 +1,9 @@
+# ETHN staff web push
+
+Browser push is opt-in; persistent inbox remains available without it. Apply `db/ethn/0028_web_push.sql` only as the next fresh-chain migration or through separately approved existing-database upgrade. Never run migrations against hosted/existing data without review.
+
+Set `ETHN_WEB_PUSH_ENABLED=1`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` in server environment. Generate VAPID keys outside this app; never commit them. `VAPID_SUBJECT` must be an operator-controlled HTTPS URL or mailto contact. Return only the public key to authenticated staff. Browser Auth and notification subscriptions remain per staff identity. HTTPS browser origin and a registered service worker are required.
+
+Authenticated `GET /api/ethn/admin/push` returns `{configured,publicKey,subscriptionId}` without endpoint data. `POST` accepts exactly `{endpoint,keys:{p256dh,auth}}`; `DELETE` accepts `{subscriptionId}`. Endpoints are restricted to known push-provider hosts. An endpoint already owned by another staff identity cannot be transferred. Disable push in UI or remove subscription when signing out on a shared device.
+
+The authenticated `GET /api/cron/ethn-push` requires `CRON_SECRET` bearer authorization and enabled VAPID config. No scheduler is provisioned. It delivers unread inbox notifications created in the last 24 hours, to enabled staff subscriptions created before each notification. A maximum of ten claims run per call. Claims expire after two minutes; transient failures retry with backoff up to five attempts. Delivery is at least once. Provider 404/410 disables endpoint. Push is best-effort notification, not a guaranteed or authoritative record; inbox remains source of truth. Payload excludes customer/payment/proof/tracking data and contains only notification ID and an allowlisted internal path. Service worker uses fixed generic title/body rather than trusting incoming message text. No delivery SLA is claimed.

@@ -1,7 +1,7 @@
 import { parsePesos } from '../booking/core';
 import { scheduleWindows } from '../booking/schedule';
 
-type Hours = { weekday: number; opens: string; closes: string; hourly_rate: string | null };
+type Hours = { weekday: number; opens: string; closes: string; hourly_rate: string | null; court_id?: string };
 type Court = { id: string; active: boolean; hours: readonly Hours[] };
 type Allocation = { courtId: string; operatingDate: string; start: Date; end: Date; state: string; expiresAt: Date | null };
 
@@ -9,6 +9,7 @@ export function validateEthnHours(input: {
   settings: { anchorMinutes: number; interval: number; minimum: number };
   courts: readonly Court[];
   allocations: readonly Allocation[];
+  oldHours?: readonly (Hours & { court_id: string })[];
   now: Date;
 }): { ok: true } | { error: 'INVALID_SCHEDULE' | 'HOURS_CONFLICT' } {
   const { anchorMinutes, interval, minimum } = input.settings;
@@ -25,6 +26,21 @@ export function validateEthnHours(input: {
     }
   }
   for (const allocation of input.allocations) {
+    if (allocation.state === 'block') {
+      if (allocation.end <= input.now) continue;
+      const court = input.courts.find(c => c.id === allocation.courtId);
+      if (!court?.active) return conflict;
+      const start = allocation.start.getTime(), end = allocation.end.getTime();
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return conflict;
+      const old = scheduleWindows(allocation.operatingDate, anchorMinutes, court.id, (input.oldHours ?? []).filter(h => h.court_id === court.id));
+      const proposed = scheduleWindows(allocation.operatingDate, anchorMinutes, court.id, court.hours.map(row => ({ ...row, court_id: court.id })));
+      if ('error' in old || 'error' in proposed) return conflict;
+      for (const w of old.windows) {
+        const overlapStart = Math.max(start, w.opens), overlapEnd = Math.min(end, w.closes);
+        if (overlapStart < overlapEnd && !proposed.windows.some(n => overlapStart >= n.opens && overlapEnd <= n.closes)) return conflict;
+      }
+      continue;
+    }
     if (!['held', 'pending', 'confirmed'].includes(allocation.state)) continue;
     const end = allocation.end.getTime();
     if (!Number.isFinite(end)) return conflict;

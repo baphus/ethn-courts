@@ -40,6 +40,6 @@ export function adminResponse(data: unknown, status = 200) {
 
 export function adminError(error: unknown) {
   const code = error instanceof Error ? error.message : "";
-  const status = code === "UNAUTHENTICATED" ? 401 : code === "FORBIDDEN" ? 403 : code === "INVALID_INPUT" ? 400 : 503;
+  const status = code === "UNAUTHENTICATED" ? 401 : code === "FORBIDDEN" ? 403 : code === "INVALID_INPUT" ? 400 : code === "IDEMPOTENCY_MISMATCH" ? 409 : code === "FINANCE_UNAVAILABLE" || code === "SALES_UNAVAILABLE" ? 503 : code === "CORRECTION_CONFLICT" ? 409 : code === "COURT_NOT_FOUND" || code === "BLOCK_NOT_FOUND" || code === "EXPENSE_NOT_FOUND" ? 404 : code === "STALE_CORRECTION" ? 409 : code === "SLOT_TAKEN" ? 409 : 503;
   return adminResponse({ error: status === 503 ? "Service unavailable" : code }, status);
 }

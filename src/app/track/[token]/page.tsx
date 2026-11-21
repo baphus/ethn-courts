@@ -10,7 +10,7 @@ import TrackView from "@/components/tracking/track-view";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Track Booking — CK Grounds",
+  title: "Track Booking — ETHN Courts",
   description: "Check your court reservation status, details, and access digital check-in pass.",
 };
 

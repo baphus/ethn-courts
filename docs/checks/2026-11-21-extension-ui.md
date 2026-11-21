@@ -1,0 +1,7 @@
+# Extension API and staff UI — local implementation
+
+- Added staff-authorized extension read and hold, confirm and expiry routes. Read returns booking court intervals and latest active extension, including frozen merchant and extension item amounts; it does not return owner hashes, proof keys or payment references.
+- Added staff extension screen. It reserves before payment, displays frozen total and merchant, accepts staff-verified cash or GCash, and retains the exact uncertain request in session storage for retry. No online proof, cancellation or refund is offered.
+- A request remains locked after an error, including a definitive 4xx. Staff must check booking/payment records and retain the request; no in-app unlock or cross-device reconciliation exists. Session storage is browser-tab scoped and can be lost; recovery read shows an active hold but does not reconstruct a lost confirmation request. Do not collect payment again based on this screen alone after losing request state.
+- Availability shows rate and server validates conflicts and final price; no client-computed quote is displayed. No browser verification was performed. Integration, restricted-role grants, concurrency and database proof remain for the parent integration pass. Merchant snapshot in successful hold response depends on the service lane; read recovery supplies it.
+- `npx --no-install tsc --noEmit --incremental false`: failed on unrelated `test/ethn-walk-in.test.ts:33` (`reserve` used before declaration). No extension UI/API diagnostics reported.

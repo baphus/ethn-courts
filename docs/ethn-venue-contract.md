@@ -1,0 +1,7 @@
+# ETHN venue creation contract
+
+`listCourts(pool, verify)` and `createCourt(pool, verify, body)` are owner-only service operations. Both re-check enabled `ethn.staff_access` owner role in their SQL transaction; supplied actor identity is never accepted from request data. Staff receives `FORBIDDEN`; missing identity receives `UNAUTHENTICATED`.
+
+`createCourt` accepts exactly `{name,description,idempotencyKey}`. Name trims to 1–100 characters; names use existing PostgreSQL unique constraint semantics. Description may be omitted/null or trim to at most 1,000 characters. Idempotency key must be 1–200 printable ASCII characters. Result is `{id,name,description,active:false}`. A successful retry with same owner/key/input returns original result; changed input returns `IDEMPOTENCY_MISMATCH`; duplicate name under another key returns `NAME_COLLISION`.
+
+Creation serializes on owner row then `ethn.settings`, inserts inactive court with no hours, and audits once. New court is not bookable until separately configured/activated. No hard-delete operation exists. Migration `db/ethn/0024_venue_management.sql` extends courts and grants checkout role narrow INSERT/SELECT rights and idempotency support; it grants no court UPDATE or DELETE. Apply only to fresh ETHN schema after migrations 0001–0017; existing/hosted databases need a separately approved migration plan. No API or UI is part of this slice.

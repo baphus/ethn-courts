@@ -29,18 +29,18 @@ export default function Header() {
         Skip to content
       </a>
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <a href="/#top" className="flex items-center gap-2.5" aria-label="CK Grounds — home">
+        <a href="/#top" className="flex items-center gap-2.5" aria-label="ETHN Courts — home">
           <Image
-            src="/logo.jpg"
-            alt="CK Grounds — home"
+            src="/ethn-courts-mark.png"
+            alt="ETHN Courts — home"
             width={36}
             height={36}
             className="size-9 rounded-full object-cover"
             priority
           />
           <span className="leading-none">
-            <span className="block text-[15px] font-extrabold tracking-tight text-ink">
-              CK Grounds
+            <span className="block text-[13px] font-extrabold tracking-[.16em] text-ink">
+              ETHN <span className="text-flame">COURTS</span>
             </span>
           </span>
         </a>

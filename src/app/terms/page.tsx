@@ -2,16 +2,16 @@ import Header from "@/components/landing/header";
 import Footer from "@/components/landing/footer";
 
 export const metadata = {
-  title: "Terms of Service — CK Grounds",
+  title: "Terms of Service — ETHN Courts",
   description:
-    "The terms that apply when you book a pickleball court at CK Grounds in Tabuelan, Cebu.",
+    "The terms that apply when you book a pickleball court at ETHN Courts in Tabuelan, Cebu.",
 };
 
 const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "1. Who we are",
     body: [
-      "CK Grounds operates outdoor and covered canopy pickleball courts in Poblacion, Tabuelan, Cebu, Philippines, and provides online court reservations through this website.",
+      "ETHN Courts operates outdoor and covered canopy pickleball courts in Poblacion, Tabuelan, Cebu, Philippines, and provides online court reservations through this website.",
       "You can reach us at ckgrounds1@gmail.com or 0961 633 3337 for any question about these terms.",
     ],
   },
@@ -32,7 +32,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
     body: [
       "Payment is made outside this website by bank transfer or e-wallet (GCash, BDO, or BPI) to the venue's accounts. The site does not collect card details.",
       "A booking is only submitted once you upload a clear photo or screenshot of your payment. Accepted files are JPG, PNG, or WEBP up to 5 MB, and each booking requires one proof of payment.",
-      "Every booking is reviewed by CK Grounds staff before it is confirmed. You will receive an email confirmation once your booking is approved.",
+      "Every booking is reviewed by ETHN Courts staff before it is confirmed. You will receive an email confirmation once your booking is approved.",
     ],
   },
   {
@@ -51,13 +51,13 @@ const SECTIONS: { heading: string; body: string[] }[] = [
     heading: "7. Court rules and conduct",
     body: [
       "Please arrive on time for your slots and wear appropriate, non-marking footwear. Food and drinks are not allowed on the playing surface.",
-      "Respect other players and venue staff. CK Grounds may refuse service or ask anyone to leave for unsafe, disruptive, or abusive behaviour.",
+      "Respect other players and venue staff. ETHN Courts may refuse service or ask anyone to leave for unsafe, disruptive, or abusive behaviour.",
     ],
   },
   {
     heading: "8. Liability",
     body: [
-      "You play at your own risk. To the extent allowed by law, CK Grounds is not liable for injuries, accidents, or loss or damage to personal belongings at the venue.",
+      "You play at your own risk. To the extent allowed by law, ETHN Courts is not liable for injuries, accidents, or loss or damage to personal belongings at the venue.",
       "Report any incident to venue staff immediately so we can assist.",
     ],
   },
@@ -83,12 +83,12 @@ export default function TermsPage() {
           </p>
           <h1
             id="terms-heading"
-            className="mt-4 text-[40px] leading-[46px] font-extrabold tracking-tight text-pine sm:text-5xl sm:leading-[56px]"
+            className="font-display mt-4 text-5xl tracking-wide text-pine sm:text-7xl"
           >
             Terms of Service
           </h1>
           <p className="mt-3 text-base leading-7 text-warm-muted">
-            These terms apply whenever you book a court through the CK Grounds website. Last
+            These terms apply whenever you book a court through the ETHN Courts website. Last
             updated October 17, 2026.
           </p>
         </section>

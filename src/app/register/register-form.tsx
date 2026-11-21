@@ -58,21 +58,15 @@ export default function RegisterForm() {
   }
 
   return (
-    <Card className="p-0">
+    <Card className="overflow-hidden rounded-2xl border-white/15 bg-white p-0 text-[#17252e] shadow-2xl shadow-black/25">
       <CardContent className="grid p-0 md:grid-cols-2">
         <form onSubmit={onSubmit} className="flex flex-col gap-6 p-6 md:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
-            <Image
-              src="/images/ck-grounds-logo.jpg"
-              alt="CK Grounds"
-              width={96}
-              height={96}
-              priority
-              className="size-20 rounded-xl object-contain"
-            />
-            <h1 className="text-2xl font-bold">Create admin account</h1>
+            <img src="/ethn-courts-mark.png" alt="" className="size-16 rounded-xl object-cover" />
+            <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
+            <h1 className="font-display text-4xl leading-none tracking-wide text-[#16384d]">Create admin account</h1>
             <p className="text-sm text-balance text-muted-foreground">
-              Set up your CK Grounds admin account
+              Set up your ETHN Courts staff account
             </p>
           </div>
 
@@ -145,7 +139,7 @@ export default function RegisterForm() {
         <div className="relative hidden md:block">
           <Image
             src="/images/net.jpg"
-            alt="Pickleball court at CK Grounds"
+            alt="Pickleball court at ETHN Courts"
             fill
             sizes="(min-width: 768px) 50vw, 100vw"
             className="object-cover dark:brightness-[0.2] dark:grayscale"

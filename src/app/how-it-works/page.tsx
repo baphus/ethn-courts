@@ -8,7 +8,7 @@ import TrackInput from "@/components/landing/track-input";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "How It Works — CK Grounds",
+  title: "How It Works — ETHN Courts",
   description:
     "Book a pickleball court in six steps: choose a time, add gear, enter your details, review your booking, pay, then get your QR pass. No account needed.",
 };
@@ -60,7 +60,7 @@ export default async function HowItWorksPage() {
           </p>
           <h1
             id="hiw-heading"
-            className="mx-auto mt-4 max-w-2xl text-[40px] leading-[46px] font-extrabold tracking-tight text-pine sm:text-5xl sm:leading-[56px]"
+            className="font-display mx-auto mt-4 max-w-2xl text-5xl tracking-wide text-pine sm:text-7xl"
           >
             How Booking Works
           </h1>

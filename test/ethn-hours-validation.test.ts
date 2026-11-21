@@ -5,7 +5,7 @@ import { manilaWallClock } from '../src/lib/booking/slots';
 
 const at = (date: string, hour: number, minute = 0) => new Date(manilaWallClock(date, hour, minute).getTime());
 const row = (weekday: number, opens = '07:00', closes = '03:00', hourly_rate: string | null = '100.00') => ({ weekday, opens, closes, hourly_rate });
-const base = () => ({ settings: { anchorMinutes: 420, interval: 30, minimum: 30 }, courts: [{ id: '1', active: true, hours: [row(0)] }], allocations: [] as { courtId: string; operatingDate: string; start: Date; end: Date; state: string; expiresAt: Date | null }[], now: at('2026-11-01', 10) });
+const base = () => ({ settings: { anchorMinutes: 420, interval: 30, minimum: 30 }, courts: [{ id: '1', active: true, hours: [row(0)] }], allocations: [] as { courtId: string; operatingDate: string; start: Date; end: Date; state: string; expiresAt: Date | null }[], oldHours: [] as ({ weekday: number; opens: string; closes: string; hourly_rate: string | null; court_id: string })[], now: at('2026-11-01', 10) });
 const allocation = (state = 'pending') => ({ courtId: '1', operatingDate: '2026-11-01', start: at('2026-11-01', 9), end: at('2026-11-01', 11), state, expiresAt: at('2026-11-01', 11) });
 const ok = { ok: true };
 const invalid = { error: 'INVALID_SCHEDULE' };
@@ -48,6 +48,15 @@ test('live allocations survive proposed hours and inactive courts', () => {
   assert.deepEqual(validateEthnHours(input), conflict);
   input.allocations[0] = { ...allocation(), courtId: 'missing' };
   assert.deepEqual(validateEthnHours(input), conflict);
+});
+
+test('block hours edits retain only overlap with old opening window', () => {
+  const input = base(); input.now = at('2026-11-01', 7); input.oldHours = [{ ...row(0), court_id: '1' }];
+  input.allocations = [{ courtId:'1', operatingDate:'2026-11-01', start:at('2026-11-01',5), end:at('2026-11-01',9), state:'block', expiresAt:null }];
+  input.courts[0].hours = [row(0,'09:00','03:00')];
+  assert.deepEqual(validateEthnHours(input), conflict);
+  input.courts[0].hours = [row(0,'07:00','03:00')];
+  assert.deepEqual(validateEthnHours(input), ok);
 });
 
 test('completed and past allocations ignored', () => {

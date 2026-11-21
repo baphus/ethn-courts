@@ -2,16 +2,16 @@ import Header from "@/components/landing/header";
 import Footer from "@/components/landing/footer";
 
 export const metadata = {
-  title: "Privacy Policy — CK Grounds",
+  title: "Privacy Policy — ETHN Courts",
   description:
-    "How CK Grounds collects, uses, and protects your personal information when you book a court.",
+    "How ETHN Courts collects, uses, and protects your personal information when you book a court.",
 };
 
 const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "1. Overview",
     body: [
-      "This policy explains how CK Grounds handles personal information in connection with court bookings made through this website. It is written with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173) in mind.",
+      "This policy explains how ETHN Courts handles personal information in connection with court bookings made through this website. It is written with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173) in mind.",
     ],
   },
   {
@@ -31,7 +31,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "4. Proof of payment",
     body: [
-      "Proof of payment images are stored in a private bucket that is not public. Only authorized CK Grounds staff can view them, through links that expire after a short time. Payment proofs are automatically deleted after about 90 days.",
+      "Proof of payment images are stored in a private bucket that is not public. Only authorized ETHN Courts staff can view them, through links that expire after a short time. Payment proofs are automatically deleted after about 90 days.",
     ],
   },
   {
@@ -86,7 +86,7 @@ export default function PrivacyPage() {
           </p>
           <h1
             id="privacy-heading"
-            className="mt-4 text-[40px] leading-[46px] font-extrabold tracking-tight text-pine sm:text-5xl sm:leading-[56px]"
+            className="font-display mt-4 text-5xl tracking-wide text-pine sm:text-7xl"
           >
             Privacy Policy
           </h1>

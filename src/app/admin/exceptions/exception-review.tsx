@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-type QueueItem = { paymentId: string; bookingId: string; operatingDate: string; guestName: string | null; total: string; claimedReference: string | null; claimedAmount: string | null; createdAt: string; proofAvailable: boolean };
+type QueueItem = { extensionId:string|null; paymentId: string; bookingId: string; operatingDate: string; guestName: string | null; total: string; claimedReference: string | null; claimedAmount: string | null; createdAt: string; proofAvailable: boolean };
 type Detail = QueueItem & { review: { note: string; reviewedAt: string; reviewedBy: string } | null };
 
 const money = (value: string | null) => value === null ? "Not provided" : new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value));
@@ -49,7 +49,7 @@ export default function ExceptionReview() {
     if (!detail || inflight.current) return;
     inflight.current = true; setBusy(true); setError(""); setProof(null);
     try {
-      const result = await request<{ signedUrl: string; expiresIn: number }>(`/api/ethn/admin/payments/${detail.bookingId}/proof`);
+      const result = await request<{ signedUrl: string; expiresIn: number }>(detail.extensionId ? `/api/ethn/admin/extensions/proofs/proof?extensionId=${encodeURIComponent(detail.extensionId)}` : `/api/ethn/admin/payments/${detail.bookingId}/proof`);
       setProof({ signedUrl: result.signedUrl, expiresAt: Date.now() + result.expiresIn * 1000 });
     } catch (e) { setError(e instanceof Error ? e.message : "Service unavailable. Please try again."); }
     finally { inflight.current = false; setBusy(false); }
@@ -59,7 +59,7 @@ export default function ExceptionReview() {
     if (!detail || busy) return;
     const trimmed = note.trim();
     if (!trimmed || trimmed.length > 500) { setError("Enter a review note of 1 to 500 characters."); return; }
-    if (!window.confirm("Record this review note? The booking stays expired, the payment stays an exception, and no slot, refund or acceptance is created.")) return;
+    if (!window.confirm("Record this review note? The expired reservation is not restored, the payment stays an exception, and no slot, refund or acceptance is created.")) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/ethn/admin/exceptions/${detail.paymentId}/review`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: trimmed }) });
@@ -77,7 +77,7 @@ export default function ExceptionReview() {
   }
 
   return <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
-    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF REVIEW</p><h1 className="text-3xl font-semibold tracking-tight">Late payment exceptions</h1><p className="max-w-2xl text-muted-foreground">Payments submitted after the hold expired. Reviewing evidence records your assessment only: the booking stays expired, the payment stays an exception, and nothing is restored, refunded or accepted.</p></header>
+    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF REVIEW</p><h1 className="text-3xl font-semibold tracking-tight">Late payment exceptions</h1><p className="max-w-2xl text-muted-foreground">Payments submitted after the hold expired. Reviewing evidence records your assessment only: the expired reservation is not restored, the payment stays an exception, and nothing is restored, refunded or accepted.</p></header>
     {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/exceptions">Sign in</a>}</div>}
     {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
     {queue && queue.length === 0 && <p className="rounded-lg border bg-muted p-4 text-sm">No unreviewed exceptions.</p>}
@@ -97,7 +97,7 @@ export default function ExceptionReview() {
     </section>}
     {loadingDetail && <p role="status" className="text-sm text-muted-foreground">Loading exception…</p>}
     {detail && <section className="rounded-xl border bg-card p-5 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{detail.operatingDate} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · booking stays expired</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy} onClick={() => { setDetail(null); setSelected(null); setProof(null); }}>Close</Button></div></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{detail.operatingDate} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · expired reservation is not restored</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy} onClick={() => { setDetail(null); setSelected(null); setProof(null); }}>Close</Button></div></div>
       {proof && (Date.now() < proof.expiresAt ? <a className="inline-block text-sm underline" href={proof.signedUrl} target="_blank" rel="noreferrer">Open private proof (expires {Math.max(0, Math.round((proof.expiresAt - Date.now()) / 1000))}s)</a> : <p className="text-sm text-muted-foreground">Proof link expired. Load it again.</p>)}
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"><div><dt className="text-muted-foreground">Claimed reference</dt><dd className="font-medium">{detail.claimedReference ?? "Not provided"}</dd></div><div><dt className="text-muted-foreground">Claimed amount</dt><dd className="font-medium">{money(detail.claimedAmount)}</dd></div><div><dt className="text-muted-foreground">Amount due</dt><dd className="font-medium">{money(detail.total)}</dd></div><div><dt className="text-muted-foreground">Proof attached</dt><dd className="font-medium">{detail.proofAvailable ? "Yes" : "No"}</dd></div></dl>
       {detail.review ? <div className="rounded-lg border bg-muted/40 p-4 text-sm"><p className="font-medium">Reviewed {dateTime(detail.review.reviewedAt)}</p><p className="mt-1 whitespace-pre-wrap">{detail.review.note}</p></div> : <div className="space-y-2">
