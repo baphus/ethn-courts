@@ -82,7 +82,8 @@ html {
 
 .font-display { font-family: var(--font-athletic), var(--font-space), sans-serif; letter-spacing: .015em; }
 
-[data-admin-shell] [data-sidebar="sidebar"] {
+/* Desktop shell sidebar and its mobile sheet copy share one dark palette. */
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) {
   background: #092433;
   color: #eaf0f3;
   border-color: #092433;
@@ -92,12 +93,12 @@ html {
   --sidebar-border: rgb(255 255 255 / .12);
   --sidebar-ring: rgb(255 255 255 / .35);
 }
-[data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"] { color: rgb(255 255 255 / .72); }
-[data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"]:hover,
-[data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"][data-active="true"] { background: rgb(255 255 255 / .1); color: #fff; }
-[data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="header"],
-[data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="footer"] { border-color: rgb(255 255 255 / .12); }
-[data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"] svg { color: #ffad4c; }
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="menu-button"] { color: rgb(255 255 255 / .72); }
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="menu-button"]:hover,
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="menu-button"][data-active="true"] { background: rgb(255 255 255 / .1); color: #fff; }
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="header"],
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="footer"] { border-color: rgb(255 255 255 / .12); }
+:is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="menu-button"] svg { color: #ffad4c; }
 
 /* Keep operational page canvas aligned with active light/dark admin theme. */
 [data-admin-shell] .admin-workspace { background: #f6f8f8; }

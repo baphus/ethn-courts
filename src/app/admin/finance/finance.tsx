@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { addDaysManilaStr, manilaTodayStr } from "@/lib/courts";
 import { financeExportRows, type Report } from "./finance-export";
@@ -26,6 +27,7 @@ export default function Finance() {
   const [error, setError] = useState("");
   const [listError, setListError] = useState("");
   const [filterError, setFilterError] = useState("");
+  const [rangeOpen, setRangeOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -92,16 +94,28 @@ export default function Finance() {
   function applyFilters(event: React.FormEvent) {
     event.preventDefault();
     if (!draft.from || !draft.to || draft.from > draft.to || draft.to > today || draft.to > addDaysManilaStr(draft.from, 365)) { setFilterError("Choose a date range of up to 366 days, ending no later than today in Manila."); return; }
-    setFilterError(""); setPage(1); setFilters({ ...draft });
+    setFilterError(""); setPage(1); setFilters({ ...draft }); setRangeOpen(false);
   }
 
   return <main className="mx-auto max-w-7xl space-y-8 p-4 text-slate-900 sm:p-8">
     <header className="space-y-3"><h1 className="text-2xl font-semibold tracking-tight">Collections & expenses</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Verified booking/extension collections and paid manual sales use the Manila receipt date. Record corrections apply on their own date, not the original transaction date; they do not represent cash returned. This is a cash-record report, not formal accounting profit.</p></header>
-    <form onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-5">
-      <label className="text-sm font-semibold">From<input className={`${input} mt-1`} type="date" required value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
-      <label className="text-sm font-semibold">To<input className={`${input} mt-1`} type="date" required value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
-      <button className={button}>Apply dates</button><button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Download XLSX"}</button>{filterError && <p role="alert" className="text-sm text-red-700">{filterError}</p>}{exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
-    </form>
+    <div className="flex flex-wrap items-center gap-3">
+      <Popover open={rangeOpen} onOpenChange={open => { setRangeOpen(open); if (open) { setDraft(filters); setFilterError(""); } }}>
+        <PopoverTrigger render={<Button variant="outline" />}>Date range</PopoverTrigger>
+        <PopoverContent className="w-72 space-y-4 p-4">
+          <h2 className="font-semibold">Report date range</h2>
+          <form onSubmit={applyFilters} className="space-y-3">
+            <label className="grid gap-1 text-sm font-medium">From<input className={input} type="date" required value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
+            <label className="grid gap-1 text-sm font-medium">To<input className={input} type="date" required value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
+            {filterError && <p role="alert" className="text-sm text-destructive">{filterError}</p>}
+            <Button type="submit">Apply</Button>
+          </form>
+        </PopoverContent>
+      </Popover>
+      <p className="text-sm text-muted-foreground">{filters.from} to {filters.to}</p>
+      <button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Download XLSX"}</button>
+      {exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
+    </div>
     <section aria-label="Finance summary" aria-busy={loading}>
       {report?.components&&<p className="text-sm text-muted-foreground">Verified bookings/extensions {money(report.components.bookingAndExtensionCollections)} · Manual sales after dated corrections {money(report.components.manualSalesAfterCorrections)}</p>}
       {loading ? <p>Loading report…</p> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : report && <div className="grid gap-4 md:grid-cols-3">

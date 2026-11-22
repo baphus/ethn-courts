@@ -17,3 +17,13 @@ test('uncertain attendance changes cannot silently close or resubmit',()=>{
  assert.match(text,/Reload booking/);
  assert.match(text,/expectedNoShow:noShow/);
 });
+test('finance date range filters open from a trigger, not the page body',()=>{
+ const text=source('src/app/admin/finance/finance.tsx');
+ assert.match(text,/PopoverTrigger/);
+ assert.match(text,/Report date range/);
+ assert.match(text,/setRangeOpen\(false\)/);
+});
+test('mobile sidebar sheet gets the dark admin palette',()=>{
+ const css=source('src/app/globals.css');
+ assert.match(css,/\[data-sidebar="sidebar"\]\[data-mobile="true"\]/);
+});
