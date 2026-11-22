@@ -64,7 +64,7 @@ export default function RegisterForm() {
           <div className="flex flex-col items-center gap-2 text-center">
             <img src="/ethn-courts-mark.png" alt="" className="size-16 rounded-xl object-cover" />
             <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
-            <h1 className="font-display text-4xl leading-none tracking-wide text-[#16384d]">Create admin account</h1>
+            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#16384d]">Create admin account</h1>
             <p className="text-sm text-balance text-muted-foreground">
               Set up your ETHN Courts staff account
             </p>
@@ -121,7 +121,7 @@ export default function RegisterForm() {
 
               <Field>
                 <FieldError>{error}</FieldError>
-                <Button type="submit" disabled={busy} className="w-full">
+                <Button type="submit" disabled={busy} className="w-full rounded-lg bg-[#f28500] font-bold text-white hover:bg-[#d97300]">
                   {busy ? (
                     <span className="flex items-center justify-center gap-2">
                       <LoadingAnimation size="compact" label="Creating account" />

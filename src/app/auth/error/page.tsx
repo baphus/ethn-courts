@@ -20,7 +20,7 @@ export default async function AuthErrorPage({
           <CardContent className="flex flex-col items-center gap-4 p-6 text-center md:p-8">
             <img src="/ethn-courts-mark.png" alt="" className="size-14 rounded-xl object-cover" />
             <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
-            <h1 className="font-display text-4xl leading-none tracking-wide text-[#16384d]">This link can&apos;t be used</h1>
+            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#16384d]">This link can&apos;t be used</h1>
             <p className="text-sm text-balance text-muted-foreground">
               The email link is invalid or has expired. Links are single-use
               and short-lived — request a fresh one.

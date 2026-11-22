@@ -36,9 +36,9 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
     <main className="min-h-screen bg-[#f6f8f8] px-4 py-8 text-ink sm:py-12">
       <div className="mx-auto max-w-3xl">
         <header className="flex items-center justify-between border-b border-line pb-4"><a href="/" aria-label="ETHN Courts home" className="flex items-center gap-3"><img src="/ethn-courts-mark.png" alt="" className="size-11 rounded-xl object-cover"/><span className="text-sm font-extrabold tracking-[.16em] text-pine">ETHN <span className="text-[#f28500]">COURTS</span></span></a><a href="/book" className="text-sm font-bold text-pine hover:text-[#f28500]">Book a court</a></header>
-        <div className="mt-8"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f28500]">Booking updates</p><h1 className="font-display mt-2 text-5xl tracking-wide text-pine sm:text-7xl">Reservation status</h1></div>
+        <div className="mt-8"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f28500]">Booking updates</p><h1 className="font-display mt-2 text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl">Reservation status</h1></div>
         {!booking ? (
-          <div className="mt-8 border border-line bg-white p-6 shadow-sm sm:p-8">
+          <div className="mt-8 rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8">
             <h2 className="text-xl font-bold">{unavailable ? "Tracking is unavailable" : "Reservation not found"}</h2>
             <p className="mt-2 text-sm leading-6 text-warm-muted">
               {unavailable ? "Please try again later." : "Check your tracking link and try again."}
@@ -46,7 +46,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
           </div>
         ) : (
           <div className="mt-8 space-y-4">
-            <section className="border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="reservation-heading">
+            <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="reservation-heading">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Reservation</p>
@@ -61,10 +61,10 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
               <div className="mt-6 border-t border-line pt-5">
                 <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Operating date</p>
                 <p className="mt-2 font-semibold">{date.format(new Date(`${booking.operatingDate}T12:00:00+08:00`))}</p>
-                <p className="mt-1 text-sm text-warm-muted">All dates and times are in Asia/Manila.</p>
+                <p className="mt-1 text-sm text-warm-muted">All dates and times are local.</p>
               </div>
             </section>
-            <section className="border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="courts-heading">
+            <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="courts-heading">
               <h2 id="courts-heading" className="text-lg font-bold">Court schedule</h2>
               <ul className="mt-4 divide-y divide-line">
                 {booking.items.map((item, index) => (
@@ -79,7 +79,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
                 ))}
               </ul>
             </section>
-            <section className="border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="payment-heading">
+            <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="payment-heading">
               <h2 id="payment-heading" className="text-lg font-bold">Payment status</h2>
               {booking.payments.length === 0 ? <p className="mt-3 text-sm text-warm-muted">No payment recorded.</p> : (
                 <ul className="mt-3 space-y-3">
@@ -96,7 +96,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
             </section>
           </div>
         )}
-        <footer className="mt-8 border-t border-line pt-5 text-sm text-warm-muted">ETHN COURTS · All times are in Asia/Manila.</footer>
+        <footer className="mt-8 border-t border-line pt-5 text-sm text-warm-muted">ETHN COURTS · All times are local.</footer>
       </div>
     </main>
   );

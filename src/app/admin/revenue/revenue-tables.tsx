@@ -71,7 +71,7 @@ export function RevenueTables({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="px-4">Date (Manila)</TableHead>
+                    <TableHead className="px-4">Date</TableHead>
                     <TableHead className="px-4">Bookings</TableHead>
                     <TableHead className="px-4">Revenue</TableHead>
                     <TableHead className="px-4">% of total</TableHead>

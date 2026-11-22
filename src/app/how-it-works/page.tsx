@@ -52,7 +52,7 @@ export default async function HowItWorksPage() {
   return (
     <>
       <Header />
-      <main id="main" className="bg-cream pt-16">
+      <main id="main" className="bg-[#f6f8f8] pt-16">
         {/* Hero — centered */}
         <section className="mx-auto w-full max-w-[1100px] px-4 pt-12 pb-8 text-center sm:px-6" aria-labelledby="hiw-heading">
           <p className="inline-block rounded-full bg-flame-light px-4 py-1.5 text-[11px] font-extrabold tracking-[0.14em] text-flame uppercase">
@@ -60,7 +60,7 @@ export default async function HowItWorksPage() {
           </p>
           <h1
             id="hiw-heading"
-            className="font-display mx-auto mt-4 max-w-2xl text-5xl tracking-wide text-pine sm:text-7xl"
+            className="font-display mx-auto mt-4 max-w-2xl text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
           >
             How Booking Works
           </h1>

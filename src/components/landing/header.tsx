@@ -21,7 +21,7 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-line/70 bg-cream/95">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[#dce5e8] bg-white/95">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:rounded-lg focus:bg-pine focus:px-4 focus:py-2 focus:text-white"
@@ -52,7 +52,7 @@ export default function Header() {
               href={l.href}
               aria-current={isActive(l.href) ? "page" : undefined}
               className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+                "rounded-lg px-4 py-2 text-[11px] font-extrabold uppercase tracking-wider transition-colors",
                 isActive(l.href)
                   ? "bg-pine text-white"
                   : "text-ink/80 hover:bg-oat hover:text-ink",
@@ -72,7 +72,7 @@ export default function Header() {
           </a>
           <a
             href="/book"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-flame px-5 py-2.5 text-sm font-bold whitespace-nowrap text-white shadow-[0_8px_20px_rgba(234,102,44,0.35)] transition-all hover:-translate-y-0.5 hover:bg-flame-hover"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f28500] px-5 py-2.5 text-xs font-extrabold whitespace-nowrap text-white transition-colors hover:bg-[#d97300]"
           >
             <CalendarCheck className="size-4" aria-hidden />
             Book a Court

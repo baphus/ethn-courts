@@ -123,7 +123,7 @@ export default function WalkInForm() {
           <label className="space-y-1 text-sm font-medium">Operating date<Input type="date" value={date} onChange={e => {setDate(e.target.value);setEndDate(e.target.value);}} /></label>
           <label className="space-y-1 text-sm font-medium">Court<select className="block w-full rounded-md border bg-background px-3 py-2 text-sm" value={courtId} onChange={e => setCourtId(e.target.value)}>{availability?.courts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <label className="space-y-1 text-sm font-medium">Start<Input type="time" step={availability?.settings.intervalMinutes === 60 ? 3600 : 1800} value={start} onChange={e => setStart(e.target.value)} /></label>
-          <label className="space-y-1 text-sm font-medium">End date (Manila)<Input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}/></label>
+          <label className="space-y-1 text-sm font-medium">End date<Input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}/></label>
           <label className="space-y-1 text-sm font-medium">End<Input type="time" step={availability?.settings.intervalMinutes === 60 ? 3600 : 1800} value={end} onChange={e => setEnd(e.target.value)} /></label>
         </fieldset>
         {court && <p className="text-xs text-muted-foreground">Hours: {court.windows.map(w => `${time(w.opensAt)}–${time(w.closesAt)}`).join(", ") || "None"} · minimum {availability?.settings.minimumMinutes} min{court.occupied.length ? ` · occupied: ${court.occupied.map(o => `${time(o.startsAt)}–${time(o.endsAt)}`).join(", ")}` : ""}</p>}

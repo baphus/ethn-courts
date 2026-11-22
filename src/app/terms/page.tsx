@@ -73,7 +73,7 @@ export default function TermsPage() {
   return (
     <>
       <Header />
-      <main id="main" className="bg-cream pt-16">
+      <main id="main" className="bg-[#f6f8f8] pt-16">
         <section
           className="mx-auto w-full max-w-3xl px-4 pt-12 pb-8 sm:px-6"
           aria-labelledby="terms-heading"
@@ -83,7 +83,7 @@ export default function TermsPage() {
           </p>
           <h1
             id="terms-heading"
-            className="font-display mt-4 text-5xl tracking-wide text-pine sm:text-7xl"
+            className="font-display mt-4 text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
           >
             Terms of Service
           </h1>

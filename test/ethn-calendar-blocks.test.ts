@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
-import { createEthnBlock, getEthnCalendar, releaseEthnBlock } from "../src/lib/admin/ethn-calendar";
+import { createEthnBlock, getEthnCalendar, listUpcomingBlocks, releaseEthnBlock } from "../src/lib/admin/ethn-calendar";
 const url=process.env.ETHN_CALENDAR_BLOCK_TEST_DATABASE_URL, adminUrl=process.env.ETHN_CALENDAR_BLOCK_TEST_ADMIN_URL;
 const owner="00000000-0000-4000-8000-000000000031",staff="00000000-0000-4000-8000-000000000032",disabled="00000000-0000-4000-8000-000000000033";
 const uuid=()=>randomUUID();
@@ -29,6 +29,8 @@ test("block database contract and staff calendar on restricted disposable ETHN r
   const afterExpiry=await createEthnBlock(pool,async()=>owner,overlap(new Date(end.getTime()+3600000),new Date(end.getTime()+7200000)));assert.equal((await admin.query("SELECT status FROM ethn.bookings WHERE id=$1",[checkout.rows[0].id])).rows[0].status,"expired");
   const date=(await admin.query("SELECT to_char(($1::timestamptz - interval '7 hour') AT TIME ZONE 'Asia/Manila','YYYY-MM-DD') AS d",[start])).rows[0].d as string;
   const calendar=await getEthnCalendar(pool,async()=>staff,date);assert.ok(calendar.courts.find(c=>c.id==="1")?.intervals.some(i=>i.blockId===a.id&&i.kind==="maintenance"));assert.ok(!JSON.stringify(calendar).includes("email"));
+  const upcoming=await listUpcomingBlocks(pool,async()=>staff);const listed=upcoming.find(b=>b.id===a.id);assert.ok(listed);assert.deepEqual(Object.keys(listed).sort(),["courtName","endsAt","id","kind","reason","startsAt"].sort());assert.equal(listed.kind,"maintenance");
+  await assert.rejects(listUpcomingBlocks(pool,async()=>null),/UNAUTHENTICATED/);
   const countBefore=(await admin.query("SELECT count(*)::int AS n FROM ethn.audit WHERE action='calendar.block.release'")).rows[0].n;
   await releaseEthnBlock(pool,async()=>staff,a.id);await releaseEthnBlock(pool,async()=>staff,a.id);await releaseEthnBlock(pool,async()=>owner,adjacent.id);await releaseEthnBlock(pool,async()=>owner,afterExpiry.id);
   assert.equal((await admin.query("SELECT count(*)::int AS n FROM ethn.audit WHERE action='calendar.block.release'")).rows[0].n-countBefore,3);

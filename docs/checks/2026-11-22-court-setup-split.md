@@ -19,6 +19,7 @@ Matches the forked repo's information architecture: one Court Setup surface wher
 - `npm test` — 337 pass, 26 conditional skips, 0 fail (was 338 pass with the deleted reducer test).
 - `npm run build` — exit 0; `/admin/courts` and `/admin/hours` build as expected.
 - No browser pass was run; the request did not grant permission. Layout and dialog behaviour on a phone are unverified.
+- Follow-up closure investigation: unauthenticated local GET returned 503 while other admin GETs returned 401. After recompiling the blocks route, it returned the expected `401 UNAUTHENTICATED`. Stale development module state is suspected, not proven; no original exception was captured. Authenticated UI success remains unverified. `listUpcomingBlocks` now has restricted-role integration coverage in `test/ethn-calendar-blocks.test.ts`; the disposable 0001–0028 database run passed. The `Open calendar` link-as-button now sets `nativeButton={false}` to match the existing link-button pattern and address the observed Base UI warning.
 
 ## Still open
 

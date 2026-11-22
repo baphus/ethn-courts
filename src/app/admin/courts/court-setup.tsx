@@ -231,10 +231,10 @@ export default function CourtSetup() {
       <section className="rounded-xl border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
           <div><h2 className="font-semibold">Upcoming closures</h2><p className="text-sm text-muted-foreground">Maintenance, private use and Open Plays that stop bookings. Create and release them on the calendar.</p></div>
-          <Button variant="outline" size="sm" render={<Link href="/admin/calendar" />}>Open calendar</Button>
+          <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/calendar" />}>Open calendar</Button>
         </div>
         <div className="p-4 text-sm">
-          {blocks === null ? <p role="status" className="text-muted-foreground">Loading closures…</p> : blocksError ? <p className="text-muted-foreground">Closures could not be loaded. <button type="button" className="underline" onClick={() => void loadBlocks()}>Try again</button></p> : blocks.length === 0 ? <p className="text-muted-foreground">No upcoming closures.</p> : <ul className="divide-y">{blocks.map(block => <li key={block.id} className="space-y-1 py-3 first:pt-0 last:pb-0"><p className="font-medium">{block.courtName} · {kindLabel(block.kind)}</p><p className="text-muted-foreground">{stamp(block.startsAt)} to {stamp(block.endsAt)} (Manila)</p><p className="break-words text-muted-foreground">{block.reason}</p></li>)}</ul>}
+          {blocks === null ? <p role="status" className="text-muted-foreground">Loading closures…</p> : blocksError ? <p className="text-muted-foreground">Closures could not be loaded. <button type="button" className="underline" onClick={() => void loadBlocks()}>Try again</button></p> : blocks.length === 0 ? <p className="text-muted-foreground">No upcoming closures.</p> : <ul className="divide-y">{blocks.map(block => <li key={block.id} className="space-y-1 py-3 first:pt-0 last:pb-0"><p className="font-medium">{block.courtName} · {kindLabel(block.kind)}</p><p className="text-muted-foreground">{stamp(block.startsAt)} to {stamp(block.endsAt)}</p><p className="break-words text-muted-foreground">{block.reason}</p></li>)}</ul>}
         </div>
       </section>
     </>}

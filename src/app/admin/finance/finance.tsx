@@ -94,12 +94,12 @@ export default function Finance() {
 
   function applyFilters(event: React.FormEvent) {
     event.preventDefault();
-    if (!draft.from || !draft.to || draft.from > draft.to || draft.to > today || draft.to > addDaysManilaStr(draft.from, 365)) { setFilterError("Choose a date range of up to 366 days, ending no later than today in Manila."); return; }
+    if (!draft.from || !draft.to || draft.from > draft.to || draft.to > today || draft.to > addDaysManilaStr(draft.from, 365)) { setFilterError("Choose a date range of up to 366 days, ending no later than today."); return; }
     setFilterError(""); setPage(1); setFilters({ ...draft }); setRangeOpen(false);
   }
 
   return <main className="mx-auto max-w-7xl space-y-8 p-4 text-slate-900 sm:p-8">
-    <header className="space-y-3"><h1 className="text-2xl font-semibold tracking-tight">Collections & expenses</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Verified booking/extension collections and paid manual sales use the Manila receipt date. Record corrections apply on their own date, not the original transaction date; they do not represent cash returned. This is a cash-record report, not formal accounting profit.</p></header>
+    <header className="space-y-3"><h1 className="text-2xl font-semibold tracking-tight">Collections & expenses</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Verified booking/extension collections and paid manual sales use the payment receipt date. Record corrections apply on their own date, not the original transaction date; they do not represent cash returned. This is a cash-record report, not formal accounting profit.</p></header>
     <div className="flex flex-wrap items-center gap-3">
       <Popover open={rangeOpen} onOpenChange={open => { setRangeOpen(open); if (open) { setDraft(filters); setFilterError(""); } }}>
         <PopoverTrigger render={<Button variant="outline" />}>Date range</PopoverTrigger>
@@ -123,7 +123,7 @@ export default function Finance() {
         {[["Recorded collections after corrections", report.totals.collected], ["Recorded expenses", report.totals.expenses], ["Net after recorded expenses", report.totals.net]].map(([label, value], index) => <div key={label} className={`rounded-2xl p-6 ${index === 2 ? "bg-slate-900 text-white" : "border border-slate-200 bg-white"}`}><p className="text-sm font-medium opacity-75">{label}</p><p className="mt-4 text-3xl font-bold tracking-tight">{money(value)}</p>{index === 0 && <p className="mt-3 text-sm opacity-75">Cash {money(report.totals.cash)} · GCash {money(report.totals.gcash)}</p>}</div>)}
       </div>}
     </section>
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="text-xl font-bold">Daily breakdown</h2><p className="mt-1 text-sm text-slate-600">Manila calendar dates · {formatDisplayDate(filters.from)} to {formatDisplayDate(filters.to)}</p></div>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="text-xl font-bold">Daily breakdown</h2><p className="mt-1 text-sm text-slate-600">{formatDisplayDate(filters.from)} to {formatDisplayDate(filters.to)}</p></div>
       {loading ? <p>Loading daily breakdown…</p> : error ? <p>Daily breakdown unavailable.</p> : report?.daily.length ? <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="border-b text-slate-500"><tr>{["Date", "Cash", "GCash", "Recorded collections after corrections", "Recorded expenses", "Net after recorded expenses"].map(x => <th className="px-3 py-3 font-semibold" key={x}>{x}</th>)}</tr></thead><tbody>{report.daily.map(row => <tr key={row.date} className="border-b border-slate-100"><td className="px-3 py-3">{formatDisplayDate(row.date)}</td>{[row.cash, row.gcash, row.collected, row.expenses, row.net].map((v, i) => <td className="px-3 py-3 tabular-nums" key={i}>{money(v)}</td>)}</tr>)}</tbody></table></div> : <p className="text-sm text-slate-600">No activity in this date range.</p>}
     </section>
     {pending && !expenseOpen && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Expense outcome uncertain. Review or retry the saved request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
