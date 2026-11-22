@@ -82,7 +82,16 @@ html {
 
 .font-display { font-family: var(--font-athletic), var(--font-space), sans-serif; letter-spacing: .015em; }
 
-[data-admin-shell] [data-sidebar="sidebar"] { background: #092433; color: #eaf0f3; border-color: #092433; }
+[data-admin-shell] [data-sidebar="sidebar"] {
+  background: #092433;
+  color: #eaf0f3;
+  border-color: #092433;
+  --sidebar-foreground: #eaf0f3;
+  --sidebar-accent: rgb(255 255 255 / .1);
+  --sidebar-accent-foreground: #fff;
+  --sidebar-border: rgb(255 255 255 / .12);
+  --sidebar-ring: rgb(255 255 255 / .35);
+}
 [data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"] { color: rgb(255 255 255 / .72); }
 [data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"]:hover,
 [data-admin-shell] [data-sidebar="sidebar"] [data-sidebar="menu-button"][data-active="true"] { background: rgb(255 255 255 / .1); color: #fff; }
