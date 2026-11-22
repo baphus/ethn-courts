@@ -1,5 +1,9 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
+import { LoadingAnimation } from "@/components/ui/loading-animation";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -89,7 +93,7 @@ export default function ExceptionReview() {
     <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF REVIEW</p><h1 className="text-3xl font-semibold tracking-tight">Late payment exceptions</h1><p className="max-w-2xl text-muted-foreground">Payments submitted after a reservation or extension hold expired. Reviewing evidence records your assessment only; the expired hold is not restored, the payment stays an exception, and nothing is refunded or accepted.</p></header>
     {!selected && error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/exceptions">Sign in</a>}</div>}
     {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
-    {queue && queue.length === 0 && <p className="rounded-lg border bg-muted p-4 text-sm">No unreviewed exceptions.</p>}
+    {queue && queue.length === 0 && <p className="rounded-lg border bg-muted p-4 text-sm text-center"><EmptyIcon /> No unreviewed exceptions.</p>}
     <Dialog open={selected !== null} onOpenChange={open => { if (!open) closeReview(); }}>
     {queue && queue.length > 0 && <section className="rounded-xl border bg-card p-5">
       <h2 className="text-lg font-semibold">Pending review <span className="text-sm font-normal text-muted-foreground">· {queue.length}</span></h2>
@@ -110,7 +114,7 @@ export default function ExceptionReview() {
       <DialogDescription>Review the claim and record an assessment. No slot, refund or payment acceptance is created.</DialogDescription>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {unknown && <Button type="button" onClick={() => window.location.reload()}>Reload exceptions</Button>}
-      {loadingDetail && <p role="status" className="text-sm text-muted-foreground">Loading exception…</p>}
+      {loadingDetail && <LoadingAnimation label="Loading exception" className="py-4" />}
     {detail && <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{formatDisplayDate(detail.operatingDate)} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · {detail.extensionId ? "expired extension is not restored" : "expired reservation is not restored"}</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy || unknown} onClick={closeReview}>Close</Button></div></div>
       {proof && (Date.now() < proof.expiresAt ? <a className="inline-block text-sm underline" href={proof.signedUrl} target="_blank" rel="noreferrer">Open private proof (expires {Math.max(0, Math.round((proof.expiresAt - Date.now()) / 1000))}s)</a> : <p className="text-sm text-muted-foreground">Proof link expired. Load it again.</p>)}

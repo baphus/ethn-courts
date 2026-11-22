@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentStaff } from "@/lib/admin/ethn-staff-server";
 import OwnerPayment from "./owner-payment";
+import OwnerContact from "./owner-contact";
 
 export default async function SettingsPage() {
   try {
@@ -11,5 +12,5 @@ export default async function SettingsPage() {
     if (error instanceof Error && error.message === "FORBIDDEN") return <div role="alert">Owner access is not enabled for this account.</div>;
     return <div role="alert">Settings are unavailable. Please try again later.</div>;
   }
-  return <OwnerPayment />;
+  return <><OwnerContact /><OwnerPayment /></>;
 }

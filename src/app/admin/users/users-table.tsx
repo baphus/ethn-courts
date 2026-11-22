@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -115,8 +117,8 @@ export default function UsersTable({
 
   if (users.length === 0) {
     return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        No admin users found.
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground text-center flex-col">
+        <EmptyIcon /> No admin users found.
       </div>
     );
   }

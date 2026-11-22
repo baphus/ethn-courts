@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { drawPickleball } from "./pickleball";
 
 type LoadingAnimationProps = {
   label?: string;
@@ -12,31 +16,31 @@ const sizes = {
   large: "size-24 sm:size-28",
 };
 
-/** A consistent, branded progress cue for route and in-place loading states. */
-export function LoadingAnimation({
-  label = "Loading",
-  size = "default",
-  className,
-}: LoadingAnimationProps) {
+export function LoadingAnimation({ label = "Loading", size = "default", className }: LoadingAnimationProps) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const ctx = canvas.current?.getContext("2d");
+    if (!ctx) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let frame = 0;
+    const render = (time: number) => {
+      drawPickleball(ctx, motion.matches ? 0.6 : time * 0.004);
+      if (!motion.matches) frame = requestAnimationFrame(render);
+    };
+    const update = () => {
+      cancelAnimationFrame(frame);
+      render(performance.now());
+    };
+    update();
+    motion.addEventListener("change", update);
+    return () => { cancelAnimationFrame(frame); motion.removeEventListener("change", update); };
+  }, []);
+
   return (
-    <span
-      role="status"
-      aria-live="polite"
-      className={cn("inline-flex items-center justify-center", className)}
-    >
-      {/* The supplied SVG owns the motion. Hide it for reduced-motion users while
-          retaining an accessible status announcement. */}
-      <img
-        src="/pickleball-loader.svg"
-        alt=""
-        aria-hidden="true"
-        className={cn("object-contain motion-reduce:hidden", sizes[size])}
-      />
+    <span role="status" aria-live="polite" className={cn("inline-flex items-center justify-center", size !== "compact" && "w-full", className)}>
+      <canvas ref={canvas} width={72} height={72} aria-hidden="true" className={sizes[size]} />
       <span className="sr-only">{label}</span>
-      <span
-        aria-hidden="true"
-        className="hidden size-3 rounded-full bg-flame motion-reduce:inline-block"
-      />
     </span>
   );
 }

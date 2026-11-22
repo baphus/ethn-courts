@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { appBase } from "@/lib/app-url";
 import { FALLBACK_RATES, getDisplayRates, type DisplayRates } from "@/lib/pricing-display";
-import Header from "@/components/landing/header";
 import Footer from "@/components/landing/footer";
 import TrackView from "@/components/tracking/track-view";
 
@@ -132,8 +131,7 @@ export default async function TrackPage({
 
   return (
     <>
-      <Header />
-      <main id="main" className="min-h-screen bg-[#f6f8f8] pt-20 pb-16">
+      <main id="main" className="min-h-screen bg-[#f6f8f8] pt-4 pb-16">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <TrackView
             token={token}

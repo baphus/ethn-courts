@@ -1,5 +1,9 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
+import { LoadingAnimation } from "@/components/ui/loading-animation";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -192,7 +196,7 @@ export default function CourtSetup() {
     {!data && <Button variant="outline" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Try again"}</Button>}
 
     {data && <>
-      {data.courts.length === 0 && <p className="rounded-xl border bg-card p-5 text-sm text-muted-foreground">No courts yet. Add one to configure windows and rates.</p>}
+      {data.courts.length === 0 && <p className="rounded-xl border bg-card p-5 text-sm text-muted-foreground text-center"><EmptyIcon /> No courts yet. Add one to configure windows and rates.</p>}
       {data.courts.map((court, ci) => <section key={court.id} className="rounded-xl border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
           <div>
@@ -224,7 +228,7 @@ export default function CourtSetup() {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4">
         <Button disabled={!dirty || stale || busy} onClick={() => void saveSchedule()}>{busy ? "Saving…" : "Save schedule"}</Button>
         <Button variant="outline" disabled={busy} onClick={() => { if (!dirty || window.confirm("Reload the schedule and discard your unsaved changes?")) void load(); }}>Reload</Button>
-        <span className="text-sm text-muted-foreground">Version {data.version}{dirty ? " · Unsaved changes" : ""}</span>
+        {dirty && <span className="text-sm text-muted-foreground">Unsaved changes</span>}
       </div>
       {stale && <Button variant="outline" disabled={busy} onClick={() => { if (window.confirm("Reload the schedule and discard your unsaved changes?")) void load(); }}>Reload schedule</Button>}
 
@@ -234,7 +238,7 @@ export default function CourtSetup() {
           <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/calendar" />}>Open calendar</Button>
         </div>
         <div className="p-4 text-sm">
-          {blocks === null ? <p role="status" className="text-muted-foreground">Loading closures…</p> : blocksError ? <p className="text-muted-foreground">Closures could not be loaded. <button type="button" className="underline" onClick={() => void loadBlocks()}>Try again</button></p> : blocks.length === 0 ? <p className="text-muted-foreground">No upcoming closures.</p> : <ul className="divide-y">{blocks.map(block => <li key={block.id} className="space-y-1 py-3 first:pt-0 last:pb-0"><p className="font-medium">{block.courtName} · {kindLabel(block.kind)}</p><p className="text-muted-foreground">{stamp(block.startsAt)} to {stamp(block.endsAt)}</p><p className="break-words text-muted-foreground">{block.reason}</p></li>)}</ul>}
+          {blocks === null ? <LoadingAnimation label="Loading closures" className="py-4" /> : blocksError ? <p className="text-muted-foreground">Closures could not be loaded. <button type="button" className="underline" onClick={() => void loadBlocks()}>Try again</button></p> : blocks.length === 0 ? <p className="text-muted-foreground text-center"><EmptyIcon /> No upcoming closures.</p> : <ul className="divide-y">{blocks.map(block => <li key={block.id} className="space-y-1 py-3 first:pt-0 last:pb-0"><p className="font-medium">{block.courtName} · {kindLabel(block.kind)}</p><p className="text-muted-foreground">{stamp(block.startsAt)} to {stamp(block.endsAt)}</p><p className="break-words text-muted-foreground">{block.reason}</p></li>)}</ul>}
         </div>
       </section>
     </>}

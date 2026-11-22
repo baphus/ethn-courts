@@ -1,4 +1,3 @@
-import Header from "@/components/landing/header";
 import Footer from "@/components/landing/footer";
 
 export const metadata = {
@@ -75,8 +74,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
 export default function PrivacyPage() {
   return (
     <>
-      <Header />
-      <main id="main" className="bg-[#f6f8f8] pt-16">
+      <main id="main" className="bg-[#f6f8f8] pt-0">
         <section
           className="mx-auto w-full max-w-3xl px-4 pt-12 pb-8 sm:px-6"
           aria-labelledby="privacy-heading"

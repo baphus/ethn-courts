@@ -43,7 +43,7 @@ export default function OwnerPayment() {
       const result: { version: string } = await response.json();
       const saved = { ...data, version: result.version, merchant: payload.merchant };
       setData(saved); setOriginal(JSON.stringify(saved)); setOpen(false); setConfirmed(false);
-      setNotice(`Saved version ${result.version}.${!payload.merchant ? " Payment checkout stays disabled until instructions are entered." : ""}`);
+      setNotice(`Payment instructions saved.${!payload.merchant ? " Payment checkout stays disabled until instructions are entered." : ""}`);
     } catch { setError("Could not confirm whether settings were saved. Reload before trying again; unsaved changes will be lost."); setStale(true); } finally { setBusy(false); }
   }
 
@@ -80,7 +80,6 @@ export default function OwnerPayment() {
           </div>
         </div>
         <p className="whitespace-pre-wrap break-words text-sm">{data.merchant || "Not configured — payment checkout is disabled."}</p>
-        <p className="text-xs text-muted-foreground">Version {data.version}</p>
       </section>
     </>}
   </div>;

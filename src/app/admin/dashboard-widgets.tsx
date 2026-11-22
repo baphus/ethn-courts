@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import type { Dashboard, ScheduleItem } from "./dashboard-types";
@@ -36,14 +38,14 @@ function SectionTitle({ id, title, sub, action }: { id: string; title: string; s
 export function OpenPlayBanner({ plays }: { plays: NonNullable<Dashboard["openPlays"]> }) {
   const [next, ...rest] = plays;
   return <section aria-label="Open Plays" className="overflow-hidden rounded-2xl bg-sidebar p-6 text-sidebar-foreground">
-    <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className={next ? "flex flex-wrap items-center justify-between gap-4" : "flex flex-col items-center gap-4 text-center"}>
       <div className="min-w-0">
         <span className="inline-block rounded-full px-2.5 py-1 text-xs font-semibold text-[#1a1206]" style={{ backgroundColor: ACCENT }}>Open Play</span>
         {next ? <>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight">{next.title}</h2>
           <p className="mt-1 text-sm opacity-80">{dateTimeFmt.format(new Date(next.startsAt))}{next.spotsLeft !== null && ` · ${next.spotsLeft} ${next.spotsLeft === 1 ? "spot" : "spots"} left`}</p>
         </> : <>
-          <h2 className="mt-3 text-2xl font-semibold tracking-tight">No Open Plays scheduled</h2>
+          <EmptyIcon className="mt-3 text-sidebar-foreground" /><h2 className="text-2xl font-semibold tracking-tight">No Open Plays scheduled</h2>
           <p className="mt-1 text-sm opacity-80">Schedule one and it appears on the public timetable.</p>
         </>}
       </div>
@@ -112,7 +114,7 @@ export function Schedule({ items }: { items: ScheduleItem[] }) {
         return <div key={period.key} className="min-w-0">
           <div className="mb-2 flex items-baseline justify-between text-sm"><h3 className="font-medium">{period.label}</h3><span className="text-xs text-muted-foreground">{period.range}</span></div>
           <div className="space-y-2">
-            {rows.length === 0 && <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No bookings</p>}
+            {rows.length === 0 && <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground text-center"><EmptyIcon /> No bookings</p>}
             {rows.map(r => <article key={r.id} className="rounded-lg border bg-background p-3">
               <div className="flex items-start justify-between gap-2"><p className="truncate font-medium">{r.customerName}</p><span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span></div>
               <p className="mt-1 text-sm tabular-nums">{clock.format(new Date(r.startsAt))} to {clock.format(new Date(r.endsAt))}</p>
@@ -179,7 +181,7 @@ export function RevenueChart({ finance }: { finance: Finance }) {
   return <section className={`${card} xl:col-span-2`} aria-labelledby="revenue-heading">
     <SectionTitle id="revenue-heading" title="Revenue this month" sub="Paid bookings only. Refunded and cancelled bookings are excluded." />
     <div className="flex flex-wrap items-baseline gap-3"><p className="text-3xl font-semibold tabular-nums tracking-tight">{peso.format(finance.revenueMonth)}</p><p className="text-xs"><Delta current={finance.revenueMonth} previous={finance.revenuePrevMonth} /></p></div>
-    {days.length === 0 ? <p className="py-10 text-sm text-muted-foreground">No paid bookings yet this month.</p> : <>
+    {days.length === 0 ? <p className="py-10 text-sm text-muted-foreground text-center"><EmptyIcon /> No paid bookings yet this month.</p> : <>
       <div className="mt-4 flex h-44 items-end gap-[3px]" role="img" aria-label={`Daily revenue, ${shortDate(days[0].date)} to ${shortDate(days[days.length - 1].date)}`}>
         {days.map((d, i) => <div key={d.date} title={`${shortDate(d.date)}: ${peso.format(d.amount)}`} className="flex h-full flex-1 items-end">
           <div className={`w-full rounded-t ${i === days.length - 1 ? "" : "bg-primary/80 hover:bg-primary"}`} style={{ height: `${Math.max(2, (d.amount / max) * 100)}%`, ...(i === days.length - 1 ? { backgroundColor: ACCENT } : {}) }} />
@@ -202,7 +204,7 @@ export function PaymentMethods({ items }: { items: Finance["paymentMethods"] }) 
   const total = items.reduce((n, i) => n + i.amount, 0);
   return <section className={card} aria-labelledby="methods-heading">
     <SectionTitle id="methods-heading" title="Payment methods" sub="How players paid this month." />
-    {total === 0 ? <p className="py-6 text-sm text-muted-foreground">No payments yet this month.</p> : <>
+    {total === 0 ? <p className="py-6 text-sm text-muted-foreground text-center"><EmptyIcon /> No payments yet this month.</p> : <>
       <div className="flex h-4 overflow-hidden rounded-full bg-muted">{items.map((i, idx) => <div key={i.method} title={`${i.method}: ${peso.format(i.amount)}`} className={METHOD_COLORS[idx % METHOD_COLORS.length]} style={{ width: `${(i.amount / total) * 100}%` }} />)}</div>
       <ul className="mt-4 space-y-2 text-sm">{items.map((i, idx) => <li key={i.method} className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2"><i className={`size-3 rounded-sm ${METHOD_COLORS[idx % METHOD_COLORS.length]}`} />{i.method}</span>

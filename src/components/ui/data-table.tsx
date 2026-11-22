@@ -1,5 +1,7 @@
 "use client"
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import {
@@ -268,7 +270,7 @@ export function DataTable<TData, TValue>({
           </div>
         ) : (
           <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-            No results.
+            <EmptyIcon /> No results.
           </div>
         )
       ) : (
@@ -333,7 +335,7 @@ export function DataTable<TData, TValue>({
                     colSpan={columns.length}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    No results.
+                    <EmptyIcon /> No results.
                   </TableCell>
                 </TableRow>
               )}

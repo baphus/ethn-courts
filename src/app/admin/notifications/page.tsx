@@ -1,5 +1,9 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
+import { LoadingAnimation } from "@/components/ui/loading-animation";
+
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -61,8 +65,8 @@ export default function NotificationsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="text-lg font-semibold">Your inbox</h2><p className="text-sm text-muted-foreground">Most recent 50 notifications</p></div><label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={unreadOnly} disabled={busy} onChange={event => setUnreadOnly(event.target.checked)} className="h-4 w-4 accent-primary" /> Unread only</label></div>
       {error && <p role="alert" className="m-5 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</p>}
       {notice && !error && <p role="status" className="mx-5 mt-5 text-sm text-muted-foreground">{notice}</p>}
-      {!items && !error && <p role="status" className="p-5 text-sm text-muted-foreground">Loading notifications…</p>}
-      {items?.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">{unreadOnly ? "No unread notifications." : "No notifications yet. Refresh to check for activity."}</p>}
+      {!items && !error && <LoadingAnimation label="Loading notifications" className="p-5" />}
+      {items?.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground"><EmptyIcon /> {unreadOnly ? "No unread notifications." : "No notifications yet. Refresh to check for activity."}</p>}
       {items && items.length > 0 && <ul className="divide-y">{items.map(item => <li key={item.id} className="flex flex-wrap items-start justify-between gap-4 p-5"><div className="min-w-0 flex-1 space-y-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3>{!item.readAt && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Unread</span>}</div><p className="text-sm text-muted-foreground">{item.body}</p><p className="text-xs text-muted-foreground"><time dateTime={item.createdAt}>{dateTime(item.createdAt)}</time> · {item.readAt ? "Read" : "Unread"}</p>{safeLink(item.link) && <Link href={item.link} className="inline-block pt-1 text-sm font-medium underline underline-offset-4">View details<span className="sr-only"> for {item.title}</span></Link>}</div>{!item.readAt && <Button type="button" variant="outline" disabled={busy} onClick={() => void markRead(item.id)}>Mark as read<span className="sr-only">: {item.title}</span></Button>}</li>)}</ul>}
     </section>
   </div>;

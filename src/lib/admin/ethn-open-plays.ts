@@ -39,7 +39,7 @@ export async function listPublicOpenPlays(pool: Db) {
       FROM ethn.open_plays p JOIN ethn.court_blocks b ON b.open_play_id=p.id AND b.removed_at IS NULL
       JOIN ethn.court_allocations a ON a.block_id=b.id AND a.state='confirmed'
       JOIN ethn.courts c ON c.id=b.court_id
-      WHERE p.removed_at IS NULL AND p.ends_at>clock_timestamp()
+      WHERE p.removed_at IS NULL
       GROUP BY p.id ORDER BY p.starts_at,p.id LIMIT 100`)).rows;
     return rows.map(row => ({ id: row.id, title: row.title, description: row.description, startsAt: (row.starts_at as Date).toISOString(), endsAt: (row.ends_at as Date).toISOString(), fee: row.informational_fee, courtNames: row.court_names, courtIds: row.court_ids, version: row.version }));
   } catch (error) { serviceError(error); } finally { client.release(); }

@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
 import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RefreshCw } from "lucide-react";
@@ -44,7 +46,7 @@ export default function OccupancyGrid({ date, data }: { date: string; data: Awai
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label="Occupancy legend">
         {(["Approved", "Pending", "Hold", "Free", "Closed"] as const).map((state) => <span key={state} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-sm border ${colors[state]}`} />{state}</span>)}
       </div>
-      {data.courts.length === 0 ? <p className="py-6 text-sm text-muted-foreground">No courts to show for this date.</p> : (
+      {data.courts.length === 0 ? <p className="py-6 text-sm text-muted-foreground text-center"><EmptyIcon /> No courts to show for this date.</p> : (
         <div className="max-h-[560px] overflow-auto rounded-lg border" aria-busy={pending} tabIndex={0} role="region" aria-label="Daily court occupancy, scroll to view">
           <table className="w-full border-separate border-spacing-0 text-left text-sm">
             <thead><tr><th scope="col" className="sticky top-0 left-0 z-30 min-w-32 border-r border-b bg-muted px-3 py-3 text-xs font-semibold">Time</th>{data.courts.map((court) => <th key={court.id} scope="col" className="sticky top-0 z-20 min-w-40 border-r border-b bg-muted px-3 py-3 text-xs font-semibold last:border-r-0">{court.name}{court.status !== "active" && <span className="block font-normal text-muted-foreground">Inactive</span>}</th>)}</tr></thead>

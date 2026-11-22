@@ -114,7 +114,7 @@ export default function Hero({
             </a>
 
             <a
-              href="#track"
+              href="/track"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-8 py-4 text-base font-bold text-white backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white/20 active:translate-y-0"
             >
               <Search className="size-4" aria-hidden />

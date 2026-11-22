@@ -107,11 +107,11 @@ export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRa
 
           <div className="relative overflow-hidden rounded-3xl border border-line bg-[repeating-linear-gradient(-45deg,#e9e4d8_0_8px,#f4efe2_8px_16px)] shadow-[0_20px_50px_rgba(66,48,45,0.12)]">
             <iframe
-              title="Map — CK Grounds, Tabuelan Cebu"
+              title="Google map of Daylor Village 1"
               src={VENUE_MAP_EMBED}
               className="relative h-full min-h-[360px] w-full border-0"
               loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
+              referrerPolicy="strict-origin-when-cross-origin"
               allowFullScreen
             />
           </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +67,7 @@ export default function StaffManager() {
       </Dialog>
       <section className="rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Current access</h2>
-        {staff.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No staff records.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
+        {staff.length === 0 ? <p className="mt-2 text-sm text-muted-foreground text-center"><EmptyIcon /> No staff records.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
           <thead><tr className="text-muted-foreground"><th className="pb-2 pr-3 font-medium">Auth user ID</th><th className="pb-2 pr-3 font-medium">Role</th><th className="pb-2 pr-3 font-medium">State</th><th className="pb-2 text-right font-medium"><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>{staff.map(row => <tr key={row.userId} className="border-t"><td className="break-all py-3 pr-3 font-mono text-xs">{row.userId}</td><td className="py-3 pr-3 capitalize">{row.role}</td><td className="py-3 pr-3">{row.enabled ? "Enabled" : "Disabled"}</td><td className="py-3 text-right"><Button variant="outline" disabled={busy} onClick={event => { setReturnFocus(event.currentTarget); setDiscard(false); setEditing(row); setUserId(row.userId); setRole(row.role); setEnabled(row.enabled); setError(""); setOpen(true); }}>Edit<span className="sr-only"> access for {row.userId}</span></Button></td></tr>)}</tbody>
         </table></div>}

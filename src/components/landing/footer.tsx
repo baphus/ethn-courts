@@ -41,8 +41,8 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
             {[
               { href: "/#top", label: "Home" },
               { href: "/book", label: "Book Now" },
-              { href: "/how-it-works", label: "How It Works" },
-              { href: "/#contact", label: "Contact" },
+              { href: "/#how-it-works", label: "How It Works" },
+              { href: "/contact", label: "Contact" },
               { href: "/#faq", label: "FAQ" },
             ].map((l) => (
               <a
@@ -134,7 +134,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
               { href: "/#faq", label: "Court Rules" },
               { href: "/terms", label: "Terms of Service" },
               { href: "/privacy", label: "Privacy Policy" },
-              { href: "/#contact", label: "Contact Support" },
+              { href: "/contact", label: "Contact Support" },
             ].map((l) => (
               <a key={l.label} href={l.href} className="hover:text-flame hover:underline">
                 {l.label}

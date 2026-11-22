@@ -18,6 +18,8 @@ test("open plays atomically allocate multiple courts and expose only public even
     for(const bad of [{...input,courtIds:[]},{...input,fee:"-1"},{...input,startsAt:"invalid"},{...input,extra:true}]) await assert.rejects(createOpenPlay(pool,async()=>owner,bad),/INVALID_INPUT/);
     const created=await createOpenPlay(pool,async()=>owner,input);assert.equal(created.fee,"0.00");
     const events=await listPublicOpenPlays(pool);assert.ok(events.some(e=>e.id===created.id));assert.deepEqual(Object.keys(events.find(e=>e.id===created.id)!).sort(),["courtIds","courtNames","description","endsAt","fee","id","startsAt","title","version"]);
+    await admin.query("UPDATE ethn.open_plays SET starts_at=clock_timestamp()-interval '2 hours',ends_at=clock_timestamp()-interval '1 hour' WHERE id=$1",[created.id]);
+    assert.ok((await listPublicOpenPlays(pool)).some(e=>e.id===created.id));
     assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.court_allocations WHERE block_id IN (SELECT id FROM ethn.court_blocks WHERE open_play_id=$1) AND state='confirmed'",[created.id])).rows[0].n,2);
     assert.deepEqual(events.find(e=>e.id===created.id)!.courtIds,["1","2"]);assert.equal(events.find(e=>e.id===created.id)!.version,1);
     const edited=await editOpenPlay(pool,async()=>owner,created.id,{...input,title:"Edited open play",expectedVersion:1});assert.equal(edited.version,2);

@@ -1,3 +1,4 @@
+import { EmptyIcon } from "@/components/ui/empty-icon";
 import type { Metadata } from "next";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { trackBooking } from "@/lib/booking/ethn-tracking";
@@ -35,7 +36,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
   return (
     <main className="min-h-screen bg-[#f6f8f8] px-4 py-8 text-ink sm:py-12">
       <div className="mx-auto max-w-3xl">
-        <header className="flex items-center justify-between border-b border-line pb-4"><a href="/" aria-label="ETHN Courts home" className="flex items-center gap-3"><img src="/ethn-courts-mark.png" alt="" className="size-11 rounded-xl object-cover"/><span className="text-sm font-extrabold tracking-[.16em] text-pine">ETHN <span className="text-[#f28500]">COURTS</span></span></a><a href="/book" className="text-sm font-bold text-pine hover:text-[#f28500]">Book a court</a></header>
+
         <div className="mt-8"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f28500]">Booking updates</p><h1 className="font-display mt-2 text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl">Reservation status</h1></div>
         {!booking ? (
           <div className="mt-8 rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8">
@@ -81,7 +82,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
             </section>
             <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="payment-heading">
               <h2 id="payment-heading" className="text-lg font-bold">Payment status</h2>
-              {booking.payments.length === 0 ? <p className="mt-3 text-sm text-warm-muted">No payment recorded.</p> : (
+              {booking.payments.length === 0 ? <p className="mt-3 text-sm text-warm-muted text-center"><EmptyIcon /> No payment recorded.</p> : (
                 <ul className="mt-3 space-y-3">
                   {booking.payments.map((payment, index) => (
                     <li key={index} className="flex flex-wrap justify-between gap-2 text-sm">

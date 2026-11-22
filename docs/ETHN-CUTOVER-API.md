@@ -18,6 +18,10 @@ Staff endpoints use enabled ETHN owner/staff identity and private `no-store` res
 
 `GET /api/ethn/admin/finance` and `/api/ethn/admin/expenses` are owner-only. Contract, data meaning, DTOs, validation, immutability and setup limits are in `docs/ethn-finance-contract.md`. Migration `db/ethn/0017_expenses.sql` requires approved migration process; never run against existing/hosted data without separate authorization. Finance reports only accepted booking collections by `received_at` Manila date, less recorded expenses; it excludes manual sales/extensions and is not formal accounting profit/revenue.
 
+## Open Plays
+
+`GET /api/ethn/admin/open-plays` and public `/open-plays` list unremoved events, including past sessions. Events with removed linked blocks or no confirmed linked allocations remain excluded. Staff can edit only future-starting events; past sessions remain available for review and removal.
+
 ## Retired legacy endpoints
 
 The following methods return uncached `410 {"error":"RETIRED"}` without legacy database, auth or storage access:

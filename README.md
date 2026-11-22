@@ -24,6 +24,10 @@ For a fresh ETHN database, review the ordered `db/ethn/00*.sql` chain through th
 
 Active ETHN services use server-side SQL transactions, not the old RPC implementation. See `docs/ETHN-CUTOVER-API.md` for availability and retired endpoints returning 410; other legacy reads are not proof of supported workflows. Owner settings/staff, held walk-ins, calendar blocks, audit, finance/XLSX, sales/corrections, Open Plays, outcomes and extension services now have local implementation slices; use their dated checks for coverage and gaps. Persistent inbox exists; browser push is not configured. None of these statements establish hosted deployment or full browser acceptance. `supabase/` and `drizzle/` are legacy reference/archive, not ETHN setup instructions. `docs/DECISIONS.md` and other fork-era documents are historical references, not current requirements.
 
+## Contact settings upgrade
+
+Contact details require `db/ethn/0026_contact_settings.sql` after the preceding ETHN schema upgrades. Review and apply it only under an approved migration plan; do not run it against legacy data. Verify restricted checkout grants and RLS after upgrade. Until then, contact details are unavailable. Owner settings publish Facebook, phone and email; the contact form opens the visitor's email app and does not send or store messages on the server.
+
 ## Verification and launch gates
 
 `docs/checks/2026-11-20-browser-verification-repair.md` records previous hosted verification and regression results; it is not deployment approval. Real GCash recipient instructions and rates, production hosting and commercial eligibility, database pool lifecycle/limits, scheduler, and live mail delivery remain unresolved. Origin repair covers a narrow loopback development case, not production proxy or Host validation. Review those boundaries before deployment. Browser verification requires explicit permission for each request; users may verify UI themselves.

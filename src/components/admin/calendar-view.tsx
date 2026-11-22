@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyIcon } from "@/components/ui/empty-icon";
+
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -1002,7 +1004,7 @@ function WeeklyView({
               (byDate.get(date) ?? []).length === 0 && (closuresByDate.get(date) ?? []).length === 0,
           ) && (
             <p className="py-14 text-center text-sm text-muted-foreground">
-              No bookings this week.
+              <EmptyIcon /> No bookings this week.
             </p>
           )}
         </div>
@@ -1035,7 +1037,7 @@ function DailyView({
     <div className="px-4 py-4">
       {dayEvents.length === 0 && dayClosures.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          No bookings or closures on this day.
+          <EmptyIcon /> No bookings or closures on this day.
         </p>
       ) : (
         <div className="space-y-2">
@@ -1132,7 +1134,7 @@ function ScheduleView({
   })).filter((g) => g.bookings.length > 0 || g.closures.length > 0);
 
   if (groups.length === 0) {
-    return <p className="py-12 text-center text-sm text-muted-foreground">No events this week.</p>;
+    return <p className="py-12 text-center text-sm text-muted-foreground"><EmptyIcon /> No events this week.</p>;
   }
 
   return (
@@ -1246,7 +1248,7 @@ function DayPanel({
 
       <div className="flex-1 space-y-2 px-4 py-4">
         {events.length === 0 && closures.length === 0 && (
-          <p className="py-12 text-center text-sm text-muted-foreground">No bookings on this day.</p>
+          <p className="py-12 text-center text-sm text-muted-foreground"><EmptyIcon /> No bookings on this day.</p>
         )}
         {closures.map((cl) => (
           <ClosureCard key={cl.id} cl={cl} />

@@ -56,26 +56,44 @@ export default function TrackInput() {
         go(value, email);
       }}
     >
-      <label htmlFor="track-code" className="sr-only">
-        Tracking code
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id="track-code"
-          name="code"
-          value={value}
-          onChange={(e) => setValue(e.target.value.toUpperCase())}
-          placeholder="e.g. AB3K7"
-          autoComplete="off"
-          spellCheck={false}
-          inputMode="text"
-          maxLength={5}
-          className="h-12 min-w-0 flex-1 rounded-xl border border-line bg-oat/60 px-4 text-sm font-medium tracking-widest text-ink placeholder:text-warm-muted/60 placeholder:tracking-normal focus:border-flame focus:outline-none"
-        />
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="track-code" className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-pine">
+            Tracking code
+          </label>
+          <input
+            id="track-code"
+            name="code"
+            value={value}
+            onChange={(e) => setValue(e.target.value.toUpperCase())}
+            placeholder="e.g. AB3K7"
+            autoComplete="off"
+            spellCheck={false}
+            inputMode="text"
+            maxLength={5}
+            className="h-12 w-full rounded-xl border border-[#767676] bg-oat/60 px-4 text-base font-medium tracking-widest text-ink placeholder:tracking-normal placeholder:text-[#68635b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+          />
+        </div>
+        <div>
+          <label htmlFor="track-email" className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-pine">
+            Email address used to book
+          </label>
+          <input
+            id="track-email"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            spellCheck={false}
+            className="h-12 w-full rounded-xl border border-[#767676] bg-oat/60 px-4 text-base font-medium text-ink placeholder:text-[#68635b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+          />
+        </div>
         <button
           type="submit"
           disabled={busy || value.trim().length === 0}
-          className="inline-flex h-12 shrink-0 box-border items-center justify-center gap-2 rounded-xl bg-pine py-3 pl-6 pr-8 text-sm font-bold whitespace-nowrap text-white transition-all hover:-translate-y-0.5 hover:bg-pine-high disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-pine px-6 text-base font-bold text-white transition-colors hover:bg-pine-high focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? (
             <>
@@ -89,22 +107,6 @@ export default function TrackInput() {
             </>
           )}
         </button>
-      </div>
-      <div className="mt-2">
-        <label htmlFor="track-email" className="sr-only">
-          Email address used to book
-        </label>
-        <input
-          id="track-email"
-          name="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email address you booked with"
-          autoComplete="email"
-          spellCheck={false}
-          className="h-12 w-full rounded-xl border border-line bg-oat/60 px-4 text-sm font-medium text-ink placeholder:text-warm-muted/60 focus:border-flame focus:outline-none"
-        />
       </div>
       <p className="mt-2 text-xs leading-5 text-warm-muted/80">
         Use both details from your booking: the 5-character code in your confirmation email and the same email address you booked with.
