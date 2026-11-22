@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { formatDisplayDate } from "@/lib/display-date";
 
 type QueueItem = { extensionId:string|null; paymentId: string; bookingId: string; operatingDate: string; guestName: string | null; total: string; claimedReference: string | null; claimedAmount: string | null; createdAt: string; proofAvailable: boolean };
 type Detail = QueueItem & { review: { note: string; reviewedAt: string; reviewedBy: string } | null };
@@ -95,7 +96,7 @@ export default function ExceptionReview() {
       <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
         <thead><tr className="text-muted-foreground"><th className="pb-2 pr-3 font-medium">Operating date</th><th className="pb-2 pr-3 font-medium">Guest</th><th className="pb-2 pr-3 font-medium">Amount due</th><th className="pb-2 pr-3 font-medium">Claimed</th><th className="pb-2 pr-3 font-medium">Submitted</th><th className="pb-2 text-right font-medium"><span className="sr-only">Actions</span></th></tr></thead>
         <tbody>{queue.map(item => <tr key={item.paymentId} className="border-t">
-          <td className="py-2 pr-3">{item.operatingDate}</td>
+          <td className="py-2 pr-3">{formatDisplayDate(item.operatingDate)}</td>
           <td className="py-2 pr-3">{item.guestName ?? "Guest"}</td>
           <td className="py-2 pr-3">{money(item.total)}</td>
           <td className="py-2 pr-3">{money(item.claimedAmount)}{item.claimedReference ? <span className="block text-xs text-muted-foreground">{item.claimedReference}</span> : null}</td>
@@ -111,7 +112,7 @@ export default function ExceptionReview() {
       {unknown && <Button type="button" onClick={() => window.location.reload()}>Reload exceptions</Button>}
       {loadingDetail && <p role="status" className="text-sm text-muted-foreground">Loading exception…</p>}
     {detail && <section className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{detail.operatingDate} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · {detail.extensionId ? "expired extension is not restored" : "expired reservation is not restored"}</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy || unknown} onClick={closeReview}>Close</Button></div></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{formatDisplayDate(detail.operatingDate)} · {money(detail.total)}</h2><p className="text-sm text-muted-foreground">{detail.guestName ?? "Guest"} · submitted {dateTime(detail.createdAt)} · {detail.extensionId ? "expired extension is not restored" : "expired reservation is not restored"}</p></div><div className="flex gap-2">{detail.proofAvailable && <Button type="button" variant="outline" disabled={busy} onClick={() => void loadProof()}>View proof</Button>}<Button type="button" variant="outline" disabled={busy || unknown} onClick={closeReview}>Close</Button></div></div>
       {proof && (Date.now() < proof.expiresAt ? <a className="inline-block text-sm underline" href={proof.signedUrl} target="_blank" rel="noreferrer">Open private proof (expires {Math.max(0, Math.round((proof.expiresAt - Date.now()) / 1000))}s)</a> : <p className="text-sm text-muted-foreground">Proof link expired. Load it again.</p>)}
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"><div><dt className="text-muted-foreground">Claimed reference</dt><dd className="font-medium">{detail.claimedReference ?? "Not provided"}</dd></div><div><dt className="text-muted-foreground">Claimed amount</dt><dd className="font-medium">{money(detail.claimedAmount)}</dd></div><div><dt className="text-muted-foreground">Amount due</dt><dd className="font-medium">{money(detail.total)}</dd></div><div><dt className="text-muted-foreground">Proof attached</dt><dd className="font-medium">{detail.proofAvailable ? "Yes" : "No"}</dd></div></dl>
       {detail.review ? <div className="rounded-lg border bg-muted/40 p-4 text-sm"><p className="font-medium">Reviewed {dateTime(detail.review.reviewedAt)}</p><p className="mt-1 whitespace-pre-wrap">{detail.review.note}</p></div> : <div className="space-y-2">
