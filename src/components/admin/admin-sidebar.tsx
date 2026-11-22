@@ -38,13 +38,12 @@ export default function AdminSidebar({ email, isOwner }: { email: string; name: 
       {isOwner && <SidebarGroup className="pt-0">
         <SidebarGroupLabel>Management &amp; finance</SidebarGroupLabel>
         <SidebarGroupContent><SidebarMenu className="gap-0.5">
-          <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/courts" || pathname.startsWith("/admin/courts/")} render={<Link href="/admin/courts" />} tooltip="Courts"><CalendarDays /><span>Courts</span></SidebarMenuButton></SidebarMenuItem>
+          <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/courts" || pathname.startsWith("/admin/courts/")} render={<Link href="/admin/courts" />} tooltip="Court setup"><CalendarDays /><span>Court setup</span></SidebarMenuButton></SidebarMenuItem>
           <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/timing" || pathname.startsWith("/admin/timing/")} render={<Link href="/admin/timing" />} tooltip="Timing policy"><Clock /><span>Timing policy</span></SidebarMenuButton></SidebarMenuItem>
           <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/finance" || pathname.startsWith("/admin/finance/")} render={<Link href="/admin/finance" />} tooltip="Finance"><CreditCard /><span>Finance</span></SidebarMenuButton></SidebarMenuItem>
           <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/activity" || pathname.startsWith("/admin/activity/")} render={<Link href="/admin/activity" />} tooltip="Activity history"><ScrollText /><span>Activity history</span></SidebarMenuButton></SidebarMenuItem>
           <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/staff" || pathname.startsWith("/admin/staff/")} render={<Link href="/admin/staff" />} tooltip="Staff access"><Users /><span>Staff access</span></SidebarMenuButton></SidebarMenuItem>
-          <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/settings" || pathname.startsWith("/admin/settings/")} render={<Link href="/admin/settings" />} tooltip="Pricing settings"><Settings /><span>Pricing settings</span></SidebarMenuButton></SidebarMenuItem>
-          <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/hours" || pathname.startsWith("/admin/hours/")} render={<Link href="/admin/hours" />} tooltip="Court hours"><Clock /><span>Court hours</span></SidebarMenuButton></SidebarMenuItem>
+          <SidebarMenuItem><SidebarMenuButton className={item} isActive={pathname === "/admin/settings" || pathname.startsWith("/admin/settings/")} render={<Link href="/admin/settings" />} tooltip="Payment instructions"><Settings /><span>Payment instructions</span></SidebarMenuButton></SidebarMenuItem>
         </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>}
       <SidebarGroup className="pt-0">

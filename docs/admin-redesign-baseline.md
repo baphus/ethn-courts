@@ -29,10 +29,9 @@ The table below includes historical file inventory; file presence does not estab
 | `/admin/walk-in` | `walk-in/page.tsx` | Record walk-in booking | Focused booking flow; use shared booking form patterns, avoid an all-fields dashboard panel |
 | `/admin/open-plays` | `open-plays/page.tsx` | Inspect/manage open plays | Queue/list first; no assumptions about workflows beyond existing handlers |
 | `/admin/sales` | `sales/page.tsx`, `sales.tsx` | Record/review sales | Make existing main task explicit; secondary entry form opened on demand, preserve current functionality |
-| `/admin/courts` | `courts/page.tsx`, `court-manager.tsx` | Manage court records | Table/list first; add/edit via dialog if bounded; avoid showing every edit form inline |
-| `/admin/hours` | `hours/page.tsx`, `hours-manager.tsx`, `hours-editor.tsx` | Configure operating hours | Summary by day first; edit selected schedule in focused panel/dialog; preserve validation and unsaved-change handling |
+| `/admin/courts` | `courts/page.tsx`, `court-setup.tsx`, `schedule-payload.ts` | Court setup: courts, weekly windows, per-window rates, read-only closures | Court cards list first; add/rename/window/bulk-setup in dialogs; one atomic schedule save; unsaved edits preserved on conflict |
 | `/admin/timing` | `timing/page.tsx` | Configure booking timing | Show current values and one edit action; place fields in edit dialog, not permanent form |
-| `/admin/settings` | `settings/page.tsx`, `owner-pricing.tsx` | Configure pricing | Current rates summary first; focused edit form; confirm/save state clear |
+| `/admin/settings` | `settings/page.tsx`, `owner-payment.tsx` | Configure GCash payment instructions | Current instructions summary first; edit in dialog; confirm checkbox before save |
 | `/admin/staff` | `staff/page.tsx`, `staff-manager.tsx` | Manage staff access | Staff list primary; invite/edit in dialog; revoke access requires explicit confirmation |
 | `/admin/users` | `users/page.tsx` | Review users | Search/list primary; user actions contextual, avoid persistent broad controls |
 | `/admin/finance` | `finance/page.tsx`, `finance.tsx`, `finance-controls.tsx` | Review financial performance | Summary/chart primary; date/export controls compact; avoid persistent multi-field filters |

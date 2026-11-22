@@ -1,8 +1,12 @@
-import { createEthnBlock } from "@/lib/admin/ethn-calendar";
+import { createEthnBlock, listUpcomingBlocks } from "@/lib/admin/ethn-calendar";
 import { adminError, adminResponse, staffPool, verifyStaffIdentity } from "@/lib/admin/ethn-staff-server";
 import { hasValidOrigin } from "@/lib/request-origin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export async function GET() {
+  try { return adminResponse(await listUpcomingBlocks(staffPool, verifyStaffIdentity)); }
+  catch (error) { return adminError(error); }
+}
 export async function POST(request: Request) {
   if (!hasValidOrigin(request)) return adminResponse({ error: "FORBIDDEN" }, 403);
   try {

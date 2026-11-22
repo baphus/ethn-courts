@@ -5,7 +5,7 @@ const source=(file:string)=>readFileSync(new URL(`../${file}`,import.meta.url),'
 test('bounded admin creation tasks have labelled dialog entry points',()=>{
  for(const [file,label] of [
  ['src/app/admin/calendar/page.tsx','Block time'],
- ['src/app/admin/courts/court-manager.tsx','Add court'],
+ ['src/app/admin/courts/court-setup.tsx','Add court'],
  ['src/app/admin/staff/staff-manager.tsx','Grant access'],
  ['src/app/admin/sales/sales.tsx','Record sale'],
  ['src/app/admin/open-plays/page.tsx','Create open play'],

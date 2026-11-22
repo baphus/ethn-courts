@@ -42,6 +42,18 @@ export async function getEthnCalendar(pool: Pick<Pool,"connect">, verify: StaffV
   } catch(e) { if(committing) discard=true; else if(transaction) try { await client.query("ROLLBACK"); } catch { discard=true; } serviceError(e); }
   finally { client.release(discard); }
 }
+export async function listUpcomingBlocks(pool: Pick<Pool,"connect">, verify: StaffVerifier) {
+  const actor=await actorId(verify),client=await pool.connect();
+  let transaction=false, committing=false, discard=false;
+  try {
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); transaction=true;
+    if(!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff')",[actor])).rows.length) throw new Error("FORBIDDEN");
+    const rows=(await client.query(`SELECT b.id::text,c.name AS court_name,b.starts_at,b.ends_at,b.kind,b.reason FROM ethn.court_blocks b JOIN ethn.courts c ON c.id=b.court_id WHERE b.removed_at IS NULL AND b.ends_at > transaction_timestamp() ORDER BY b.starts_at,b.id LIMIT 50`)).rows;
+    committing=true; await client.query("COMMIT");
+    return rows.map(r=>({id:r.id as string,courtName:r.court_name as string,startsAt:(r.starts_at as Date).toISOString(),endsAt:(r.ends_at as Date).toISOString(),kind:r.kind as string,reason:r.reason as string}));
+  } catch(e) { if(committing) discard=true; else if(transaction) try { await client.query("ROLLBACK"); } catch { discard=true; } serviceError(e); }
+  finally { client.release(discard); }
+}
 export async function createEthnBlock(pool: Pick<Pool,"connect">,verify:StaffVerifier,body:unknown) {
   const input=validInput(body),actor=await actorId(verify),client=await pool.connect(); let transaction=false, committing=false, discard=false;
   try {
