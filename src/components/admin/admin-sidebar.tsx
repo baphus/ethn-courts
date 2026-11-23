@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AlertTriangle, Bell, CalendarDays, CalendarPlus, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, Users, type LucideIcon } from "lucide-react";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { Bell, CalendarDays, CalendarPlus, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger } from "@/components/ui/sidebar";
 import Image from "next/image";
 
-const itemClass = "h-9 px-2.5";
+const itemClass = "h-8 px-2.5 text-xs group-data-[collapsible=icon]:mx-auto";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; };
 
@@ -15,7 +15,6 @@ const operations: NavItem[] = [
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
-  { href: "/admin/exceptions", label: "Late exceptions", icon: AlertTriangle },
   { href: "/admin/walk-in", label: "Prepaid walk-in", icon: CalendarPlus },
   { href: "/admin/open-plays", label: "Open Plays", icon: CalendarDays },
   { href: "/admin/sales", label: "Paid sales", icon: CreditCard },
@@ -31,7 +30,7 @@ const management: NavItem[] = [
   { href: "/admin/settings", label: "Payment instructions", icon: Settings },
 ];
 
-export default function AdminSidebar({ email, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
+export default function AdminSidebar({ email, name, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -50,7 +49,7 @@ export default function AdminSidebar({ email, isOwner }: { email: string; name: 
 
   return <Sidebar collapsible="icon">
     <nav aria-label="Staff navigation" className="flex h-full min-h-0 flex-col">
-    <SidebarHeader><div className="flex items-center gap-3 px-3 py-4"><Image src="/ethn-courts-mark.png" alt="" width={40} height={40} className="size-10 rounded-xl object-cover"/><div className="min-w-0"><div className="font-extrabold tracking-[.12em]">ETHN <span className="text-[#f28500]">COURTS</span></div><span className="block truncate text-xs text-[#b7c7cf]">{email}</span></div></div></SidebarHeader>
+    <SidebarHeader><div className="flex items-center gap-3 px-2 py-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-mark.png" alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover"/><div className="min-w-0 group-data-[collapsible=icon]:hidden"><div className="text-sm font-extrabold tracking-[.12em]">ETHN <span className="text-[#f28500]">COURTS</span></div><span className="block text-xs text-[#b7c7cf]">Staff portal</span></div></div></SidebarHeader>
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>Operations</SidebarGroupLabel>
@@ -66,7 +65,18 @@ export default function AdminSidebar({ email, isOwner }: { email: string; name: 
         </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>
-    <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton className={itemClass} onClick={logout} tooltip="Sign out"><LogOut /><span>Sign out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
+    <SidebarFooter>
+      <div className="flex items-center gap-2 border-t border-sidebar-border px-2 pt-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground"><UserRound className="size-4" aria-hidden="true" /></span>
+        <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+          {name && name.trim().toLowerCase() !== (isOwner ? "owner" : "staff") && <p className="truncate text-xs font-semibold">{name}</p>}
+          <p className="truncate text-xs text-sidebar-foreground/70">{email}</p>
+          <p className="text-xs text-sidebar-foreground/70">{isOwner ? "Owner" : "Staff"}</p>
+        </div>
+        <SidebarTrigger aria-label="Toggle sidebar" className="hidden shrink-0 text-white hover:text-white md:inline-flex" />
+      </div>
+      <SidebarMenu><SidebarMenuItem><SidebarMenuButton className={itemClass} onClick={logout} tooltip="Sign out"><LogOut /><span>Sign out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
+    </SidebarFooter>
     </nav>
   </Sidebar>;
 }

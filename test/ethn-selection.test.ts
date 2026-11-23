@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addDays, gridTimes, handoffRanges, selectRange, slots, validDate } from "../src/components/booking/ethn-selection.ts";
+import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, selectRange, slotDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
+
+test("booking date requires an accepted explicit date and displays Manila overnight dates", () => {
+  assert.equal(acceptedDate(undefined, "2026-11-19", false), "");
+  assert.equal(acceptedDate("2026-11-19", "2026-11-19", false), "2026-11-19");
+  assert.equal(acceptedDate("2026-11-19", "2026-11-19", true), "");
+  assert.equal(acceptedDate("2026-11-20", "2026-11-19", false), "");
+  assert.equal(acceptedDate("2026-02-30", "2026-02-30", false), "");
+  assert.match(bookingDate("2026-11-19"), /Thursday.*November.*19.*2026/);
+  assert.notEqual(slotDate(Date.parse("2026-11-19T15:30:00Z")), slotDate(Date.parse("2026-11-19T16:30:00Z")));
+});
 
 test("selection stays within one window and never crosses occupied slots", () => {
   const window = { opensAt: "2026-01-01T00:00:00.000Z", closesAt: "2026-01-01T03:00:00.000Z", hourlyRate: "100.00" };

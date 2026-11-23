@@ -39,15 +39,6 @@ export async function reconcileInboxForRecipient(pool: Db, userId: string) {
         created += urgent.rowCount ?? 0;
       }
     }
-    const exceptions = await client.query(`SELECT p.id FROM ethn.payments p JOIN ethn.bookings b ON b.id=p.booking_id
-      WHERE p.status='exception' AND p.reviewed_at IS NULL AND (b.status='expired' OR p.extension_id IS NOT NULL)
-      ORDER BY p.created_at,p.id LIMIT 100`);
-    for (const row of exceptions.rows) {
-      const inserted = await client.query(`INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link)
-        VALUES(gen_random_uuid(),$1,$2,'Late payment exception','A late payment needs review.','/admin/exceptions')
-        ON CONFLICT(recipient,event_key) DO NOTHING`, [userId, `exception:${row.id}`]);
-      created += inserted.rowCount ?? 0;
-    }
     committing = true; await client.query("COMMIT");
     return { created };
   } catch (error) {
@@ -62,7 +53,7 @@ export async function listInbox(pool: Db, verify: StaffVerifier, unreadOnly = fa
   const client = await pool.connect();
   try {
     const { rows } = await client.query(`SELECT id,title,body,link,created_at,read_at FROM ethn.notifications
-      WHERE recipient=$1 AND ($2::boolean=false OR read_at IS NULL)
+      WHERE recipient=$1 AND link <> '/admin/exceptions' AND ($2::boolean=false OR read_at IS NULL)
       ORDER BY created_at DESC,id DESC LIMIT $3`, [userId, unreadOnly, limit]);
     return rows.map(row => ({ id: row.id as string, title: row.title as string, body: row.body as string, link: row.link as string, createdAt: (row.created_at as Date).toISOString(), readAt: row.read_at ? (row.read_at as Date).toISOString() : null }));
   } finally { client.release(); }

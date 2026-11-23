@@ -55,15 +55,26 @@ export async function listUpcomingBlocks(pool: Pick<Pool,"connect">, verify: Sta
   finally { client.release(discard); }
 }
 export async function createEthnBlock(pool: Pick<Pool,"connect">,verify:StaffVerifier,body:unknown) {
-  const input=validInput(body),actor=await actorId(verify),client=await pool.connect(); let transaction=false, committing=false, discard=false;
+  const input=validInput(body);
+  return (await createBlocks(pool,verify,{...input,courtIds:[input.courtId]}))[0];
+}
+export async function createEthnBlocks(pool: Pick<Pool,"connect">,verify:StaffVerifier,body:unknown) {
+  if(!exact(body,["courtIds","startsAt","endsAt","reason","kind"])) throw new Error("INVALID_INPUT");
+  const {courtIds,...fields}=body as Record<string,unknown>;
+  if(!Array.isArray(courtIds)||!courtIds.length||courtIds.length>100||!courtIds.every(id)||new Set(courtIds).size!==courtIds.length) throw new Error("INVALID_INPUT");
+  const input=validInput({...fields,courtId:courtIds[0]});
+  return {blocks:await createBlocks(pool,verify,{...input,courtIds})};
+}
+async function createBlocks(pool: Pick<Pool,"connect">,verify:StaffVerifier,input:ReturnType<typeof validInput>&{courtIds:string[]}) {
+  const actor=await actorId(verify),client=await pool.connect(); let transaction=false, committing=false, discard=false;
   try {
     await client.query("BEGIN"); transaction=true;
     if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
     const settings=(await client.query("SELECT anchor_minutes,horizon_days,clock_timestamp() AS now FROM ethn.settings WHERE singleton FOR UPDATE")).rows[0]; if(!settings) throw new Error("CALENDAR_UNAVAILABLE");
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
     await expireExtensionHolds(client);
-    const court=await client.query("SELECT active FROM ethn.courts WHERE id=$1",[input.courtId]); if(!court.rows[0]?.active) throw new Error("COURT_NOT_FOUND");
-    const candidates=(await client.query("SELECT DISTINCT bi.booking_id FROM ethn.court_allocations a JOIN ethn.booking_items bi ON bi.id=a.item_id JOIN ethn.bookings x ON x.id=bi.booking_id WHERE a.court_id=$1 AND a.state='held' AND a.starts_at<$3 AND a.ends_at>$2 AND x.status='held' ORDER BY bi.booking_id",[input.courtId,input.start,input.end])).rows.map(r=>r.booking_id);
+    const courts=await client.query("SELECT active FROM ethn.courts WHERE id=ANY($1::bigint[])",[input.courtIds]); if(courts.rows.length!==input.courtIds.length||courts.rows.some(c=>!c.active)) throw new Error("COURT_NOT_FOUND");
+    const candidates=(await client.query("SELECT DISTINCT bi.booking_id FROM ethn.court_allocations a JOIN ethn.booking_items bi ON bi.id=a.item_id JOIN ethn.bookings x ON x.id=bi.booking_id WHERE a.court_id=ANY($1::bigint[]) AND a.state='held' AND a.starts_at<$3 AND a.ends_at>$2 AND x.status='held' ORDER BY bi.booking_id",[input.courtIds,input.start,input.end])).rows.map(r=>r.booking_id);
     await client.query("SELECT id FROM ethn.bookings WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE",[candidates]);
     const now=(await client.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
     const today=manilaDateStr(new Date(now.getTime()-settings.anchor_minutes*60000)), startDate=manilaDateStr(new Date(input.start.getTime()-settings.anchor_minutes*60000)), boundary=new Date(manilaWallClock(today).getTime()+settings.anchor_minutes*60000+settings.horizon_days*86400000);
@@ -71,11 +82,15 @@ export async function createEthnBlock(pool: Pick<Pool,"connect">,verify:StaffVer
     const stale=(await client.query("SELECT id FROM ethn.bookings WHERE id=ANY($1::uuid[]) AND status='held' AND expires_at<=$2 ORDER BY id",[candidates,now])).rows.map(r=>r.id);
     const expired=(await client.query("UPDATE ethn.bookings SET status='expired' WHERE id=ANY($1::uuid[]) AND status='held' AND expires_at<=$2 RETURNING id",[stale,now])).rows.map(r=>r.id);
     await client.query("UPDATE ethn.court_allocations SET state='expired' WHERE item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id=ANY($1::uuid[])) AND state='held'",[expired]);
-    if((await client.query("SELECT 1 FROM ethn.court_allocations WHERE court_id=$1 AND state IN ('held','pending','confirmed','completed') AND starts_at<$3 AND ends_at>$2",[input.courtId,input.start,input.end])).rows.length) throw new Error("SLOT_TAKEN");
-    const blockId=randomUUID(); await client.query("INSERT INTO ethn.court_blocks(id,court_id,starts_at,ends_at,kind,reason,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)",[blockId,input.courtId,input.start,input.end,input.kind,input.reason,actor]);
-    await client.query("INSERT INTO ethn.court_allocations(id,item_id,block_id,court_id,starts_at,ends_at,state,expires_at) VALUES($1,NULL,$2,$3,$4,$5,'confirmed',NULL)",[randomUUID(),blockId,input.courtId,input.start,input.end]);
-    await client.query("INSERT INTO ethn.audit(actor,action,detail) VALUES($1,'calendar.block.create',$2::jsonb)",[actor,JSON.stringify({blockId,courtId:input.courtId,kind:input.kind})]);
-    committing=true; await client.query("COMMIT"); return {id:blockId,courtId:input.courtId,startsAt:input.start.toISOString(),endsAt:input.end.toISOString(),reason:input.reason,kind:input.kind};
+    if((await client.query("SELECT 1 FROM ethn.court_allocations WHERE court_id=ANY($1::bigint[]) AND state IN ('held','pending','confirmed','completed') AND starts_at<$3 AND ends_at>$2",[input.courtIds,input.start,input.end])).rows.length) throw new Error("SLOT_TAKEN");
+    const blocks=[];
+    for(const courtId of input.courtIds) {
+      const blockId=randomUUID(); await client.query("INSERT INTO ethn.court_blocks(id,court_id,starts_at,ends_at,kind,reason,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)",[blockId,courtId,input.start,input.end,input.kind,input.reason,actor]);
+      await client.query("INSERT INTO ethn.court_allocations(id,item_id,block_id,court_id,starts_at,ends_at,state,expires_at) VALUES($1,NULL,$2,$3,$4,$5,'confirmed',NULL)",[randomUUID(),blockId,courtId,input.start,input.end]);
+      await client.query("INSERT INTO ethn.audit(actor,action,detail) VALUES($1,'calendar.block.create',$2::jsonb)",[actor,JSON.stringify({blockId,courtId,kind:input.kind})]);
+      blocks.push({id:blockId,courtId,startsAt:input.start.toISOString(),endsAt:input.end.toISOString(),reason:input.reason,kind:input.kind});
+    }
+    committing=true; await client.query("COMMIT"); return blocks;
   } catch(e) { if(committing) discard=true; else if(transaction) try { await client.query("ROLLBACK"); } catch { discard=true; } serviceError(e); } finally { client.release(discard); }
 }
 export async function releaseEthnBlock(pool:Pick<Pool,"connect">,verify:StaffVerifier,blockId:string) {

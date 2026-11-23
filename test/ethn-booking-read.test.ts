@@ -14,7 +14,7 @@ test("query validation rejects malformed or unbounded parameters", async () => {
   let connections = 0;
   const pool = { connect: async () => { connections++; throw new Error("unexpected DB access"); } };
   const verify = async () => staff;
-  for (const query of ["q=x&q=y", "unknown=x", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
+  for (const query of ["q=x&q=y", "unknown=x", "status=held", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
     await assert.rejects(searchEthnBookings(pool as never, verify, new URLSearchParams(query)), /INVALID_INPUT/);
   }
   assert.equal(connections, 0);
@@ -49,10 +49,15 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     for (const auth of [null, disabled, "00000000-0000-4000-8000-000000000099"]) await assert.rejects(ethnDashboard(pool, async () => auth), /UNAUTHENTICATED|FORBIDDEN/);
     const dashboard = await ethnDashboard(pool, async () => owner);
     assert.equal(dashboard.counts.held, 0);
+    assert.ok(dashboard.recentBookings.every(row => row.status !== "held"));
     assert.equal(dashboard.counts.pending, 2);
     assert.equal(dashboard.counts.pendingReviewOverdue, 1);
     assert.ok(dashboard.operatingDate === day || dashboard.operatingDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10));
     assert.ok(!JSON.stringify(dashboard).includes("OWNER_HASH_SECRET"));
+
+    const all = await searchEthnBookings(pool, async () => staff, new URLSearchParams());
+    assert.equal(all.total, 6);
+    assert.ok(all.rows.every(row => row.status !== "held"));
 
     const matching = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=%25%20Guest&status=rejected&from=${day}&to=${day}&page=1&limit=1`));
     assert.equal(matching.total, 1); assert.equal(matching.rows[0].id, rejected);

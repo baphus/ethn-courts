@@ -1,10 +1,11 @@
 import type { Pool } from "pg";
 import { manilaDateStr } from "@/lib/booking/slots";
 import { getStaff, type StaffVerifier } from "@/lib/admin/ethn-payments";
+import { getFinance } from "@/lib/admin/ethn-finance";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-const statuses = new Set(["held", "pending", "confirmed", "completed", "expired", "rejected"]);
+const statuses = new Set(["pending", "confirmed", "completed", "expired", "rejected"]);
 type Db = Pick<Pool, "connect">;
 type SummaryRow = { id: string; guest_name: string | null; status: string; operating_date: string; created_at: Date; total: string; item_count: number };
 function summary(row: SummaryRow) {
@@ -21,10 +22,17 @@ function date(value: string): boolean {
   return !Number.isNaN(d.getTime()) && d.getUTCFullYear() === Number(value.slice(0, 4)) && d.getUTCMonth() + 1 === Number(value.slice(5, 7)) && d.getUTCDate() === Number(value.slice(8, 10));
 }
 
+export function dashboardDateOffset(day: string, offset: number) {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
-  await getStaff(pool, verify);
+  const actor = await getStaff(pool, verify);
   const client = await pool.connect();
   let discardClient=false;
+  let result: { operatingDate: string; calendarDate: string; counts: Record<string, number>; periods: { current: number; prior: number; today: number }; recentBookings: ReturnType<typeof summary>[] };
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const clock = (await client.query("SELECT clock_timestamp() AS now, anchor_minutes FROM ethn.settings WHERE singleton = true")).rows[0];
@@ -40,13 +48,27 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
       count(*) FILTER (WHERE b.status = 'pending' AND x.earliest_start <= $2::timestamptz)::int AS "pendingReviewOverdue"
       FROM ethn.bookings b LEFT JOIN LATERAL (SELECT min(i.starts_at) AS earliest_start FROM ethn.booking_items i WHERE i.booking_id = b.id) x ON true
       WHERE b.operating_date = $1::date`, [operatingDate, now])).rows[0];
+    const periods = (await client.query(`SELECT
+      count(*) FILTER (WHERE operating_date >= $2::date)::int AS current,
+      count(*) FILTER (WHERE operating_date < $2::date)::int AS prior,
+      count(*) FILTER (WHERE operating_date = $1::date)::int AS today
+      FROM ethn.bookings WHERE status <> 'held' AND operating_date BETWEEN $3::date AND $1::date`,
+      [operatingDate, dashboardDateOffset(operatingDate, -14), dashboardDateOffset(operatingDate, -29)])).rows[0];
     const recent = await client.query(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
-      FROM ethn.bookings b ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
+      FROM ethn.bookings b WHERE b.status <> 'held' ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
     await client.query("COMMIT");
-    return { operatingDate, counts, recentBookings: recent.rows.map(summary) };
+    result = { operatingDate, calendarDate: manilaDateStr(now), counts, periods, recentBookings: recent.rows.map(summary) };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
+  if (actor.role !== "owner") return result;
+  const today = result.calendarDate;
+  const [current, prior, month] = await Promise.all([
+    getFinance(pool, verify, dashboardDateOffset(today, -14), today),
+    getFinance(pool, verify, dashboardDateOffset(today, -29), dashboardDateOffset(today, -15)),
+    getFinance(pool, verify, `${today.slice(0, 7)}-01`, today),
+  ]);
+  return { ...result, finance: { current: current.components.bookingAndExtensionCollections, prior: prior.components.bookingAndExtensionCollections, month: month.totals } };
 }
 
 export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params: URLSearchParams) {
@@ -62,7 +84,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   await getStaff(pool, verify);
   const offset = (page - 1) * limit;
   const values: unknown[] = [];
-  const filters: string[] = [];
+  const filters: string[] = ["b.status <> 'held'"];
   if (status) { values.push(status); filters.push(`b.status = $${values.length}`); }
   if (from) { values.push(from); filters.push(`b.operating_date >= $${values.length}::date`); }
   if (to) { values.push(to); filters.push(`b.operating_date <= $${values.length}::date`); }

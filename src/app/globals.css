@@ -101,7 +101,21 @@ html {
 :is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) [data-sidebar="menu-button"] svg { color: #ffad4c; }
 
 /* Keep operational page canvas aligned with active light/dark admin theme. */
-[data-admin-shell] .admin-workspace { background: #f6f8f8; }
+[data-admin-shell] .admin-workspace { background: #f6f8f8; font-size: 0.875rem; line-height: 1.5; }
+/* Compact page headings and card surfaces without changing calendar geometry. */
+[data-admin-shell] .admin-workspace h1.text-3xl { font-size: 1.5rem; line-height: 2rem; }
+[data-admin-shell] .admin-workspace h1.text-2xl { font-size: 1.375rem; line-height: 1.875rem; }
+[data-admin-shell] .admin-workspace h2.text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+[data-admin-shell] .admin-workspace h2.text-xl { font-size: 1.125rem; line-height: 1.625rem; }
+[data-admin-shell] .admin-workspace :is(section, article, form).p-5 { padding: 1rem; }
+[data-admin-shell] .admin-workspace :is(section, article, form).p-6 { padding: 1.25rem; }
+@media (min-width: 40rem) {
+  [data-admin-shell] .admin-workspace :is(section, article, form).sm\:p-6 { padding: 1.25rem; }
+}
+@media (max-width: 47.999rem) {
+  [data-admin-shell] .admin-workspace [data-slot="button"] { min-height: 2.75rem; white-space: normal; }
+  [data-admin-shell] .admin-workspace [data-slot="input"] { min-height: 2.75rem; }
+}
 .dark [data-admin-shell] .admin-workspace { background: var(--background); }
 
 

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import type { StaffVerifier } from "./ethn-payments";
+import { courtColumns } from "./ethn-court-details";
 
 type Db = Pick<Pool, "connect">;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -17,7 +18,7 @@ export async function listCourts(pool: Db, verify: StaffVerifier) {
   try {
     await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     if (!(await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
-    const rows = (await c.query("SELECT id::text,name,description,active FROM ethn.courts ORDER BY id")).rows;
+    const rows = (await c.query(`SELECT ${courtColumns} FROM ethn.courts ORDER BY id`)).rows;
     committing = true; await c.query("COMMIT"); committed = true; return rows;
   } catch (e) { if (!committing) try { await c.query("ROLLBACK"); } catch {} else discard = true; if (e instanceof Error && e.message === "FORBIDDEN") throw e; throw new Error("VENUE_UNAVAILABLE"); }
   finally { c.release(discard || !committed); }

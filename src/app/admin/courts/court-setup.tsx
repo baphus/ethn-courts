@@ -9,16 +9,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { settingsPayload, type Snapshot } from "../settings/pricing-payload";
+import { type Snapshot } from "../settings/pricing-payload";
 import { schedulePayload } from "./schedule-payload";
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const scheduleEndpoint = "/api/ethn/admin/hours";
-const settingsEndpoint = "/api/ethn/admin/settings";
 const courtsEndpoint = "/api/ethn/admin/courts";
 const blocksEndpoint = "/api/ethn/admin/blocks";
 
 type Court = Snapshot["courts"][number];
+type CourtDetails = { id: string; name: string; description: string; active: boolean; version: string; photoVersion: string; previousSettingsVersion?: string; settingsVersion?: string };
 type HourWindow = Court["hours"][number];
 type Block = { id: string; courtName: string; startsAt: string; endsAt: string; kind: string; reason: string };
 type NewCourt = { name: string; description: string; idempotencyKey: string };
@@ -44,8 +44,13 @@ export default function CourtSetup() {
   const [addOpen, setAddOpen] = useState(false);
   const [newCourt, setNewCourt] = useState({ name: "", description: "" });
   const [pendingCourt, setPendingCourt] = useState<NewCourt | null>(null);
-  const [renaming, setRenaming] = useState<Court | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [details, setDetails] = useState<CourtDetails[] | null>(null);
+  const [detailsError, setDetailsError] = useState("");
+  const [editing, setEditing] = useState<CourtDetails | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [detailsStale, setDetailsStale] = useState(false);
   const [windowCourt, setWindowCourt] = useState<Court | null>(null);
   const [draftWindow, setDraftWindow] = useState<DraftWindow>({ weekday: 1, opens: "07:00", closes: "20:00", hourlyRate: "" });
   const [quickCourt, setQuickCourt] = useState<Court | null>(null);
@@ -63,6 +68,16 @@ export default function CourtSetup() {
     } catch { setError(message(503)); } finally { setBusy(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  const loadDetails = useCallback(async () => {
+    setDetailsError("");
+    try {
+      const response = await fetch(courtsEndpoint, { cache: "no-store" });
+      if (!response.ok) { if (response.status === 401 || response.status === 403) setDetails(null); setDetailsError(message(response.status)); return; }
+      setDetails(await response.json());
+    } catch { setDetailsError("Court details could not be loaded. Try again."); }
+  }, []);
+  useEffect(() => { void loadDetails(); }, [loadDetails]);
 
   const loadBlocks = useCallback(async () => {
     setBlocksError(false);
@@ -104,19 +119,28 @@ export default function CourtSetup() {
     finally { setBusy(false); }
   }
 
-  async function saveName(event: React.FormEvent) {
+  async function saveDetails(event: React.FormEvent) {
     event.preventDefault();
-    if (!data || busy || !renaming) return;
-    const name = renameValue.trim();
-    if (!name) return;
+    if (busy || !editing || detailsStale || !editName.trim()) return;
+    if (photo && (!['image/jpeg', 'image/png', 'image/webp'].includes(photo.type) || photo.size > 5 * 1024 * 1024)) {
+      setDialogError("Choose a JPEG, PNG or WebP image no larger than 5 MiB."); return;
+    }
     setBusy(true); setDialogError("");
+    const form = new FormData();
+    form.set("name", editName.trim()); form.set("description", editDescription.trim()); form.set("version", editing.version);
+    if (photo) form.set("photo", photo);
     try {
-      const payload = settingsPayload({ ...data, courts: data.courts.map(court => court.id === renaming.id ? { ...court, name } : court) });
-      const response = await fetch(settingsEndpoint, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (!response.ok) { setDialogError(response.status === 409 ? "That name is already in use, or settings changed elsewhere. Reload and try again." : message(response.status)); return; }
-      setRenaming(null); setNotice(`Court renamed to ${name}.`);
-      await load();
-    } catch { setDialogError("Could not confirm whether the name was saved. Reload before trying again."); setStale(true); }
+      const response = await fetch(`${courtsEndpoint}/${encodeURIComponent(editing.id)}`, { method: "PATCH", body: form });
+      if (!response.ok) {
+        if (response.status === 409) { setDetailsStale(true); setDialogError("Court details changed elsewhere or the name is in use. Your edits are preserved. Copy them before closing and reload details."); }
+        else setDialogError(message(response.status));
+        return;
+      }
+      const updated: CourtDetails = await response.json();
+      setDetails(prev => prev?.map(court => court.id === updated.id ? updated : court) ?? [updated]);
+      setData(prev => prev && { ...prev, version: prev.version === updated.previousSettingsVersion && updated.settingsVersion ? updated.settingsVersion : prev.version, courts: prev.courts.map(court => court.id === updated.id ? { ...court, name: updated.name } : court) });
+      setEditing(null); setPhoto(null); setNotice("Court details saved. Your schedule edits are unchanged.");
+    } catch { setDetailsStale(true); setDialogError("Could not confirm whether details were saved. Your edits are preserved; copy them before closing and reload details."); }
     finally { setBusy(false); }
   }
 
@@ -141,7 +165,7 @@ export default function CourtSetup() {
       const created = await response.json().catch(() => null) as { name?: unknown } | null;
       setPendingCourt(null); setNewCourt({ name: "", description: "" }); setAddOpen(false);
       setNotice(`${typeof created?.name === "string" ? created.name : "Court"} created inactive. Add a window with a rate, mark it active, then save the schedule.`);
-      await load();
+      await Promise.all([load(), loadDetails()]);
     } catch {
       setPendingCourt(payload);
       setDialogError("Could not confirm whether the court was created. Retry this exact request with the same owner account; do not create another.");
@@ -193,21 +217,28 @@ export default function CourtSetup() {
 
     {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <Link className="underline" href="/login?next=/admin/courts">Sign in</Link>}</div>}
     {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
+    {detailsError && <div role="alert" className="rounded-lg border p-4 text-sm">{detailsError} <button type="button" className="underline" onClick={() => void loadDetails()}>Reload court details</button></div>}
     {!data && <Button variant="outline" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Try again"}</Button>}
 
     {data && <>
       {data.courts.length === 0 && <p className="rounded-xl border bg-card p-5 text-sm text-muted-foreground text-center"><EmptyIcon /> No courts yet. Add one to configure windows and rates.</p>}
-      {data.courts.map((court, ci) => <section key={court.id} className="rounded-xl border bg-card">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
-          <div>
-            <h2 className="font-semibold">{court.name}</h2>
-            <p className="text-sm text-muted-foreground">{court.hours.length === 0 ? "Closed all week" : `${court.hours.length} weekly ${court.hours.length === 1 ? "window" : "windows"}`} · {court.active ? "Bookable" : "Inactive, bookings blocked"}</p>
+      {data.courts.map((court, ci) => <section key={court.id} className="overflow-hidden rounded-xl border bg-card">
+        <div className="grid border-b sm:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="relative min-h-36 overflow-hidden bg-muted">
+            {details?.find(item => item.id === court.id)?.photoVersion && details.find(item => item.id === court.id)?.photoVersion !== "0" ? <img className="absolute inset-0 h-full w-full object-cover" src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(details.find(item => item.id === court.id)!.photoVersion)}`} alt={`${court.name} court`} /> : <div className="flex h-full min-h-36 items-center justify-center text-sm text-muted-foreground">No court photo</div>}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col justify-between gap-4 p-5">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">{court.name}</h2><span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{court.active ? "Active" : "Inactive"}</span></div>
+              <p className="break-words text-sm text-muted-foreground">{details?.find(item => item.id === court.id)?.description || (details ? "No description yet." : "Loading court details…")}</p>
+              <p className="text-sm font-medium">{court.hours.length === 0 ? "Closed all week" : `${court.hours.length} weekly ${court.hours.length === 1 ? "window" : "windows"}`} <span className="font-normal text-muted-foreground">· {court.active ? "Bookable" : "Bookings blocked"}</span></p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={court.active} onChange={e => { const active = e.target.checked; updateCourt(court.id, c => ({ ...c, active })); }} /> Active</label>
-            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => { if (!confirmDiscard("Renaming a court")) return; setDialogError(""); setRenameValue(court.name); setRenaming(court); }}>Rename</Button>
+            <Button type="button" variant="outline" size="sm" disabled={busy || !details?.some(item => item.id === court.id)} onClick={() => { const item = details?.find(item => item.id === court.id); if (!item) return; setDialogError(""); setDetailsStale(false); setEditName(item.name); setEditDescription(item.description); setPhoto(null); setEditing(item); }}>Edit details & photo</Button>
             <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => { setWindowCourt(court); setDraftWindow({ weekday: 1, opens: "07:00", closes: "20:00", hourlyRate: "" }); }}>Add window</Button>
             <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => { setQuickCourt(court); setQuick({ opens: "07:00", closes: "20:00", hourlyRate: "", weekdays: [0, 1, 2, 3, 4, 5, 6] }); }}>Quick setup</Button>
+            </div>
           </div>
         </div>
         <div className="divide-y">
@@ -243,14 +274,16 @@ export default function CourtSetup() {
       </section>
     </>}
 
-    <Dialog open={renaming !== null} onOpenChange={open => { if (!open && !busy) setRenaming(null); }}>
+    <Dialog open={editing !== null} onOpenChange={open => { if (!open && !busy) { setEditing(null); if (detailsStale) void loadDetails(); } }}>
       <DialogContent className="sm:max-w-md">
-        <DialogTitle>Rename court</DialogTitle>
-        <DialogDescription>The name appears on the public booking page and in reports. Existing bookings keep the name they were made with.</DialogDescription>
-        <form onSubmit={saveName} className="space-y-4">
-          <label className="grid gap-1 text-sm font-medium">Court name<Input required maxLength={100} value={renameValue} onChange={e => setRenameValue(e.target.value)} /></label>
+        <DialogTitle>Edit court details</DialogTitle>
+        <DialogDescription>Name, description and photo appear on public pages. Saving here does not save or discard schedule edits.</DialogDescription>
+        <form onSubmit={saveDetails} className="space-y-4">
+          <label className="grid gap-1 text-sm font-medium">Court name<Input required maxLength={100} value={editName} onChange={e => setEditName(e.target.value)} /></label>
+          <label className="grid gap-1 text-sm font-medium">Description<textarea rows={3} maxLength={1000} className="w-full rounded-md border border-input bg-transparent p-3 text-sm font-normal" value={editDescription} onChange={e => setEditDescription(e.target.value)} /></label>
+          <label className="grid gap-1 text-sm font-medium">{editing?.photoVersion !== "0" ? "Replace photo" : "Upload photo"}<Input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setPhoto(e.target.files?.[0] ?? null)} /><span className="font-normal text-muted-foreground">JPEG, PNG or WebP, up to 5 MiB. Leave empty to keep the current photo.</span></label>
           {dialogError && <p role="alert" className="text-sm text-destructive">{dialogError}</p>}
-          <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy || !renameValue.trim()}>{busy ? "Saving…" : "Save name"}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setRenaming(null)}>Cancel</Button></div>
+          <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy || detailsStale || !editName.trim()}>{busy ? "Saving…" : "Save details"}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { setEditing(null); if (detailsStale) void loadDetails(); }}>Close</Button></div>
         </form>
       </DialogContent>
     </Dialog>

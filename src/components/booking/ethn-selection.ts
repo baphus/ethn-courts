@@ -8,6 +8,18 @@ export function validDate(date: string | null): date is string {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === date;
 }
 
+export function acceptedDate(requested: string | undefined, returned: string, fellBack: boolean) {
+  return requested && validDate(requested) && !fellBack && requested === returned ? requested : "";
+}
+
+export function bookingDate(date: string, full = true) {
+  return new Intl.DateTimeFormat("en-PH", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric", ...(full ? { year: "numeric" } : {}) }).format(new Date(`${date}T00:00:00Z`));
+}
+
+export function slotDate(time: number) {
+  return new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric" }).format(new Date(time));
+}
+
 export function addDays(date: string, days: number) {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);

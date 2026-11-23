@@ -12,7 +12,7 @@ Rates are decimal strings or null, never legacy fallback prices. IDs and setting
 
 Staff endpoints use enabled ETHN owner/staff identity and private `no-store` responses. `GET /api/ethn/admin/calendar?date=YYYY-MM-DD` accepts historical dates; response is `{date,serverNow,window,courts}` with booking/block interval DTO documented in `docs/ethn-calendar-block-contract.md`. It omits contact and payment data.
 
-`POST /api/ethn/admin/blocks` accepts exact `{courtId,startsAt,endsAt,reason,kind}` where `kind` is `maintenance|private`; active blocks use shared court allocation exclusion. `DELETE /api/ethn/admin/blocks/:id` marks block released; repeats return 204. Apply `db/ethn/0015_court_blocks.sql` only through approved migration process. Local fresh-schema check does not approve hosted migration.
+`POST /api/ethn/admin/blocks` accepts exact `{courtId,startsAt,endsAt,reason,kind}` (single block response) or `{courtIds,startsAt,endsAt,reason,kind}` (response `{blocks:[...]}`), where `kind` is `maintenance|private`. `courtIds` must contain 1–100 distinct active court IDs. Multi-court creation uses one transaction: any invalid court or overlap rejects all blocks; audit remains per court. Active blocks use shared court allocation exclusion. `DELETE /api/ethn/admin/blocks/:id` marks block released; repeats return 204. Apply `db/ethn/0015_court_blocks.sql` only through approved migration process. Local fresh-schema check does not approve hosted migration.
 
 ## Owner finance and expenses
 

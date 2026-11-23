@@ -27,7 +27,9 @@ test("persistent notifications isolate recipients, deduplicate reconciliation an
     const rows = await listInbox({ connect }, verify);
     assert.equal(rows.filter(r => ["Pending payment", "Booking starting soon"].includes(r.title)).length, 2);
     assert.equal((await reconcileInbox({ connect }, verify)).created, 0);
-    assert.ok(rows.every(r => r.link === `/admin/bookings/${booking}` || r.link === "/admin/exceptions"));
+    assert.ok(rows.every(r => r.link === `/admin/bookings/${booking}`));
+    await admin.query("INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link) VALUES(gen_random_uuid(),$1,'exception:retired','Late payment exception','Retired review notice.','/admin/exceptions')", [a]);
+    assert.deepEqual(await listInbox({ connect }, verify), rows);
     const grants = await admin.query(`SELECT privilege_type, column_name FROM information_schema.column_privileges WHERE table_schema='ethn' AND table_name='notifications' AND grantee='ethn_checkout'`);
     assert.deepEqual(grants.rows.map(r => `${r.privilege_type}:${r.column_name}`).sort(), ["INSERT:body", "INSERT:event_key", "INSERT:id", "INSERT:link", "INSERT:recipient", "INSERT:title", "SELECT:body", "SELECT:created_at", "SELECT:event_key", "SELECT:id", "SELECT:link", "SELECT:read_at", "SELECT:recipient", "SELECT:title", "UPDATE:read_at"].sort());
     assert.equal(rows.some(r => /owner_hash|tracking|payment proof/i.test(JSON.stringify(r))), false);

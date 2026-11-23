@@ -84,7 +84,7 @@ export async function drainPush(pool: Db, config: Keys, sender: Sender = send) {
     await c.query(`INSERT INTO ethn.push_deliveries(notification_id,subscription_id)
       SELECT n.id,s.id FROM ethn.notifications n JOIN ethn.push_subscriptions s ON s.user_id=n.recipient AND s.disabled_at IS NULL
       JOIN ethn.staff_access a ON a.user_id=s.user_id AND a.enabled AND a.role IN ('owner','staff')
-      WHERE n.read_at IS NULL AND n.created_at >= clock_timestamp()-interval '24 hours' AND n.created_at >= s.created_at
+      WHERE n.read_at IS NULL AND n.link <> '/admin/exceptions' AND n.created_at >= clock_timestamp()-interval '24 hours' AND n.created_at >= s.created_at
       ON CONFLICT DO NOTHING`);
     const r = await c.query(`WITH due AS (SELECT d.notification_id,d.subscription_id FROM ethn.push_deliveries d
       WHERE d.status='pending' AND d.attempts<5 AND d.next_attempt_at<=clock_timestamp() AND (d.claimed_at IS NULL OR d.claimed_at<clock_timestamp()-interval '2 minutes')
@@ -113,7 +113,7 @@ export async function drainPush(pool: Db, config: Keys, sender: Sender = send) {
       try { eligible = (await check.query(`SELECT 1 FROM ethn.push_deliveries d JOIN ethn.push_subscriptions s ON s.id=d.subscription_id
         JOIN ethn.notifications n ON n.id=d.notification_id JOIN ethn.staff_access a ON a.user_id=s.user_id
         WHERE d.notification_id=$1 AND d.subscription_id=$2 AND d.status='pending' AND s.disabled_at IS NULL
-          AND n.read_at IS NULL AND a.enabled AND a.role IN ('owner','staff')`, [x.notification_id,x.subscription_id])).rows.length > 0; }
+          AND n.read_at IS NULL AND n.link <> '/admin/exceptions' AND a.enabled AND a.role IN ('owner','staff')`, [x.notification_id,x.subscription_id])).rows.length > 0; }
       finally { check.release(); }
       if (!eligible) continue;
       try { await sender({ endpoint: x.endpoint, keys: { p256dh: x.p256dh, auth: x.auth } }, JSON.stringify({ id: x.notification_id, link: x.link }), { TTL: 300, timeout: 5000, vapidDetails: config, topic: x.notification_id.replaceAll("-", "").slice(0, 32) }); }

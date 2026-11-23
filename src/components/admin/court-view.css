@@ -1,0 +1,12 @@
+@keyframes cv-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes cv-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes cv-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* "backwards" (not "both") so hover transforms still work once the entrance has finished */
+.cv-rise { animation: cv-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.cv-grow { transform-origin: left; animation: cv-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards; }
+.cv-pop { animation: cv-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-rise, .cv-grow, .cv-pop { animation: none; }
+}

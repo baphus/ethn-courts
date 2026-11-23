@@ -81,7 +81,7 @@ export function KpiRow({ data }: { data: Dashboard }) {
 /* ---------- Status counts (existing metrics, kept) ---------- */
 
 export function StatusStrip({ counts }: { counts: Dashboard["counts"] }) {
-  const items = [["Held", counts.held], ["Pending", counts.pending], ["Confirmed", counts.confirmed], ["Completed", counts.completed], ["Expired", counts.expired], ["Pending past start", counts.pendingReviewOverdue]] as const;
+  const items = [["Pending", counts.pending], ["Confirmed", counts.confirmed], ["Completed", counts.completed], ["Expired", counts.expired], ["Pending past start", counts.pendingReviewOverdue]] as const;
   return <section aria-labelledby="today-heading">
     <h2 id="today-heading" className="mb-3 text-lg font-semibold">Booking status today</h2>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">

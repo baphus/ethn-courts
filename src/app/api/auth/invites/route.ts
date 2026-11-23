@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { LaneError, err } from "@/lib/booking/errors";
-import {
-  adminExists,
-  requireAdmin,
-} from "@/lib/admin/session";
+import { requireAdmin } from "@/lib/admin/session";
 import {
   generateInviteToken,
   hashInviteToken,
@@ -60,17 +57,10 @@ export async function POST(request: Request) {
     } catch {
       return err("NOT_CONFIGURED", "Database is not configured.", 500);
     }
-    let actorEmail = "system";
-    let createdByAdmin: string | null = null;
-    try {
-      const session = await requireAdmin();
-      actorEmail = session.email;
-      createdByAdmin = session.userId;
-    } catch {
-      if (await adminExists()) {
-        return err("UNAUTHENTICATED", "Admin sign-in required.", 401);
-      }
-    }
+    // Initial ownership is provisioned only by the setup-key-protected ETHN route.
+    const session = await requireAdmin();
+    const actorEmail = session.email;
+    const createdByAdmin = session.userId;
 
     const token = generateInviteToken();
     const tokenHash = hashInviteToken(token);

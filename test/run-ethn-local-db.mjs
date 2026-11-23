@@ -9,8 +9,8 @@ import { randomBytes } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const testDir = path.join(root, "test");
-const target = ["staff-management", "exception-review", "walk-in", "booking-read", "calendar-blocks", "audit-read", "finance", "outcomes", "open-plays", "sales", "extensions", "notifications", "venue", "timing-policy", "expense-corrections", "integrated-workflows", "extension-review", "push"];
-const prefixes = { "staff-management": "ETHN_STAFF_MANAGEMENT", "exception-review": "ETHN_EXCEPTION", "walk-in": "ETHN_WALK_IN", "booking-read": "ETHN_ADMIN_BOOKING_READ", "calendar-blocks": "ETHN_CALENDAR_BLOCK", "audit-read": "ETHN_AUDIT_READ", finance: "ETHN_FINANCE", outcomes: "ETHN_OUTCOMES", "open-plays": "ETHN_OPEN_PLAYS", sales: "ETHN_SALES", extensions: "ETHN_EXTENSION", notifications: "ETHN_NOTIFICATIONS", venue: "ETHN_VENUE", "timing-policy": "ETHN_TIMING", "expense-corrections": "ETHN_FINANCE", "integrated-workflows": "ETHN_INTEGRATED", "extension-review": "ETHN_EXTENSION", push:"ETHN_PUSH" };
+const target = ["staff-management", "walk-in", "booking-read", "calendar-blocks", "audit-read", "finance", "outcomes", "open-plays", "sales", "extensions", "notifications", "venue", "timing-policy", "expense-corrections", "integrated-workflows", "extension-review", "push"];
+const prefixes = { "staff-management": "ETHN_STAFF_MANAGEMENT", "walk-in": "ETHN_WALK_IN", "booking-read": "ETHN_ADMIN_BOOKING_READ", "calendar-blocks": "ETHN_CALENDAR_BLOCK", "audit-read": "ETHN_AUDIT_READ", finance: "ETHN_FINANCE", outcomes: "ETHN_OUTCOMES", "open-plays": "ETHN_OPEN_PLAYS", sales: "ETHN_SALES", extensions: "ETHN_EXTENSION", notifications: "ETHN_NOTIFICATIONS", venue: "ETHN_VENUE", "timing-policy": "ETHN_TIMING", "expense-corrections": "ETHN_FINANCE", "integrated-workflows": "ETHN_INTEGRATED", "extension-review": "ETHN_EXTENSION", push:"ETHN_PUSH" };
 assert.equal(new Set(target).size, target.length);
 
 function run(bin, args, opts = {}) {

@@ -17,7 +17,7 @@ export async function getAvailability(pool: Pick<Pool, "connect">, requestedDate
     if ("error" in validated) throw new Error("INVALID_INPUT");
     const start = new Date(manilaWallClock(date).getTime() + settings.anchor_minutes * 60_000);
     const end = new Date(start.getTime() + 86_400_000);
-    const courts = (await client.query("SELECT id::text, name FROM ethn.courts WHERE active ORDER BY id")).rows;
+    const courts = (await client.query("SELECT id::text, name, description, CASE WHEN photo IS NULL THEN '0' ELSE details_version::text END AS photo_version FROM ethn.courts WHERE active ORDER BY id")).rows;
     const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
     const allocations = (await client.query("SELECT court_id::text, starts_at, ends_at, state FROM ethn.court_allocations WHERE starts_at < $2 AND ends_at > $1 AND (state IN ('pending','confirmed','completed') OR (state = 'held' AND expires_at > $3)) ORDER BY starts_at", [start, end, now])).rows;
     let configured = typeof settings.merchant === "string" && !!settings.merchant.trim();
@@ -29,7 +29,7 @@ export async function getAvailability(pool: Pick<Pool, "connect">, requestedDate
         else { try { parsePesos(w.rate); } catch { throw new Error("INVALID_SCHEDULE"); } }
         return { opensAt: new Date(w.opens).toISOString(), closesAt: new Date(w.closes).toISOString(), hourlyRate: w.rate };
       });
-      return { id: court.id as string, name: court.name as string, windows, occupied: allocations.filter(a => a.court_id === court.id).map(a => ({ startsAt: (a.starts_at as Date).toISOString(), endsAt: (a.ends_at as Date).toISOString(), state: a.state as string })) };
+      return { id: court.id as string, name: court.name as string, description: court.description as string | null, photoVersion: court.photo_version as string, windows, occupied: allocations.filter(a => a.court_id === court.id).map(a => ({ startsAt: (a.starts_at as Date).toISOString(), endsAt: (a.ends_at as Date).toISOString(), state: a.state as string })) };
     });
     await client.query("COMMIT");
     return { settings: { version: settings.version as string, intervalMinutes: settings.interval_minutes as number, minimumMinutes: settings.minimum_minutes as number, anchorMinutes: settings.anchor_minutes as number, horizonDays: settings.horizon_days as number, holdMinutes: settings.hold_minutes as number }, serverNow: now.toISOString(), operatingDate, date, configured, message: configured ? null : "Payment or pricing is not configured.", merchant: typeof settings.merchant === "string" && settings.merchant.trim() ? settings.merchant : null, courts: result };

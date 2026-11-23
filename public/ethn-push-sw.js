@@ -1,7 +1,7 @@
 const fallback = '/admin/notifications';
 function safeLink(link) {
   if (typeof link !== 'string') return fallback;
-  if (link === '/admin/exceptions' || link === fallback || /^\/admin\/bookings\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(link)) return link;
+  if (link === fallback || /^\/admin\/bookings\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(link)) return link;
   return fallback;
 }
 self.addEventListener('push', event => {

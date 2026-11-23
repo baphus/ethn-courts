@@ -1,0 +1,90 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { loadDates, rangeDates, stepPeriod, uniqueScheduleDays, type Calendar, type Interval, type View } from "./calendar-range";
+import { CourtTimeline } from "@/components/admin/court-timeline";
+
+type Detail = { guestName: string | null; status: string; total: string; items: { courtId: string; courtName: string; startsAt: string; endsAt: string }[] };
+const dateLabel = (date: string, options: Intl.DateTimeFormatOptions = { weekday: "long", month: "long", day: "numeric", year: "numeric" }) => new Intl.DateTimeFormat("en-PH", { ...options, timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+const time = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+const stateColors: Record<string, string> = {
+  held: "border-sky-200 bg-sky-50 text-sky-900",
+  pending: "border-amber-200 bg-amber-50 text-amber-900",
+  confirmed: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  completed: "border-slate-300 bg-slate-100 text-slate-800",
+};
+const stateColor = (state: string) => stateColors[state] ?? "border-border bg-muted text-foreground";
+
+export default function CalendarLayout({ date, today, revision, busy, onDate, onToday, onRefresh, onRelease }: { date: string; today: string; revision: number; busy: boolean; onDate: (date: string) => void; onToday: () => void; onRefresh: () => void; onRelease: (id: string, court: string, interval: Interval) => void }) {
+  const [view, setView] = useState<View>("weekly");
+  const [dateFallback, setDateFallback] = useState(false);
+  const dateInput = useRef<HTMLInputElement>(null);
+  function openDatePicker() {
+    try {
+      if (dateInput.current?.showPicker) { dateInput.current.showPicker(); return; }
+    } catch { /* Show editable date field when native picker cannot open. */ }
+    setDateFallback(true);
+    requestAnimationFrame(() => dateInput.current?.focus());
+  }
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
+  const [days, setDays] = useState<Record<string, Calendar | null>>({});
+  const [loading, setLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState("");
+  const [panel, setPanel] = useState<string | null>(null);
+  const [booking, setBooking] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const bookingRequest = useRef<AbortController | null>(null);
+  const dates = rangeDates(date, view);
+  const key = dates.join(",");
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setDays({});
+    void loadDates(key.split(","), controller.signal, async (day, signal) => {
+      const response = await fetch(`/api/ethn/admin/calendar?date=${encodeURIComponent(day)}`, { cache: "no-store", signal });
+      if (!response.ok) throw new Error("Calendar unavailable");
+      return response.json() as Promise<Calendar>;
+    }).then(result => { if (!controller.signal.aborted) { setDays(result); setLoadedKey(`${key}:${revision}`); setLoading(false); } });
+    return () => controller.abort();
+  }, [key, revision]);
+  useEffect(() => {
+    if (!booking) return;
+    const controller = new AbortController();
+    bookingRequest.current = controller;
+    setDetail(null); setDetailError("");
+    fetch(`/api/ethn/admin/bookings/${encodeURIComponent(booking)}`, { cache: "no-store", signal: controller.signal }).then(async response => { if (!response.ok) throw new Error("Booking unavailable. Open the full booking page or try again."); return response.json() as Promise<Detail>; }).then(data => { if (!controller.signal.aborted) setDetail(data); }).catch(error => { if (!controller.signal.aborted) setDetailError(error instanceof Error ? error.message : "Booking unavailable."); });
+    return () => controller.abort();
+  }, [booking]);
+  function openBooking(id: string) {
+    bookingRequest.current?.abort();
+    setDetail(null); setDetailError(""); setBooking(id);
+  }
+  const scheduleDays = uniqueScheduleDays(dates, days);
+  const entries = (day: Calendar) => day.courts.flatMap(court => court.intervals.map(item => ({ court, item })));
+  const label = view === "monthly" ? dateLabel(date, { month: "long", year: "numeric" }) : view === "daily" ? dateLabel(date) : `${dateLabel(dates[0], { month: "short", day: "numeric" })} – ${dateLabel(dates[6], { month: "short", day: "numeric", year: "numeric" })}`;
+  const dayContent = (day: Calendar) => entries(day).length > 0 && <div className="space-y-4"><p className="text-xs text-muted-foreground">Operating window: {time(day.window.startsAt)} – {time(day.window.endsAt)}</p>{day.courts.filter(court => court.intervals.length > 0).map(court => <section key={court.id} className="rounded-lg border p-3"><h3 className="font-semibold">{court.name} <span className="text-xs font-normal text-muted-foreground">· {court.active ? "Active" : "Inactive"}</span></h3>{<ul className="mt-2 divide-y">{court.intervals.map(item => <li key={item.id} className="space-y-1 py-3 text-sm"><p className="font-medium">{time(item.startsAt)} – {time(item.endsAt)}</p><p className="capitalize">{item.state === "held" ? "Unavailable" : <>{item.kind.replaceAll("_", " ")} · {item.state.replaceAll("_", " ")}{item.guestName ? ` · ${item.guestName}` : ""}</>}</p>{item.state !== "held" && item.reason && <p className="break-words text-muted-foreground">{item.reason}</p>}{item.state !== "held" && item.bookingId && item.kind === "booking" && <Button size="sm" variant="outline" onClick={() => openBooking(item.bookingId!)}>View booking</Button>}{item.blockId && (item.kind === "maintenance" || item.kind === "private") && <Button size="sm" variant="outline" disabled={busy || loading} onClick={() => onRelease(item.blockId!, court.name, item)}>Release block</Button>}</li>)}</ul>}</section>)}</div>;
+  return <>
+    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div className="flex flex-wrap items-center gap-2"><Button variant="outline" size="sm" disabled={busy} onClick={() => onDate(stepPeriod(date, view, -1))} aria-label="Previous period">‹</Button><h2 className="text-base font-bold"><button type="button" disabled={busy} onClick={openDatePicker} aria-label={`Choose operating date, ${label}`} className="rounded hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50">{label}</button></h2><Button variant="outline" size="sm" disabled={busy} onClick={() => onDate(stepPeriod(date, view, 1))} aria-label="Next period">›</Button><Button variant="outline" size="sm" disabled={busy} onClick={onToday}>Today</Button><Input ref={dateInput} aria-label="Operating date" type="date" value={date} disabled={busy} tabIndex={dateFallback ? 0 : -1} onChange={event => { if (event.target.value) onDate(event.target.value); }} className={dateFallback ? "w-auto" : "pointer-events-none absolute h-px w-px opacity-0"} /><Button variant="outline" size="sm" disabled={busy || loading} onClick={onRefresh}>Refresh</Button></div><div className="flex flex-wrap rounded-lg border bg-muted p-1" aria-label="Calendar view">{(["monthly", "weekly", "daily", "schedule"] as View[]).map(mode => <button key={mode} type="button" aria-pressed={view === mode} onClick={() => setView(mode)} className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize focus-visible:outline-2 focus-visible:outline-offset-2 ${view === mode ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{mode}</button>)}</div></div>
+      {loading || loadedKey !== `${key}:${revision}` ? <p className="p-6 text-sm">Loading calendar…</p> : <>{dates.some(day => days[day] === null) && <p role="alert" className="border-b bg-destructive/5 p-4 text-sm">Some dates could not be loaded. Their availability is unknown. Refresh to retry.</p>}{view === "daily" ? <div className="p-4">{days[date] ? <><CourtTimeline day={days[date]!} now={now} onBooking={openBooking} onBlock={() => setPanel(date)}/><details className="mt-4"><summary className="cursor-pointer text-sm font-semibold">All allocations and block actions</summary>{dayContent(days[date]!)}</details></> : <p role="alert">Calendar unavailable for this date.</p>}</div> : view === "schedule" ? <div className="divide-y">{dates.filter(day => !days[day] || (scheduleDays[day] && entries(scheduleDays[day]!).length > 0)).map(day => <section key={day} className="p-4"><h3 className="mb-3 font-semibold">{dateLabel(day)}</h3>{scheduleDays[day] ? <>{entries(days[day]!).length > entries(scheduleDays[day]!).length && <p className="mb-2 text-xs text-muted-foreground">Some continuing allocations appear on an earlier day in this schedule.</p>}{dayContent(scheduleDays[day]!)}</> : <p className="text-sm text-destructive">Unavailable — occupancy unknown.</p>}</section>)}</div> : <>
+        {view === "weekly" && <div className="sm:hidden">
+          <div className="flex gap-2 overflow-x-auto px-4 py-4">{dates.map(day => <button key={day} type="button" onClick={() => { onDate(day); setView("daily"); }} className={`flex min-w-13 flex-col items-center rounded-xl border px-2 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary ${day === today ? "border-primary bg-primary/10" : "bg-background"}`}><span className="text-xs font-semibold text-muted-foreground">{dateLabel(day, { weekday: "short" })}</span><span className="mt-1 font-bold">{Number(day.slice(8))}</span></button>)}</div>
+          <div className="space-y-5 border-t p-4">{dates.map(day => { const data = days[day]; const items = data ? entries(data) : []; if (data && items.length === 0) return null; return <section key={day}><h3 className="mb-2 text-sm font-semibold">{dateLabel(day, { weekday: "short", month: "short", day: "numeric" })}</h3>{!data ? <p className="text-sm text-destructive">Unavailable — occupancy unknown.</p> : <div className="space-y-2">{items.map(({ court, item }) => <button key={item.id} type="button" onClick={() => setPanel(day)} className={`w-full rounded-lg border p-3 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary ${stateColor(item.state)}`}><span className="block font-semibold">{court.name} · {item.guestName || item.kind.replaceAll("_", " ")}</span><span className="block">{time(item.startsAt)} – {time(item.endsAt)}</span><span className="capitalize">{item.state.replaceAll("_", " ")}</span></button>)}</div>}</section>; })}</div>
+        </div>}
+        <div className={view === "weekly" ? "hidden sm:block" : ""}>
+          <div className="grid grid-cols-7 border-b">{(view === "monthly" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]).map(day => <div key={day} className="min-w-0 py-2 text-center text-xs font-semibold uppercase text-muted-foreground"><span className="sm:hidden">{day.slice(0, 1)}</span><span className="hidden sm:inline">{day}</span></div>)}</div>
+          <div className="grid grid-cols-7">{view === "monthly" && Array.from({ length: new Date(`${dates[0]}T12:00:00Z`).getUTCDay() }, (_, index) => <div key={`padding-${index}`} aria-hidden="true" className="border-b border-r" />)}{dates.map(day => { const data = days[day]; const items = data ? entries(data) : []; return <button key={day} type="button" onClick={() => setPanel(day)} aria-label={`${dateLabel(day)}: ${data ? (items.length ? `${items.length} allocations` : "no allocations") : "unavailable"}`} className={`min-h-20 min-w-0 overflow-hidden border-b border-r p-1 text-left align-top hover:bg-muted/50 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary sm:min-h-28 sm:p-2`}><span className={`inline-flex size-7 items-center justify-center rounded-full text-sm font-bold ${day === today ? "bg-primary text-primary-foreground" : ""}`}>{Number(day.slice(8))}</span>{!data ? <p className="mt-2 text-xs font-semibold text-destructive"><span className="sm:hidden">!</span><span className="hidden sm:inline">Unavailable</span></p> : <>{items.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{items.length}<span className="hidden sm:inline"> allocation{items.length === 1 ? "" : "s"}</span></p>}{view === "weekly" && items.slice(0, 3).map(({ court, item }) => <p key={item.id} className={`mt-1 truncate rounded border px-1.5 py-1 text-xs ${stateColor(item.state)}`}>{court.name} · {item.guestName || item.kind.replaceAll("_", " ")} · {item.state.replaceAll("_", " ")}</p>)}</>}</button>; })}</div>
+        </div>
+      </>}</>}
+      {!loading && loadedKey === `${key}:${revision}` && dates.some(day => days[day] && entries(days[day]!).length > 0) && <div className="flex flex-wrap gap-3 border-t px-4 py-3 text-xs">{Object.entries(stateColors).map(([state, color]) => <span key={state} className={`rounded border px-2 py-1 capitalize ${color}`}>{state}</span>)}</div>}
+    </div>
+    <Sheet open={panel !== null} onOpenChange={open => { if (!open) setPanel(null); }}><SheetContent className="w-full overflow-y-auto sm:max-w-md"><SheetHeader><SheetTitle>{panel ? dateLabel(panel) : "Day"}</SheetTitle><SheetDescription>Occupancy by court for this operating day.</SheetDescription></SheetHeader><div className="px-4 pb-6">{panel && loadedKey === `${key}:${revision}` && days[panel] ? dayContent(days[panel]!) : <p role="alert">Calendar unavailable for this date. Refresh to retry.</p>}</div></SheetContent></Sheet>
+    <Dialog open={booking !== null} onOpenChange={open => { if (!open) { bookingRequest.current?.abort(); setBooking(null); } }}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogTitle>Booking summary</DialogTitle><DialogDescription>Read-only booking details.</DialogDescription>{detailError ? <p role="alert">{detailError}</p> : !detail ? <p>Loading booking…</p> : <div className="space-y-4 text-sm"><div><h3 className="text-lg font-semibold">{detail.guestName || "Guest"}</h3><p>Status: <span className="capitalize">{detail.status.replaceAll("_", " ")}</span></p><p>Original booking total: ₱{Number(detail.total).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div><section><h3 className="font-semibold">Court schedule</h3><ul className="divide-y">{detail.items.map((item, index) => <li key={`${item.courtId}-${index}`} className="py-2"><strong>{item.courtName}</strong><p>{time(item.startsAt)} – {time(item.endsAt)}</p></li>)}</ul></section></div>}{booking && <Link className="text-sm font-semibold text-primary underline" href={`/admin/bookings/${encodeURIComponent(booking)}`}>Open full booking</Link>}</DialogContent></Dialog>
+  </>;
+}

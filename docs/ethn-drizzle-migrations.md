@@ -1,0 +1,42 @@
+# ETHN Drizzle-managed migrations (fresh database)
+
+## Scope
+
+Use a new ETHN database/project, or a separately backed-up and explicitly approved reset. Tooling never wipes data. Existing `ethn` or `ethn_migrations` schemas without matching history are refused, not adopted. The previous baseline-only setup was replaced before any database adoption was executed; do not reuse any independently recorded old baseline history.
+
+Drizzle manages SQL-first custom migrations in `db/ethn-migrations/`:
+
+1. `0000_fresh_ethn.sql`: full ordered ETHN schema/access chain through 0028, including both 0026 files.
+2. `0001_court_details.sql`: court descriptions/photo/version upgrade (old 0029).
+
+Separate history: `ethn_migrations.__drizzle_migrations`. Legacy `drizzle/`, `drizzle.config.ts`, `src/db/schema.ts` and `supabase/` are not used. Never run default drizzle-kit push/migrate against ETHN. ETHN custom schema is deliberately empty; never use push with it. Runtime remains server-side SQL, not ORM queries. Old db/ethn files remain reference/fresh-test fixtures; do not run both chains on the same database.
+
+## Prerequisites
+
+1. Confirm target project identity and backup/restore plan. Prefer new database over deleting existing data. No reset command is provided.
+2. Use migration-owner account capable of creating schemas, tables, functions, grants and btree_gist extension. Provision roles before migrating: `anon`, `authenticated` and `ethn_checkout`. Supabase already supplies anon/authenticated; never replace its roles. Plain PostgreSQL can use NOLOGIN anon/authenticated placeholder roles.
+3. Provision `ethn_checkout` separately as LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE, with no role memberships and secure password. Do not store password in SQL/repository. Migration runner verifies these attributes and refuses runtime credentials as migration owner.
+4. Set dedicated `ETHN_MIGRATION_DATABASE_URL` securely in process environment. Use direct PostgreSQL connection, not transaction pooler port 6543. Set `ETHN_DATABASE_CA_FILE` to verified remote CA file. URL query overrides are rejected. No runtime/legacy credential fallback. npm commands load .env then .env.local; process environment takes precedence.
+5. Disposable loopback exception only: NODE_ENV=test and ETHN_ALLOW_LOCAL_DATABASE=1 permit non-TLS localhost/127.0.0.1.
+
+## Apply
+
+Run from repository root after approving target and migration:
+
+```sh
+npm run db:status
+npm run db:migrate
+npm run db:status
+```
+
+Fresh expected result: applied=2, pending=0. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
+
+Verify effective grants/RLS with restricted login and test owner access, booking availability and picture replacement. Fresh SQL seeds courts/settings but does not provision actual Auth users or owner access, proof Storage, GCash instructions, live rates, mail or scheduler. Configure separately. Browser Auth and private Storage must target same ETHN Supabase project. Moving to another Supabase project requires updating Auth/Storage environment and provisioning private proof bucket/policies; SQL migrations do not move identities, proofs or old bookings.
+
+## Future custom migrations
+
+```sh
+npm run db:generate -- --name=descriptive_change
+```
+
+Edit generated SQL, test disposable DB, commit SQL and generated metadata, then run approved migrate command. Use SQL-first for grants, RLS, functions and triggers. Schema-diff generation is not configured. Never modify applied migrations. Do not bypass runner with raw drizzle-kit migrate.

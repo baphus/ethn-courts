@@ -20,6 +20,7 @@ const WRITE_LIMITS: Array<{
 }> = [
   { prefix: "/api/ethn/availability", limit: 60, windowMs: 60_000, methods: ["GET"] },
   { prefix: "/api/checkout", limit: 10, windowMs: 60_000, methods: ["POST"] },
+  { prefix: "/api/ethn/setup", limit: 5, windowMs: 60_000, methods: ["GET", "POST"] },
   { prefix: "/api/submit", limit: 10, windowMs: 60_000 },
   // Forgot-password sends emails and is fully unauthenticated.
   { prefix: "/api/auth/forgot-password", limit: 5, windowMs: 60_000 },
@@ -133,6 +134,7 @@ export const config = {
     "/api/holds/reclaim",
     "/api/submit",
     "/api/ethn/availability",
+    "/api/ethn/setup",
     "/api/checkout",
     "/api/checkout/proofs",
     "/api/checkout/submit",

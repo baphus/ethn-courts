@@ -1,0 +1,4 @@
+import { Layers, LayoutDashboard } from "lucide-react";
+export function ViewToggle({ courtView, onChange }: { courtView: boolean; onChange: (court: boolean) => void }) {
+  return <div aria-label="Dashboard view" className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 gap-1 rounded-full bg-foreground/95 p-1 shadow-lg">{[{ label: "Dashboard", value: false, Icon: LayoutDashboard }, { label: "Court view", value: true, Icon: Layers }].map(({ label, value, Icon }) => <button key={label} type="button" aria-pressed={courtView === value} onClick={() => onChange(value)} className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary ${courtView === value ? "bg-background text-foreground" : "text-background/70 hover:text-background"}`}><Icon className="size-4" aria-hidden="true" />{label}</button>)}</div>;
+}

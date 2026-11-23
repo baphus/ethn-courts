@@ -11,7 +11,7 @@ import PushControls from "./push-controls";
 
 type Notification = { id: string; title: string; body: string; link: string; createdAt: string; readAt: string | null };
 const dateTime = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-const safeLink = (link: string) => link === "/admin/exceptions" || /^\/admin\/bookings\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(link);
+const safeLink = (link: string) => /^\/admin\/bookings\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(link);
 const message = (status: number) => status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Staff access is unavailable or has been revoked." : status === 404 ? "This notification is no longer available." : "Service unavailable. Please try again.";
 
 export default function NotificationsPage() {

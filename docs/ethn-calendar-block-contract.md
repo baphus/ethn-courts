@@ -1,5 +1,12 @@
 # ETHN calendar and court-block contract
 
+## Create event amendment — 2026-11-22
+
+- Calendar **Create event** replaces **Block time**. One modal switches between Closure (Maintenance/Private) and Open Play, with multiple active courts, selected calendar date defaults and explicit Manila start/end dates/times. No recurrence.
+- Closures add an exact `{courtIds,startsAt,endsAt,reason,kind}` POST variant with 1–100 distinct IDs, returning 201 `{blocks:[{id,courtId,startsAt,endsAt,reason,kind}]}`. Existing single-court request/response remains supported. All selected courts are checked and written in one transaction; any conflict rejects the whole submission. Each closure remains independently releasable through existing workflow.
+- Open Play reuses its existing atomic service and public listing: required title, optional description and informational fee defaulting to zero; no registration, capacity or payment collection. Existing opening-hours rules apply.
+- Success closes and resets the form and refreshes calendar; errors retain entries. Uncertain saves require checking refreshed calendar before retry. Owner/staff permissions, future/horizon rules and existing edit/remove workflows remain unchanged. No schema migration needed for this amendment.
+
 ## Approved implementation contract — 2026-11-21
 
 This section supersedes conflicting proposals below. User approved these defaults and local implementation; hosted execution remains unauthorized.

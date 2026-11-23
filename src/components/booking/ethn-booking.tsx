@@ -6,17 +6,17 @@ import { LoadingAnimation } from "@/components/ui/loading-animation";
 import HowItWorks from "@/components/landing/how-it-works";
 import RallyCourt from "./rally-court";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Clock3, Image as ImageIcon } from "lucide-react";
+import { CalendarDays, Clock3, Image as ImageIcon, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { priceItems } from "@/lib/booking/core";
-import { addDays, gridTimes, handoffRanges, selectRange, slots, validDate, type Window, type Occupied, type Range } from "./ethn-selection";
+import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, selectRange, slotDate, slots, validDate, type Window, type Occupied, type Range } from "./ethn-selection";
 import { formatDisplayDate } from "@/lib/display-date";
 import { VENUE_MAP_EMBED } from "@/lib/venue";
 
-type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; windows: Window[]; occupied: Occupied[] }[] };
+type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
 type Checkout = { checkoutId: string; total: string; expiresAt: string; merchant: string; acknowledgementRequired: boolean; items: { courtId: string; start: string; end: string; rate: string; minutes: number; amount: string }[] };
 type Draft = { owner: string; checkout: Checkout; date: string; offset: number; reservationId?: string; uploaded?: boolean; proofFile?: string; proofKey?: string; submitHash?: string; submitKey?: string };
 type Result = { booked: boolean; status: string; trackingToken?: string; code?: string; message?: string };
@@ -139,6 +139,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const previewDialog = useRef<HTMLDialogElement>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [chosenDate, setChosenDate] = useState("");
+  const [dateStatus, setDateStatus] = useState("");
+  const dateId = useId();
   const [ranges, setRanges] = useState<Range[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [restored, setRestored] = useState(false);
@@ -165,13 +167,17 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     const seq = ++sequence.current; setLoading(true); setClockReady(false); setError("");
     try {
       let response = await fetch(`/api/ethn/availability${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store" });
-      if (response.status === 400 && fallback) response = await fetch("/api/ethn/availability", { cache: "no-store" });
+      const fellBack = response.status === 400 && fallback;
+      if (fellBack) response = await fetch("/api/ethn/availability", { cache: "no-store" });
       if (!response.ok) throw new Error("UNAVAILABLE");
       const data: Availability = await response.json();
       if (seq !== sequence.current) return;
       clock.current = { server: Date.parse(data.serverNow), monotonic: performance.now() };
       const selected = handoff ? handoffRanges(handoff.raw, handoff.date, data, clock.current.server) : [];
-      setNow(clock.current.server); setClockReady(true); setAvailability(data); setChosenDate(data.date); setRanges(selected || []);
+      const accepted = acceptedDate(date, data.date, fellBack);
+      setNow(clock.current.server); setClockReady(true); setAvailability(data); setChosenDate(accepted); setRanges(accepted ? selected || [] : []);
+      if (accepted) setDateStatus(`Availability updated for ${bookingDate(accepted)}.`);
+      if (fellBack) setError("That date is unavailable. Choose another date.");
       if (handoff && !selected) setError("Your selected times are no longer available or could not be verified. Please select your times again.");
     } catch { if (seq === sequence.current) { setAvailability(null); setRanges([]); setError("Availability is unavailable. Please refresh and try again."); } }
     finally { if (seq === sequence.current) setLoading(false); }
@@ -180,7 +186,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     let hasDraft = false;
     try { const stored = bookingPage ? sessionStorage.getItem(STORAGE) : null; if (stored) { const value = JSON.parse(stored) as Draft; if (value.owner && value.checkout?.checkoutId) { setDraft(value); setRestored(true); hasDraft = true; } } } catch { /* Ignore invalid session draft. */ }
     const params = new URLSearchParams(window.location.search);
-    const date = bookingPage ? params.get("date") : null;
+    const date = params.getAll("date").length === 1 ? params.get("date") : null;
     const raw = bookingPage && !hasDraft && params.has("ranges") ? params.getAll("ranges").length === 1 ? params.get("ranges")! : "" : null;
     void load(validDate(date) ? date : undefined, true, raw !== null ? { raw, date: params.getAll("date").length === 1 ? date : null } : undefined);
     const timer = window.setInterval(() => { if (clock.current.server) setNow(clock.current.server + performance.now() - clock.current.monotonic); }, 1000);
@@ -194,6 +200,14 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
   }, []);
+
+  function changeDate(date: string) {
+    if (date === chosenDate) return;
+    setRanges([]); setChosenDate(date); setError("");
+    setDateStatus("Date changed. Choose your times again.");
+    if (date) void load(date);
+    else { sequence.current++; setLoading(false); }
+  }
 
   const validRanges = availability && ranges.length > 0 && ranges.every(r => Date.parse(r.end) - Date.parse(r.start) >= availability.settings.minimumMinutes * 60_000 && Date.parse(r.start) >= now);
   let total = "0.00";
@@ -259,7 +273,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   }
 
   const sectionTitle = "font-display text-4xl font-black uppercase leading-[.85] tracking-tight text-[#16384d] sm:text-5xl";
-  const darkBtn = "inline-flex min-h-10 items-center justify-center self-start rounded-md bg-[#16384d] px-4 text-xs font-bold text-white transition hover:bg-[#f28500]";
+  const darkBtn = "inline-flex min-h-12 items-center justify-center self-start rounded-md bg-[#16384d] px-6 py-3 text-base font-bold text-white transition hover:bg-[#f28500]";
   const tileBtn = "mt-5 inline-flex min-h-9 items-center rounded-md bg-white px-3 text-xs font-bold text-[#16384d] transition hover:bg-[#16384d] hover:text-white";
   const card = "rounded-2xl border border-[#dce5e8] bg-white p-5 shadow-sm sm:p-7";
 
@@ -317,7 +331,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <section className="bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-7 sm:px-8">
           <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#16384d] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Book your<br />court</h2></div>
-          <div className="flex max-w-sm flex-col gap-4 text-xs leading-5 text-[#405966]"><p>Pick an open time on either court, pay through GCash, and staff confirm your reservation.</p><a href="/book" className={darkBtn}>Check availability <span aria-hidden="true" className="ml-2">→</span></a></div>
+          <div className="flex max-w-sm flex-col gap-4 text-[11px] leading-5 text-[#405966]"><a href="/book" className={darkBtn}><CalendarDays aria-hidden="true" className="mr-2 size-4" />Check availability</a><p>Pick an open time on either court, pay through GCash, and staff confirm your reservation.</p></div>
         </div>
       </section>
 
@@ -328,7 +342,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         <div className="mx-auto max-w-7xl space-y-4">
     {error && <p role="alert" className="rounded-2xl border border-destructive/30 bg-white p-4 text-sm text-foreground">{error}</p>}
     {bookingPage && <p className="text-sm font-bold text-white">{result ? "Step 4 of 4 - Submission status" : draft ? "Step 3 of 4 - Payment and contact" : review ? "Step 2 of 4 - Review and hold" : "Step 1 of 4 - Date and slots"}</p>}
-    {bookingPage && result ? <section className="rounded-2xl border bg-card p-6"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your payment evidence requires staff review. Your court is not booked."}</p>{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-block font-semibold text-primary underline" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" onClick={() => { setResult(null); void load(); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className={`space-y-6 ${card}`}><div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#dce5e8] pb-5"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f28500]">Your checkout</p><h2 className="font-display mt-1 text-3xl font-bold text-[#16384d]">{money(draft.checkout.total)}</h2><p className="text-sm text-[#718189]">Operating date: {formatDisplayDate(draft.date)}</p></div><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
+    {bookingPage && result ? <section className="rounded-2xl border bg-card p-6"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your payment evidence requires staff review. Your court is not booked."}</p>{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-block font-semibold text-primary underline" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" onClick={() => { setResult(null); void load(); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className={`space-y-6 ${card}`}><div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#dce5e8] pb-5"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f28500]">Your checkout</p><h2 className="font-display mt-1 text-3xl font-bold text-[#16384d]">{money(draft.checkout.total)}</h2><p className="text-sm text-[#718189]">Booking date: {formatDisplayDate(draft.date)}</p></div><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
       {restored && <p className="rounded-lg bg-muted p-3 text-sm">Checkout restored on this device. Availability and status will be checked by the server; this is not a guarantee.</p>}
       {!clockReady && <Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh server time</Button>}
       <ul className="divide-y border-y">{draft.checkout.items.map((item, i) => <li key={i} className="py-3 text-sm"><strong>Court {item.courtId}</strong> · {formatDate(item.start)} – {formatDate(item.end)} · {item.minutes} min · {money(item.rate)}/hour · <strong>{money(item.amount)}</strong></li>)}</ul>
@@ -337,14 +351,24 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input maxLength={200} value={name} onChange={e => setName(e.target.value)} autoComplete="name" /></label><label className={field}>Email<Input type="email" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label><label className={field}>Contact number<Input maxLength={50} value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" /></label><label className={field}>GCash reference<Input maxLength={200} value={reference} onChange={e => setReference(e.target.value)} /></label></div>
       <div className="space-y-3"><label className={field}>Payment proof (JPG, PNG or WebP, up to 5 MiB)<Input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || expired || !clockReady} onChange={e => setFile(e.target.files?.[0] ?? null)} /></label><div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={busy || !clockReady || expired || !file || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void upload()}>{busy ? "Please wait…" : "Upload proof"}</Button><span className="text-sm text-muted-foreground">{draft.uploaded ? "Proof uploaded." : draft.reservationId ? "Upload not confirmed; submission will check proof." : "After a reload, reattach your file if it was not uploaded."}</span></div></div>
       <div className="flex flex-wrap gap-3"><Button disabled={busy || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" disabled={busy} onClick={() => { if (window.confirm("Leave this checkout? Its hold will expire. If you paid, keep your proof and contact the venue.")) { finishCheckout(); setError(""); void load(); } }}>Leave checkout</Button></div>
-    </section> : <section className={`space-y-5 ${card}`}><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f28500]">{bookingPage ? "Your schedule" : "Court availability"}</p><h2 className="font-display mt-1 text-2xl font-bold text-[#16384d]">{bookingPage ? "Choose your time" : "Find an open court"}</h2><p className="mt-1 text-sm text-[#718189]">Select a continuous start-to-end range inside one opening window.</p></div><div className="flex flex-wrap items-end gap-3"><label className={field}>Operating date<Input type="date" value={chosenDate} min={availability?.operatingDate} max={availability ? addDays(availability.operatingDate, availability.settings.horizonDays - 1) : undefined} disabled={loading || review} onChange={e => { setChosenDate(e.target.value); if (e.target.value) void load(e.target.value); }} /></label><Button variant="outline" disabled={loading || review} onClick={() => void load(chosenDate || undefined)}>Refresh</Button></div></div>
-      {loading ? <LoadingAnimation label="Loading availability" className="py-6" /> : !availability ? <p className="py-6 text-sm">Availability is unavailable.</p> : <>{!availability.configured && <p className="rounded-lg bg-muted p-4 text-sm">{availability.message || "Booking and payment are not configured yet."}</p>}{(availability.courts.length === 0 || availability.courts.every(c => c.windows.length === 0)) && <p className="py-6 text-sm text-muted-foreground">Courts are closed on this operating date.</p>}
+    </section> : <section className={`space-y-5 ${card}`}>
+      <div className="rounded-xl border border-[#f2d8b4] bg-[#fff0dc] p-4 sm:p-5">
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">{bookingPage ? "Your schedule" : "Court availability"}</p>
+        <h2 className="font-display mt-1 text-2xl font-bold text-[#16384d]">Choose your booking date</h2>
+        <p id={`${dateId}-help`} className="mt-2 text-sm leading-5 text-[#405966]">Times after midnight may appear under the previous booking date. Check the date beside each time.</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className={`${field} sm:min-w-56`}><label htmlFor={dateId}>Booking date</label><Input id={dateId} aria-describedby={`${dateId}-help`} className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16384d]" type="date" value={chosenDate} min={availability?.operatingDate} max={availability ? addDays(availability.operatingDate, availability.settings.horizonDays - 1) : undefined} disabled={loading || review} onChange={e => changeDate(e.target.value)} /></div>
+          {availability && <Button type="button" variant="outline" className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16384d]" disabled={loading || review} onClick={() => changeDate(availability.operatingDate)}>Book for {bookingDate(availability.operatingDate, false)}</Button>}
+        </div>
+        {chosenDate && <div className="mt-5 flex flex-col gap-3 border-t border-[#f2d8b4] pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-lg font-bold text-[#16384d]">{bookingDate(chosenDate)}</p><Button variant="outline" className="min-h-11 bg-white" disabled={loading || review} onClick={() => void load(chosenDate)}>Refresh availability</Button></div>}
+      </div>
+      <p role="status" aria-live="polite" className="sr-only">{dateStatus}</p>
+      {loading ? <LoadingAnimation label="Loading availability" className="py-6" /> : !availability ? <div className="space-y-3"><p className="text-sm">Availability is unavailable.</p><Button variant="outline" onClick={() => void load(chosenDate || undefined)}>Retry availability</Button></div> : !chosenDate ? <p className="rounded-lg bg-[#edf3f5] p-4 text-sm text-[#405966]">Choose a date to see available times.</p> : <>{!availability.configured && <p className="rounded-lg bg-muted p-4 text-sm">{availability.message || "Booking and payment are not configured yet."}</p>}{(availability.courts.length === 0 || availability.courts.every(c => c.windows.length === 0)) && <p className="py-6 text-sm text-muted-foreground">Courts are closed on this date.</p>}
       {!review && <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-[#405966]">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"], ["Rate unavailable", "R"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>}
-      {!review && <p className="text-xs leading-5 text-[#405966]">Select a start and end time. Select a chosen cell again to remove it and later times.</p>}
-      {!review && availability.courts.some(c => c.windows.length > 0) && gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).length === 0 && <p role="status" className="py-4 text-sm text-[#405966] text-center"><EmptyIcon /> No upcoming slots for this operating date.</p>}
+      {!review && availability.courts.some(c => c.windows.length > 0) && gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).length === 0 && <p role="status" className="py-4 text-sm text-[#405966] text-center"><EmptyIcon /> No upcoming slots for this date.</p>}
       {!review && <div role="region" aria-label="Court availability" tabIndex={0} className="max-h-[32rem] overflow-auto rounded-xl border border-[#dce5e8]">
         <table className="w-full table-fixed border-separate border-spacing-0 text-sm"><caption className="sr-only">Court availability by time</caption><thead className="sticky top-0 z-10 bg-[#16384d] text-white"><tr><th scope="col" className="px-1 py-3 text-center text-xs sm:p-3 sm:text-sm"><span className="inline-flex items-center justify-center gap-1"><Clock3 aria-hidden="true" className="size-4 shrink-0" />Time</span></th>{availability.courts.map(c => <th scope="col" key={c.id} className="px-0.5 py-1 text-center text-xs sm:px-2 sm:text-sm"><span className="inline-flex items-center justify-center"><span>{c.name}</span><button type="button" aria-label={`View ${c.name} photo`} onClick={() => { setPreviewCourt(c.name); previewDialog.current?.showModal(); }} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ffad4c]"><ImageIcon aria-hidden="true" className="size-4" /></button></span></th>)}</tr></thead><tbody>
-          {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => <tr key={start}><th scope="row" className="bg-white px-1 py-2 text-center"><span className="inline-flex max-w-full flex-col items-center rounded-full bg-[#edf3f5] px-2 py-2 text-[10px] font-bold leading-4 text-[#16384d] sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"><span>{formatTime(start)} <span aria-hidden="true">–</span></span><span>{formatTime(start + availability.settings.intervalMinutes * 60000)}</span></span></th>{availability.courts.map(court => {
+          {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => <tr key={start}><th scope="row" className="bg-white px-1 py-2 text-center"><span className="inline-flex max-w-full flex-col items-center rounded-full bg-[#edf3f5] px-2 py-2 text-[10px] font-bold leading-4 text-[#16384d] sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"><span>{slotDate(start)} · {formatTime(start)} <span aria-hidden="true">–</span></span><span>{slotDate(start + availability.settings.intervalMinutes * 60000)} · {formatTime(start + availability.settings.intervalMinutes * 60000)}</span></span></th>{availability.courts.map(court => {
             const wi = court.windows.findIndex(w => slots(w, court.occupied, availability.settings.intervalMinutes, now).some(s => s.start === start));
             const window = court.windows[wi]; const grid = window ? slots(window, court.occupied, availability.settings.intervalMinutes, now) : []; const index = grid.findIndex(s => s.start === start); const slot = grid[index]; const selected = ranges.find(r => r.courtId === court.id); const active = !!slot && selected?.window === wi && slot.start >= Date.parse(selected.start) && slot.end <= Date.parse(selected.end);
             const status = !slot ? "Closed" : window.hourlyRate === null ? "Rate unavailable" : !slot.available ? "Unavailable" : "Available";
@@ -352,15 +376,14 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
             const symbol = active ? "✓" : status === "Available" ? "+" : status === "Closed" ? "C" : status === "Rate unavailable" ? "R" : "–";
             const content = <><span aria-hidden="true" className="sm:hidden">{symbol}</span><span className="sr-only sm:not-sr-only">{label}</span></>;
             const style = `inline-flex h-11 w-11 items-center justify-center rounded-full border text-sm font-bold sm:w-full sm:px-2 sm:text-xs ${statusStyles[label]}`;
-            return <td key={court.id} className="border-t border-[#dce5e8] px-1 py-2 text-center">{<button type="button" disabled={status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${formatTime(start)} - ${formatTime(start + availability.settings.intervalMinutes * 60000)}, ${label}`} onClick={() => { const next = selectRange(court.id, wi, window, grid, index, selected); setRanges([...ranges.filter(r => r.courtId !== court.id), ...(next ? [next] : [])]); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f28500] enabled:hover:ring-2 enabled:hover:ring-[#f28500] disabled:cursor-not-allowed`}>{content}</button>}</td>;
+            return <td key={court.id} className="border-t border-[#dce5e8] px-1 py-2 text-center">{<button type="button" disabled={status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatTime(start)} - ${slotDate(start + availability.settings.intervalMinutes * 60000)} ${formatTime(start + availability.settings.intervalMinutes * 60000)}, ${label}`} onClick={() => { const next = selectRange(court.id, wi, window, grid, index, selected); setRanges([...ranges.filter(r => r.courtId !== court.id), ...(next ? [next] : [])]); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f28500] enabled:hover:ring-2 enabled:hover:ring-[#f28500] disabled:cursor-not-allowed`}>{content}</button>}</td>;
           })}</tr>)}
         </tbody></table></div>}
-      <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#16384d] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2><p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p><form method="dialog" className="mt-6"><Button autoFocus type="submit">Close</Button></form></dialog>
-      {!bookingPage && ranges.length === 0 && <a href={`/book?date=${encodeURIComponent(chosenDate)}`} className="inline-flex min-h-11 items-center rounded-md bg-[#f28500] px-5 text-sm font-bold text-white">Continue booking</a>}
+      <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#16384d] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <Photo src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} label={court.name} className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-[#405966]">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit">Close</Button></form></dialog>
       {!review && ranges.length > 0 && <div className="flex flex-wrap gap-3">{ranges.map(r => <button key={r.courtId} className="text-sm text-primary underline" onClick={() => setRanges(ranges.filter(item => item.courtId !== r.courtId))}>Clear {availability.courts.find(c => c.id === r.courtId)?.name}</button>)}</div>}
 
       {ranges.length > 0 && <section aria-labelledby="selection-heading" className="border-t border-[#dce5e8] pt-6">
-        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">Your selection</p><h3 id="selection-heading" className="font-display mt-1 text-2xl font-bold text-[#16384d]">Review chosen times</h3></div><p className="text-sm text-[#405966]">Estimate · not a payment confirmation</p></div>
+        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">Your selection</p><h3 id="selection-heading" className="font-display mt-1 text-2xl font-bold text-[#16384d]">Review chosen times</h3></div></div>
         <ul className="mt-5 divide-y divide-[#dce5e8] overflow-hidden rounded-xl border border-[#dce5e8]">
           {ranges.map(r => {
             const minutes = (Date.parse(r.end) - Date.parse(r.start)) / 60_000;
@@ -401,7 +424,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <section id="open-plays" className="scroll-mt-28 sm:scroll-mt-32 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-7 sm:px-8">
           <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#16384d] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Play your<br />way</h2></div>
-          <div className="flex max-w-sm flex-col gap-4 text-xs leading-5 text-[#405966]"><p>Discover upcoming open plays, or reserve a court for your own group.</p><a href="/open-plays" className={darkBtn}>View open plays</a></div>
+          <div className="flex max-w-sm flex-col gap-4 text-[11px] leading-5 text-[#405966]"><a href="/open-plays" className={darkBtn}><Users aria-hidden="true" className="mr-2 size-4" />View open plays</a><p>Discover upcoming open plays, or reserve a court for your own group.</p></div>
         </div>
         <div className="mx-auto grid max-w-7xl gap-4 px-5 pb-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
           {playCards.map(c => <a key={c.label} href={c.href} className="group block"><div className="relative aspect-[3/4] overflow-hidden rounded-2xl"><Photo src={c.image} label={c.label} className="h-full w-full transition-transform duration-500 group-hover:scale-105" /><span className="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-[#16384d] opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">{c.label}<span aria-hidden="true">↗</span></span></div><p className="mt-2 text-xs font-medium text-[#405966]">{c.caption}</p></a>)}
