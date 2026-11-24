@@ -16,7 +16,7 @@ export function drawPickleball(ctx: CanvasRenderingContext2D, angle: number) {
     const y2 = y * cosT - z1 * sinT, z2 = y * sinT + z1 * cosT;
     if (z2 <= 0.04) continue;
     ctx.save(); ctx.translate(C + x1 * R, C - y2 * R); ctx.rotate(Math.atan2(-y2, x1));
-    ctx.fillStyle = "rgba(22,56,77,.85)"; ctx.beginPath(); ctx.ellipse(0, 0, 3.6 * z2, 3.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.fillStyle = "rgba(68,114,68,.85)"; ctx.beginPath(); ctx.ellipse(0, 0, 3.6 * z2, 3.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
   const shade = ctx.createRadialGradient(C - 9, C - 11, 2, C, C, R);
   shade.addColorStop(0, "rgba(255,255,255,.45)"); shade.addColorStop(0.35, "rgba(255,255,255,0)"); shade.addColorStop(0.75, "rgba(0,0,0,0)"); shade.addColorStop(1, "rgba(0,0,0,.3)");

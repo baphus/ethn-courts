@@ -84,9 +84,9 @@ html {
 
 /* Desktop shell sidebar and its mobile sheet copy share one dark palette. */
 :is([data-admin-shell] [data-sidebar="sidebar"], [data-sidebar="sidebar"][data-mobile="true"]) {
-  background: #092433;
+  background: #447244;
   color: #eaf0f3;
-  border-color: #092433;
+  border-color: #447244;
   --sidebar-foreground: #eaf0f3;
   --sidebar-accent: rgb(255 255 255 / .1);
   --sidebar-accent-foreground: #fff;
@@ -174,8 +174,8 @@ html.dark {
   --color-flame: #f28500;
   --color-flame-hover: #d97300;
   --color-flame-light: #fff0dc;
-  --color-pine: #16384d;
-  --color-pine-high: #092433;
+  --color-pine: #447244;
+  --color-pine-high: #447244;
   --color-pine-ink: #eaf0f3;
   --color-cocoa: #314d5c;
   --color-ink: #17252e;

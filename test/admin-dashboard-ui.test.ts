@@ -26,5 +26,5 @@ test('dashboard retains attention, booking statuses, court view and optional fin
 test('shell avoids unsupported nav-summary polling and misleading create menu', () => {
   const shell = source('src/components/admin/admin-sidebar.tsx') + source('src/components/admin/admin-topbar.tsx');
   assert.doesNotMatch(shell, /nav-summary|useNavSummary|Create new/);
-  assert.match(shell, /href="\/admin\/walk-in"/);
+  assert.match(shell, /href: "\/admin\/bookings\/new"/);
 });

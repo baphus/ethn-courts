@@ -9,6 +9,7 @@ function fake(rate: string | null = null) {
   const client = { release() {}, async query(sql: string) {
     calls.push(sql);
     if (sql.startsWith("SELECT version")) return { rows: [{ version: "1", interval_minutes: 30, minimum_minutes: 30, anchor_minutes: 420, horizon_days: 30, hold_minutes: 10, merchant: "Merchant", now: new Date("2026-11-19T20:00:00Z") }] };
+    if(sql.includes('FROM ethn.payment_methods')) return {rows:[{id:'bank',name:'Bank',instructions:'Pay here',qrAvailable:false,version:'1'}]};
     if (sql.startsWith("SELECT id::text")) return { rows: [{ id: "1", name: "Court" }] };
     if (sql.includes("FROM ethn.court_hours")) return { rows: [{ court_id: "1", weekday: 4, opens: "07:00:00", closes: "03:00:00", hourly_rate: rate }] };
     if (sql.includes("FROM ethn.court_allocations")) return { rows: [{ court_id: "1", starts_at: new Date("2026-11-19T00:00:00Z"), ends_at: new Date("2026-11-19T01:00:00Z"), state: "pending", guest_email: "private@example.com" }] };

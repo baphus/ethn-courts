@@ -20,7 +20,8 @@ export async function getAvailability(pool: Pick<Pool, "connect">, requestedDate
     const courts = (await client.query("SELECT id::text, name, description, CASE WHEN photo IS NULL THEN '0' ELSE details_version::text END AS photo_version FROM ethn.courts WHERE active ORDER BY id")).rows;
     const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
     const allocations = (await client.query("SELECT court_id::text, starts_at, ends_at, state FROM ethn.court_allocations WHERE starts_at < $2 AND ends_at > $1 AND (state IN ('pending','confirmed','completed') OR (state = 'held' AND expires_at > $3)) ORDER BY starts_at", [start, end, now])).rows;
-    let configured = typeof settings.merchant === "string" && !!settings.merchant.trim();
+    const methods = (await client.query('SELECT id,name,instructions,(qr IS NOT NULL) AS "qrAvailable",version::text FROM ethn.payment_methods WHERE enabled ORDER BY name,id')).rows;
+    let configured = methods.length > 0;
     const result = courts.map(court => {
       const resolved = scheduleWindows(date, settings.anchor_minutes, court.id, hours);
       if ("error" in resolved) throw new Error("INVALID_SCHEDULE");
@@ -32,7 +33,7 @@ export async function getAvailability(pool: Pick<Pool, "connect">, requestedDate
       return { id: court.id as string, name: court.name as string, description: court.description as string | null, photoVersion: court.photo_version as string, windows, occupied: allocations.filter(a => a.court_id === court.id).map(a => ({ startsAt: (a.starts_at as Date).toISOString(), endsAt: (a.ends_at as Date).toISOString(), state: a.state as string })) };
     });
     await client.query("COMMIT");
-    return { settings: { version: settings.version as string, intervalMinutes: settings.interval_minutes as number, minimumMinutes: settings.minimum_minutes as number, anchorMinutes: settings.anchor_minutes as number, horizonDays: settings.horizon_days as number, holdMinutes: settings.hold_minutes as number }, serverNow: now.toISOString(), operatingDate, date, configured, message: configured ? null : "Payment or pricing is not configured.", merchant: typeof settings.merchant === "string" && settings.merchant.trim() ? settings.merchant : null, courts: result };
+    return { settings: { version: settings.version as string, intervalMinutes: settings.interval_minutes as number, minimumMinutes: settings.minimum_minutes as number, anchorMinutes: settings.anchor_minutes as number, horizonDays: settings.horizon_days as number, holdMinutes: settings.hold_minutes as number }, serverNow: now.toISOString(), operatingDate, date, configured, message: configured ? null : "Payment or pricing is not configured.", paymentMethods: methods, merchant: typeof settings.merchant === "string" && settings.merchant.trim() ? settings.merchant : null, courts: result };
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch { discard = true; }
     throw error;

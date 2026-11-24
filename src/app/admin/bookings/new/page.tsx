@@ -1,3 +1,2 @@
-import { redirect } from "next/navigation";
-
-export default function RetiredPage() { redirect("/admin/payments"); }
+import NewBooking from "./new-booking";
+export default function NewBookingPage() { return <NewBooking />; }

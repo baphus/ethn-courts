@@ -147,7 +147,7 @@ const RallyCourt = memo(function RallyCourt() {
         <mask id="ethn-fade-mask" maskUnits="userSpaceOnUse" x="-40" y="-170" width="480" height="630"><rect x="-40" y="-170" width="480" height="630" fill="url(#ethn-fade-grad)" /></mask>
         {/* racket drawn with its origin at the grip, face pointing up */}
         <g id="ethn-paddle">
-          <rect x="-4" y="-28" width="8" height="28" rx="3" fill="#16384d" />
+          <rect x="-4" y="-28" width="8" height="28" rx="3" fill="#447244" />
           <path d="M-3 -7h6M-3 -13h6M-3 -19h6" stroke="#ffad4c" strokeWidth="1.5" fill="none" />
           <rect x="-18" y="-80" width="36" height="54" rx="17" fill="#000" opacity=".22" transform="translate(5 7)" />
           <rect x="-18" y="-80" width="36" height="54" rx="17" fill="#f28500" stroke="#fff" strokeWidth="3" />
@@ -171,7 +171,7 @@ const RallyCourt = memo(function RallyCourt() {
         <ellipse ref={shade} cx="0" cy="0" rx="7" ry="4" fill="#000" opacity=".3" />
         <g ref={lift}>
           <circle r="8.5" fill="#ffe45c" stroke="#fff" strokeWidth="1.5" />
-          <g ref={spin} fill="#16384d"><circle cx="0" cy="-4.5" r="1.4" /><circle cx="4.3" cy="-1.4" r="1.4" /><circle cx="2.6" cy="3.6" r="1.4" /><circle cx="-2.6" cy="3.6" r="1.4" /><circle cx="-4.3" cy="-1.4" r="1.4" /></g>
+          <g ref={spin} fill="#447244"><circle cx="0" cy="-4.5" r="1.4" /><circle cx="4.3" cy="-1.4" r="1.4" /><circle cx="2.6" cy="3.6" r="1.4" /><circle cx="-2.6" cy="3.6" r="1.4" /><circle cx="-4.3" cy="-1.4" r="1.4" /></g>
         </g>
       </g>
     </svg>

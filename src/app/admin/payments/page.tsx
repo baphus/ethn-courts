@@ -1,5 +1,3 @@
-import PaymentReview from "./payment-review";
+import { redirect } from "next/navigation";
 
-export default function PaymentsPage() {
-  return <PaymentReview />;
-}
+export default function PaymentsPage() { redirect("/admin/bookings"); }

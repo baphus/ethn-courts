@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import type { Pool } from "pg";
 import { submitBooking } from "../src/lib/booking/submission";
 
-const input = { ownerToken: "123e4567-e89b-42d3-a456-426614174000", checkoutId: "123e4567-e89b-42d3-a456-426614174001", reservationId: "123e4567-e89b-42d3-a456-426614174002", idempotencyKey: "key", customer: { name: "Guest", email: "guest@example.com", phone: "123" }, reference: " reference ", claimedAmount: "100.00" };
+const input = { ownerToken: "123e4567-e89b-42d3-a456-426614174000", checkoutId: "123e4567-e89b-42d3-a456-426614174001", reservationId: "123e4567-e89b-42d3-a456-426614174002", idempotencyKey: "key", paymentMethodId: 'gcash', customer: { name: "Guest", email: "guest@example.com", phone: "123" }, reference: " reference ", claimedAmount: "100.00" };
 
 test("submission rejects malformed input before acquiring connection", async () => {
   const pool = { connect: async () => { throw new Error("unexpected connection"); } } as unknown as Pick<Pool, "connect">;

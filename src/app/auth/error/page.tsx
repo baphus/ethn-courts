@@ -14,13 +14,12 @@ export default async function AuthErrorPage({
 }) {
   const { code } = await searchParams;
   return (
-    <main className="relative flex min-h-svh flex-col items-center justify-center gap-4 overflow-hidden bg-[#092433] p-6 text-white md:p-10"><div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_75%_20%,rgba(242,133,0,.2),transparent_38%),linear-gradient(135deg,#092433,#16384d)]"/>
+    <main className="relative flex min-h-svh flex-col items-center justify-center gap-4 overflow-hidden bg-[#447244] p-6 text-white md:p-10"><div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_75%_20%,rgba(242,133,0,.2),transparent_38%),linear-gradient(135deg,#447244,#447244)]"/>
       <div className="relative z-10 w-full max-w-sm">
         <Card className="overflow-hidden rounded-2xl border-white/15 bg-white p-0 text-[#17252e] shadow-2xl shadow-black/25">
           <CardContent className="flex flex-col items-center gap-4 p-6 text-center md:p-8">
-            <img src="/ethn-courts-mark.png" alt="" className="size-14 rounded-xl object-cover" />
-            <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
-            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#16384d]">This link can&apos;t be used</h1>
+            <img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-40" />
+            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#447244]">This link can&apos;t be used</h1>
             <p className="text-sm text-balance text-muted-foreground">
               The email link is invalid or has expired. Links are single-use
               and short-lived — request a fresh one.

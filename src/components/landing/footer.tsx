@@ -12,21 +12,14 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
   return (
     <footer
       id="contact"
-      className="scroll-mt-20 border-t border-white/10 bg-[#16384d] text-white"
+      className="scroll-mt-20 border-t border-white/10 bg-[#447244] text-white"
       aria-labelledby="footer-heading"
     >
       <div className="mx-auto w-full max-w-6xl px-4 pt-12 pb-6 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.7fr_1fr_1fr]">
           <div className="space-y-3">
             <p className="flex items-center gap-2.5" id="footer-heading">
-              <Image
-                src="/ethn-courts-mark.png"
-                alt="ETHN Courts — home"
-                width={36}
-                height={36}
-                className="size-9 rounded-full object-cover"
-              />
-              <span className="text-sm font-extrabold tracking-[.16em]">ETHN <span className="text-flame">COURTS</span></span>
+              <Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={160} height={91} className="h-auto w-36" />
             </p>
             <p className="max-w-xs text-[13px] leading-5 text-white/65">
               Outdoor pickleball courts in Tabuelan, Cebu. Choose a court time and request your reservation online.

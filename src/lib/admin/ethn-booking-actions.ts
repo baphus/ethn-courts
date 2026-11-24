@@ -1,0 +1,52 @@
+import { createHash } from 'node:crypto';
+import type { Pool } from 'pg';
+import type { StaffVerifier } from './ethn-payments';
+export type BookingAction='cancel'|'refund'|'archive';
+export function validateBookingAction(action:BookingAction,body:unknown){
+ if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('INVALID_INPUT');const b=body as Record<string,unknown>;
+ const fields=action==='refund'?['key','reason','reference']:action==='cancel'?['key','reason']:['key'];
+ if(Object.keys(b).some(k=>!fields.includes(k))||typeof b.key!=='string'||! /^[\x21-\x7e]{1,200}$/.test(b.key))throw new Error('INVALID_INPUT');
+ if(action!=='archive'&&(typeof b.reason!=='string'||!b.reason.trim()||b.reason.trim().length>500))throw new Error('INVALID_INPUT');
+ if(action==='refund'&&(typeof b.reference!=='string'||!b.reference.trim()||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
+ return {key:b.key,reason:typeof b.reason==='string'?b.reason.trim():null,reference:typeof b.reference==='string'?b.reference.trim():null};
+}
+export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifier,id:string,action:BookingAction,body:unknown){
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('INVALID_INPUT');
+ const input=validateBookingAction(action,body),actor=await verify();if(!actor||!/^[0-9a-f-]{36}$/i.test(actor))throw new Error('UNAUTHENTICATED');
+ const fingerprint=createHash('sha256').update(JSON.stringify({id,action,reason:input.reason,reference:input.reference})).digest('hex');
+ const c=await pool.connect();let discard=false,committing=false;
+ try{
+  await c.query('BEGIN');
+  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
+  const operation=`booking.${action}`;
+  const inserted=await c.query('INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,$2,$3,$4,NULL) ON CONFLICT DO NOTHING RETURNING key',[actor,operation,input.key,fingerprint]);
+  const prior=(await c.query('SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation=$2 AND key=$3 FOR UPDATE',[actor,operation,input.key])).rows[0];
+  if(!prior||prior.fingerprint!==fingerprint)throw new Error('IDEMPOTENCY_MISMATCH');
+  if(!inserted.rowCount){if(!prior.result)throw new Error('IDEMPOTENCY_INCOMPLETE');committing=true;await c.query('COMMIT');return prior.result;}
+  await c.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
+  const b=(await c.query('SELECT id,status,walk_in_actor,archived_at,total::text FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
+  const now=(await c.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+  if(action==='archive'){
+   if(!['expired','rejected','completed','cancelled','refunded'].includes(b.status))throw new Error('ACTION_CONFLICT');
+   await c.query('UPDATE ethn.bookings SET archived_at=coalesce(archived_at,$2),archived_by=coalesce(archived_by,$3) WHERE id=$1',[id,now,actor]);
+  }else{
+   if(b.status!=='confirmed'||(action==='cancel'&&!b.walk_in_actor))throw new Error('ACTION_CONFLICT');
+   // Cancellation/refund of extension-bearing bookings requires a separate financial policy.
+   if((await c.query("SELECT id FROM ethn.extensions WHERE booking_id=$1 AND status IN ('pending','confirmed') LIMIT 1",[id])).rowCount)throw new Error('ACTION_CONFLICT');
+   const slots=(await c.query('SELECT min(starts_at) AS first_start FROM ethn.booking_items WHERE booking_id=$1',[id])).rows[0];
+   if(!slots.first_start||slots.first_start<=now)throw new Error('ACTION_CONFLICT');
+   if(action==='refund'){
+    const payments=(await c.query("SELECT id,method,collected_amount::text FROM ethn.payments WHERE booking_id=$1 AND status='accepted' ORDER BY id FOR UPDATE",[id])).rows;
+    if(payments.length!==1||payments[0].collected_amount!==b.total)throw new Error('ACTION_CONFLICT');const p=payments[0];
+    await c.query('INSERT INTO ethn.booking_refunds(booking_id,payment_id,amount,method,reason,reference,recorded_at,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,p.id,p.collected_amount,p.method,input.reason,input.reference,now,actor]);
+   }
+   const status=action==='refund'?'refunded':'cancelled';
+   await c.query('UPDATE ethn.bookings SET status=$2 WHERE id=$1',[id,status]);
+   await c.query("UPDATE ethn.court_allocations SET state=$2 WHERE state='confirmed' AND starts_at>$3 AND item_id IN(SELECT id FROM ethn.booking_items WHERE booking_id=$1)",[id,status,now]);
+  }
+  await c.query('INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,$3,$4::jsonb)',[id,actor,`booking.${action}`,JSON.stringify({reason:input.reason,reference:input.reference})]);
+  const result={bookingId:id,status:action==='archive'?b.status:action==='refund'?'refunded':'cancelled',archived:action==='archive'};
+  await c.query('UPDATE ethn.idempotency SET result=$4::jsonb WHERE owner_hash=$1 AND operation=$2 AND key=$3',[actor,operation,input.key,JSON.stringify(result)]);
+  committing=true;await c.query('COMMIT');return result;
+ }catch(e){if(committing)discard=true;else try{await c.query('ROLLBACK');}catch{discard=true;}throw e;}finally{c.release(discard?new Error('discard transaction'):undefined);}
+}

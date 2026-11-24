@@ -60,9 +60,8 @@ export default function ResetPasswordForm() {
       <CardContent className="p-0">
         <form onSubmit={onSubmit} className="flex flex-col gap-6 p-6 md:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
-            <img src="/ethn-courts-mark.png" alt="" className="size-14 rounded-xl object-cover" />
-            <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
-            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#16384d]">Set a new password</h1>
+            <img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-40" />
+            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#447244]">Set a new password</h1>
             <p className="text-sm text-balance text-muted-foreground">
               Choose a password with at least 8 characters
             </p>

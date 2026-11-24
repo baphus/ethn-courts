@@ -8,6 +8,7 @@ Drizzle manages SQL-first custom migrations in `db/ethn-migrations/`:
 
 1. `0000_fresh_ethn.sql`: full ordered ETHN schema/access chain through 0028, including both 0026 files.
 2. `0001_court_details.sql`: court descriptions/photo/version upgrade (old 0029).
+3. `0002_sloppy_machine_man.sql`: configurable payment instructions/versioned QR images, optional actual payment evidence, direct internal booking compatibility, refund/cancellation outcomes and archive metadata (reference `db/ethn/0030_unified_bookings.sql`). Generated filename retained from installed CLI.
 
 Separate history: `ethn_migrations.__drizzle_migrations`. Legacy `drizzle/`, `drizzle.config.ts`, `src/db/schema.ts` and `supabase/` are not used. Never run default drizzle-kit push/migrate against ETHN. ETHN custom schema is deliberately empty; never use push with it. Runtime remains server-side SQL, not ORM queries. Old db/ethn files remain reference/fresh-test fixtures; do not run both chains on the same database.
 
@@ -29,7 +30,7 @@ npm run db:migrate
 npm run db:status
 ```
 
-Fresh expected result: applied=2, pending=0. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
+Fresh expected result: applied=3, pending=0. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
 
 Verify effective grants/RLS with restricted login and test owner access, booking availability and picture replacement. Fresh SQL seeds courts/settings but does not provision actual Auth users or owner access, proof Storage, GCash instructions, live rates, mail or scheduler. Configure separately. Browser Auth and private Storage must target same ETHN Supabase project. Moving to another Supabase project requires updating Auth/Storage environment and provisioning private proof bucket/policies; SQL migrations do not move identities, proofs or old bookings.
 

@@ -17,7 +17,7 @@ import { formatDisplayDate } from "@/lib/display-date";
 import { VENUE_MAP_EMBED } from "@/lib/venue";
 
 type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
-type Checkout = { checkoutId: string; total: string; expiresAt: string; merchant: string; acknowledgementRequired: boolean; items: { courtId: string; start: string; end: string; rate: string; minutes: number; amount: string }[] };
+type Checkout = { checkoutId: string; total: string; expiresAt: string; paymentMethods?: {id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[]; acknowledgementRequired: boolean; items: { courtId: string; start: string; end: string; rate: string; minutes: number; amount: string }[] };
 type Draft = { owner: string; checkout: Checkout; date: string; offset: number; reservationId?: string; uploaded?: boolean; proofFile?: string; proofKey?: string; submitHash?: string; submitKey?: string };
 type Result = { booked: boolean; status: string; trackingToken?: string; code?: string; message?: string };
 type Tracking = { status: string; operatingDate: string; total: string; items: { court: string; startsAt: string; endsAt: string }[]; payments: { status: string; method: string; reviewReason?: string }[] };
@@ -29,7 +29,7 @@ const money = (s: string) => `₱${s}`;
 const field = "grid gap-1.5 text-sm font-medium";
 const statusStyles = {
   Available: "bg-[#dcf4e6] text-[#145c39] border-[#a7d9bb]",
-  Selected: "bg-[#16384d] text-white border-[#16384d]",
+  Selected: "bg-[#447244] text-white border-[#447244]",
   Unavailable: "bg-[#fde5e3] text-[#922f29] border-[#efbbb6]",
   Closed: "bg-[#eee7f8] text-[#603786] border-[#d6c3e8]",
   "Rate unavailable": "bg-[#fff0d5] text-[#805000] border-[#efcf93]",
@@ -50,7 +50,7 @@ const IMAGES = {
 function Photo({ src, label, className = "" }: { src: string; label: string; className?: string }) {
   if (src) return <img src={src} alt="" className={`object-cover ${className}`} />;
   return (
-    <div role="img" aria-label={`${label} placeholder`} className={`grid place-items-center bg-[repeating-linear-gradient(135deg,#1d4a63_0_12px,#16384d_12px_24px)] p-4 text-center text-[11px] font-bold uppercase tracking-widest text-white/55 ${className}`}>
+    <div role="img" aria-label={`${label} placeholder`} className={`grid place-items-center bg-[repeating-linear-gradient(135deg,#447244_0_12px,#447244_12px_24px)] p-4 text-center text-[11px] font-bold uppercase tracking-widest text-white/55 ${className}`}>
       <span>{label}<br />placeholder</span>
     </div>
   );
@@ -72,7 +72,7 @@ function BallSticker() {
     <svg viewBox="0 0 100 100" className="block h-auto w-full drop-shadow-[0_6px_0_rgba(0,0,0,.2)]">
       <circle cx="50" cy="50" r="47" fill="#fff" />
       <circle cx="50" cy="50" r="39" fill="#ffad4c" />
-      <g fill="#16384d" opacity=".8">{dots.map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="4.5" />)}</g>
+      <g fill="#447244" opacity=".8">{dots.map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="4.5" />)}</g>
       <path d="M22 38a30 30 0 0 1 16-17" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" opacity=".7" />
     </svg>
   );
@@ -84,7 +84,7 @@ function PaddleSticker() {
   return (
     <svg viewBox="0 0 100 172" className="block h-auto w-full drop-shadow-[0_6px_0_rgba(0,0,0,.2)]">
       <g fill="#fff" stroke="#fff" strokeWidth="12" strokeLinejoin="round"><rect x="10" y="8" width="80" height="108" rx="38" /><rect x="40" y="108" width="20" height="56" rx="8" /></g>
-      <rect x="40" y="108" width="20" height="56" rx="8" fill="#16384d" />
+      <rect x="40" y="108" width="20" height="56" rx="8" fill="#447244" />
       <g stroke="#ffad4c" strokeWidth="3" strokeLinecap="round"><path d="M44 124h12M44 134h12M44 144h12M44 154h12" /></g>
       <rect x="10" y="8" width="80" height="108" rx="38" fill="#f28500" />
       <rect x="20" y="18" width="60" height="88" rx="28" fill="#ffad4c" />
@@ -152,6 +152,10 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [phone, setPhone] = useState(""); const [reference, setReference] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [methods, setMethods] = useState<{id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[] | null>(null);
+  const [methodId, setMethodId] = useState("");
+  const checkoutMethods = draft ? draft.checkout.paymentMethods ?? [] : methods;
+  useEffect(() => { if (!bookingPage) return; const controller = new AbortController(); fetch("/api/ethn/payment-methods", { cache: "no-store", signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(data => setMethods(data.methods)).catch(() => { if (!controller.signal.aborted) setMethods([]); }); return () => controller.abort(); }, [bookingPage]);
   const [result, setResult] = useState<Result | null>(null);
   const [trackCode, setTrackCode] = useState(""); const [trackEmail, setTrackEmail] = useState(""); const [tracking, setTracking] = useState<Tracking | null>(null);
   const [trackError, setTrackError] = useState(""); const [trackBusy, setTrackBusy] = useState(false);
@@ -254,10 +258,10 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   }
   async function submit() {
     if (!draft?.reservationId || lock.current || (draft.checkout.acknowledgementRequired && !ack)) return;
-    if (!name.trim() || !email.trim() || !phone.trim() || !reference.trim()) { setError("Enter your name, email, contact number and payment reference."); return; }
+    if (!name.trim() || !email.trim() || !phone.trim() || !checkoutMethods?.some(m => m.id === methodId)) { setError("Enter your contact details and choose a payment method."); return; }
     lock.current = true; setBusy(true); setError("");
     try {
-      const payload = { ownerToken: draft.owner, checkoutId: draft.checkout.checkoutId, reservationId: draft.reservationId, customer: { name: name.trim(), email: email.trim(), phone: phone.trim() }, reference: reference.trim(), claimedAmount: draft.checkout.total, ...(draft.checkout.acknowledgementRequired ? { acknowledgedTotal: draft.checkout.total } : {}) };
+      const payload = { ownerToken: draft.owner, checkoutId: draft.checkout.checkoutId, reservationId: draft.reservationId, customer: { name: name.trim(), email: email.trim(), phone: phone.trim() }, paymentMethodId: methodId, ...(reference.trim() ? { reference: reference.trim() } : {}), ...(draft.checkout.acknowledgementRequired ? { acknowledgedTotal: draft.checkout.total } : {}) };
       const hash = await digest(JSON.stringify(payload));
       const key = draft.submitHash === hash && draft.submitKey ? draft.submitKey : crypto.randomUUID();
       save({ ...draft, submitHash: hash, submitKey: key });
@@ -272,9 +276,9 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     catch (err) { setTrackError(friendly(err)); } finally { setTrackBusy(false); }
   }
 
-  const sectionTitle = "font-display text-4xl font-black uppercase leading-[.85] tracking-tight text-[#16384d] sm:text-5xl";
-  const darkBtn = "inline-flex min-h-12 items-center justify-center self-start rounded-md bg-[#16384d] px-6 py-3 text-base font-bold text-white transition hover:bg-[#f28500]";
-  const tileBtn = "mt-5 inline-flex min-h-9 items-center rounded-md bg-white px-3 text-xs font-bold text-[#16384d] transition hover:bg-[#16384d] hover:text-white";
+  const sectionTitle = "font-display text-4xl font-black uppercase leading-[.85] tracking-tight text-[#447244] sm:text-5xl";
+  const darkBtn = "inline-flex min-h-12 items-center justify-center self-start rounded-md bg-[#447244] px-6 py-3 text-base font-bold text-white transition hover:bg-[#f28500]";
+  const tileBtn = "mt-5 inline-flex min-h-9 items-center rounded-md bg-white px-3 text-xs font-bold text-[#447244] transition hover:bg-[#447244] hover:text-white";
   const card = "rounded-2xl border border-[#dce5e8] bg-white p-5 shadow-sm sm:p-7";
 
   const playCards = [
@@ -284,7 +288,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     { href: "/contact", label: "Visit us", image: IMAGES.visit, caption: "Visit us" },
   ];
 
-  return <div className="min-h-screen bg-[#16384d] text-[#17252e]">
+  return <div className="min-h-screen bg-[#447244] text-[#17252e]">
     <style>{`
       @keyframes ethn-rise{from{transform:translateY(105%)}to{transform:none}}
       @keyframes ethn-court{from{transform:translateY(45%);opacity:0}to{transform:none;opacity:1}}
@@ -300,7 +304,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     `}</style>
     <main>
       {!bookingPage && <>{/* HERO */}
-      <section ref={heroRef} className="relative isolate overflow-hidden bg-[#16384d] px-4 pt-3 text-center text-white sm:px-6">
+      <section ref={heroRef} className="relative isolate overflow-hidden bg-[#447244] px-4 pt-3 text-center text-white sm:px-6">
         <Guides />
         {/* Floating stickers: they drift on their own and rise faster than the page as you scroll */}
         <Sticker kind="paddle" className="left-[3%] top-[24%] w-12 sm:w-16 lg:w-24" speed={0.35} rot={-18} />
@@ -310,14 +314,13 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         <Sticker kind="ball" className="left-[19%] top-[68%] hidden md:block md:w-12 lg:w-14" speed={0.6} rot={15} delay={1.2} />
         <Sticker kind="paddle" className="right-[16%] top-[66%] hidden md:block md:w-14 lg:w-20" speed={0.4} rot={-28} delay={2} />
 
-        <h1 className="font-display mx-auto mt-4 text-[clamp(5rem,19vw,13rem)] font-black uppercase leading-[.8] tracking-tight text-[#ffad4c]">
-          <span className="ethn-line"><span>ETHN</span></span>
-          <span className="ethn-line text-white"><span>COURTS</span></span>
+        <h1 className="relative z-10 mx-auto mt-4 w-[min(80%,38rem)]">
+          <img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-full" />
         </h1>
 
         <div className="ethn-fade relative z-20 mx-auto mt-4 flex items-center justify-center gap-2 sm:gap-3">
           <a href="/book" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-[#f28500] px-3 text-xs font-extrabold sm:min-h-12 sm:px-7 sm:text-sm text-white shadow-[0_5px_0_#a55500] transition hover:translate-y-[2px] hover:bg-[#d97300] hover:shadow-[0_3px_0_#a55500] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
-          <a href="/open-plays" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border-2 border-white/40 bg-[#16384d] px-3 text-xs font-bold sm:min-h-12 sm:px-7 sm:text-sm text-white transition hover:border-[#ffad4c] sm:bg-transparent hover:text-[#ffad4c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto">See open plays</a>
+          <a href="/open-plays" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border-2 border-white/40 bg-[#447244] px-3 text-xs font-bold sm:min-h-12 sm:px-7 sm:text-sm text-white transition hover:border-[#ffad4c] sm:bg-transparent hover:text-[#ffad4c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto">See open plays</a>
         </div>
 
         {/* HERO IMAGE — set IMAGES.hero above to replace the animated court */}
@@ -330,45 +333,46 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       {/* BOOK INTRO BAND */}
       <section className="bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-7 sm:px-8">
-          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#16384d] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Book your<br />court</h2></div>
-          <div className="flex max-w-sm flex-col gap-4 text-[11px] leading-5 text-[#405966]"><a href="/book" className={darkBtn}><CalendarDays aria-hidden="true" className="mr-2 size-4" />Check availability</a><p>Pick an open time on either court, pay through GCash, and staff confirm your reservation.</p></div>
+          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#447244] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Book your<br />court</h2></div>
+          <div className="flex max-w-sm flex-col gap-4 text-[11px] leading-5 text-[#405966]"><a href="/book" className={darkBtn}><CalendarDays aria-hidden="true" className="mr-2 size-4" />Check availability</a><p>Pick an open time on either court, pay using an available method, and staff confirm your reservation.</p></div>
         </div>
       </section>
 
       </>}
       {/* BOOKING + GUIDE GRID */}
-      <section id="booking" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#16384d] px-4 py-4 sm:px-6">
+      <section id="booking" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#447244] px-4 py-4 sm:px-6">
         <Guides />
         <div className="mx-auto max-w-7xl space-y-4">
     {error && <p role="alert" className="rounded-2xl border border-destructive/30 bg-white p-4 text-sm text-foreground">{error}</p>}
     {bookingPage && <p className="text-sm font-bold text-white">{result ? "Step 4 of 4 - Submission status" : draft ? "Step 3 of 4 - Payment and contact" : review ? "Step 2 of 4 - Review and hold" : "Step 1 of 4 - Date and slots"}</p>}
-    {bookingPage && result ? <section className="rounded-2xl border bg-card p-6"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your payment evidence requires staff review. Your court is not booked."}</p>{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-block font-semibold text-primary underline" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" onClick={() => { setResult(null); void load(); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className={`space-y-6 ${card}`}><div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#dce5e8] pb-5"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f28500]">Your checkout</p><h2 className="font-display mt-1 text-3xl font-bold text-[#16384d]">{money(draft.checkout.total)}</h2><p className="text-sm text-[#718189]">Booking date: {formatDisplayDate(draft.date)}</p></div><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
+    {bookingPage && result ? <section className="rounded-2xl border bg-card p-6"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your payment evidence requires staff review. Your court is not booked."}</p>{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-block font-semibold text-primary underline" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" onClick={() => { setResult(null); void load(); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className={`space-y-6 ${card}`}><div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#dce5e8] pb-5"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f28500]">Your checkout</p><h2 className="font-display mt-1 text-3xl font-bold text-[#447244]">{money(draft.checkout.total)}</h2><p className="text-sm text-[#718189]">Booking date: {formatDisplayDate(draft.date)}</p></div><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
       {restored && <p className="rounded-lg bg-muted p-3 text-sm">Checkout restored on this device. Availability and status will be checked by the server; this is not a guarantee.</p>}
       {!clockReady && <Button variant="outline" disabled={loading} onClick={() => void load()}>Refresh server time</Button>}
       <ul className="divide-y border-y">{draft.checkout.items.map((item, i) => <li key={i} className="py-3 text-sm"><strong>Court {item.courtId}</strong> · {formatDate(item.start)} – {formatDate(item.end)} · {item.minutes} min · {money(item.rate)}/hour · <strong>{money(item.amount)}</strong></li>)}</ul>
       {draft.checkout.acknowledgementRequired && <label className="flex gap-2 rounded-lg border border-primary p-4 text-sm"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} /><span>Price or settings changed. I acknowledge the updated total of {money(draft.checkout.total)}.</span></label>}
-      {expired ? <p className="rounded-lg bg-muted p-4 text-sm">This hold expired and the court is not booked. If you paid and already uploaded proof, submit it below for staff review. No new upload can be authorized.</p> : <div className="rounded-lg bg-muted p-4 text-sm"><strong>GCash recipient configured by venue</strong><p className="mt-2 whitespace-pre-wrap">{draft.checkout.merchant}</p><p className="mt-2">Pay only the official configured recipient. Confirm payment details with the venue before paying.</p></div>}
-      <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input maxLength={200} value={name} onChange={e => setName(e.target.value)} autoComplete="name" /></label><label className={field}>Email<Input type="email" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label><label className={field}>Contact number<Input maxLength={50} value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" /></label><label className={field}>GCash reference<Input maxLength={200} value={reference} onChange={e => setReference(e.target.value)} /></label></div>
+      {expired && <p className="rounded-lg bg-muted p-4 text-sm">This hold expired and the court is not booked. If you paid and already uploaded proof, submit it below for staff review. No new upload can be authorized.</p>}
+      <div className="space-y-3 rounded-lg bg-muted p-4 text-sm"><label className={field}>Payment method<select className="rounded-md border bg-background p-2" value={methodId} onChange={e => setMethodId(e.target.value)}><option value="">Choose a payment method</option>{checkoutMethods?.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>{checkoutMethods === null ? <p>Loading payment methods…</p> : checkoutMethods.length === 0 ? <p role="alert">Payment methods are unavailable. Refresh or contact the venue before paying.</p> : null}{checkoutMethods?.filter(m => m.id === methodId).map(m => <div key={m.id}><p className="whitespace-pre-wrap">{m.instructions}</p>{m.qrAvailable && <img src={`/api/ethn/payment-methods/${encodeURIComponent(m.id)}/qr?v=${encodeURIComponent(m.version)}`} alt={`${m.name} payment QR code`} className="mt-3 max-h-64 max-w-full rounded-lg bg-white p-2" />}<p className="mt-2">Confirm payment details with the venue before paying.</p></div>)}</div>
+      <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input maxLength={200} value={name} onChange={e => setName(e.target.value)} autoComplete="name" /></label><label className={field}>Email<Input type="email" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label><label className={field}>Contact number<Input maxLength={50} value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" /></label><label className={field}>Payment reference (optional)<Input maxLength={200} value={reference} onChange={e => setReference(e.target.value)} /></label></div>
       <div className="space-y-3"><label className={field}>Payment proof (JPG, PNG or WebP, up to 5 MiB)<Input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || expired || !clockReady} onChange={e => setFile(e.target.files?.[0] ?? null)} /></label><div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={busy || !clockReady || expired || !file || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void upload()}>{busy ? "Please wait…" : "Upload proof"}</Button><span className="text-sm text-muted-foreground">{draft.uploaded ? "Proof uploaded." : draft.reservationId ? "Upload not confirmed; submission will check proof." : "After a reload, reattach your file if it was not uploaded."}</span></div></div>
       <div className="flex flex-wrap gap-3"><Button disabled={busy || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" disabled={busy} onClick={() => { if (window.confirm("Leave this checkout? Its hold will expire. If you paid, keep your proof and contact the venue.")) { finishCheckout(); setError(""); void load(); } }}>Leave checkout</Button></div>
     </section> : <section className={`space-y-5 ${card}`}>
       <div className="rounded-xl border border-[#f2d8b4] bg-[#fff0dc] p-4 sm:p-5">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">{bookingPage ? "Your schedule" : "Court availability"}</p>
-        <h2 className="font-display mt-1 text-2xl font-bold text-[#16384d]">Choose your booking date</h2>
+        <h2 className="font-display mt-1 text-2xl font-bold text-[#447244]">Choose your booking date</h2>
         <p id={`${dateId}-help`} className="mt-2 text-sm leading-5 text-[#405966]">Times after midnight may appear under the previous booking date. Check the date beside each time.</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className={`${field} sm:min-w-56`}><label htmlFor={dateId}>Booking date</label><Input id={dateId} aria-describedby={`${dateId}-help`} className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16384d]" type="date" value={chosenDate} min={availability?.operatingDate} max={availability ? addDays(availability.operatingDate, availability.settings.horizonDays - 1) : undefined} disabled={loading || review} onChange={e => changeDate(e.target.value)} /></div>
-          {availability && <Button type="button" variant="outline" className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16384d]" disabled={loading || review} onClick={() => changeDate(availability.operatingDate)}>Book for {bookingDate(availability.operatingDate, false)}</Button>}
+          <div className={`${field} sm:min-w-56`}><label htmlFor={dateId}>Booking date</label><Input id={dateId} aria-describedby={`${dateId}-help`} className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" type="date" value={chosenDate} min={availability?.operatingDate} max={availability ? addDays(availability.operatingDate, availability.settings.horizonDays - 1) : undefined} disabled={loading || review} onChange={e => changeDate(e.target.value)} /></div>
+          {availability && <Button type="button" variant="outline" className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={loading || review} onClick={() => changeDate(availability.operatingDate)}>Book for {bookingDate(availability.operatingDate, false)}</Button>}
         </div>
-        {chosenDate && <div className="mt-5 flex flex-col gap-3 border-t border-[#f2d8b4] pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-lg font-bold text-[#16384d]">{bookingDate(chosenDate)}</p><Button variant="outline" className="min-h-11 bg-white" disabled={loading || review} onClick={() => void load(chosenDate)}>Refresh availability</Button></div>}
+        {chosenDate && <div className="mt-5 flex flex-col gap-3 border-t border-[#f2d8b4] pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-lg font-bold text-[#447244]">{bookingDate(chosenDate)}</p><Button variant="outline" className="min-h-11 bg-white" disabled={loading || review} onClick={() => void load(chosenDate)}>Refresh availability</Button></div>}
       </div>
       <p role="status" aria-live="polite" className="sr-only">{dateStatus}</p>
       {loading ? <LoadingAnimation label="Loading availability" className="py-6" /> : !availability ? <div className="space-y-3"><p className="text-sm">Availability is unavailable.</p><Button variant="outline" onClick={() => void load(chosenDate || undefined)}>Retry availability</Button></div> : !chosenDate ? <p className="rounded-lg bg-[#edf3f5] p-4 text-sm text-[#405966]">Choose a date to see available times.</p> : <>{!availability.configured && <p className="rounded-lg bg-muted p-4 text-sm">{availability.message || "Booking and payment are not configured yet."}</p>}{(availability.courts.length === 0 || availability.courts.every(c => c.windows.length === 0)) && <p className="py-6 text-sm text-muted-foreground">Courts are closed on this date.</p>}
       {!review && <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-[#405966]">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"], ["Rate unavailable", "R"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>}
       {!review && availability.courts.some(c => c.windows.length > 0) && gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).length === 0 && <p role="status" className="py-4 text-sm text-[#405966] text-center"><EmptyIcon /> No upcoming slots for this date.</p>}
       {!review && <div role="region" aria-label="Court availability" tabIndex={0} className="max-h-[32rem] overflow-auto rounded-xl border border-[#dce5e8]">
-        <table className="w-full table-fixed border-separate border-spacing-0 text-sm"><caption className="sr-only">Court availability by time</caption><thead className="sticky top-0 z-10 bg-[#16384d] text-white"><tr><th scope="col" className="px-1 py-3 text-center text-xs sm:p-3 sm:text-sm"><span className="inline-flex items-center justify-center gap-1"><Clock3 aria-hidden="true" className="size-4 shrink-0" />Time</span></th>{availability.courts.map(c => <th scope="col" key={c.id} className="px-0.5 py-1 text-center text-xs sm:px-2 sm:text-sm"><span className="inline-flex items-center justify-center"><span>{c.name}</span><button type="button" aria-label={`View ${c.name} photo`} onClick={() => { setPreviewCourt(c.name); previewDialog.current?.showModal(); }} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ffad4c]"><ImageIcon aria-hidden="true" className="size-4" /></button></span></th>)}</tr></thead><tbody>
-          {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => <tr key={start}><th scope="row" className="bg-white px-1 py-2 text-center"><span className="inline-flex max-w-full flex-col items-center rounded-full bg-[#edf3f5] px-2 py-2 text-[10px] font-bold leading-4 text-[#16384d] sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"><span>{slotDate(start)} · {formatTime(start)} <span aria-hidden="true">–</span></span><span>{slotDate(start + availability.settings.intervalMinutes * 60000)} · {formatTime(start + availability.settings.intervalMinutes * 60000)}</span></span></th>{availability.courts.map(court => {
+        <table className="w-full table-fixed border-separate border-spacing-0 text-sm"><caption className="sr-only">Court availability by time</caption><thead className="sticky top-0 z-10 bg-[#447244] text-white"><tr><th scope="col" className="px-1 py-3 text-center text-xs sm:p-3 sm:text-sm"><span className="inline-flex items-center justify-center gap-1"><Clock3 aria-hidden="true" className="size-4 shrink-0" />Time</span></th>{availability.courts.map(c => <th scope="col" key={c.id} className="px-0.5 py-1 text-center text-xs sm:px-2 sm:text-sm"><span className="inline-flex items-center justify-center"><span>{c.name}</span><button type="button" aria-label={`View ${c.name} photo`} onClick={() => { setPreviewCourt(c.name); previewDialog.current?.showModal(); }} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ffad4c]"><ImageIcon aria-hidden="true" className="size-4" /></button></span></th>)}</tr></thead><tbody>
+          {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => <tr key={start}><th scope="row" className="bg-white px-1 py-2 text-center"><span className="inline-flex max-w-full flex-col items-center rounded-full bg-[#edf3f5] px-2 py-2 text-[10px] font-bold leading-4 text-[#447244] sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"><span>{slotDate(start)} · {formatTime(start)} <span aria-hidden="true">–</span></span><span>{slotDate(start + availability.settings.intervalMinutes * 60000)} · {formatTime(start + availability.settings.intervalMinutes * 60000)}</span></span></th>{availability.courts.map(court => {
             const wi = court.windows.findIndex(w => slots(w, court.occupied, availability.settings.intervalMinutes, now).some(s => s.start === start));
             const window = court.windows[wi]; const grid = window ? slots(window, court.occupied, availability.settings.intervalMinutes, now) : []; const index = grid.findIndex(s => s.start === start); const slot = grid[index]; const selected = ranges.find(r => r.courtId === court.id); const active = !!slot && selected?.window === wi && slot.start >= Date.parse(selected.start) && slot.end <= Date.parse(selected.end);
             const status = !slot ? "Closed" : window.hourlyRate === null ? "Rate unavailable" : !slot.available ? "Unavailable" : "Available";
@@ -379,42 +383,42 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
             return <td key={court.id} className="border-t border-[#dce5e8] px-1 py-2 text-center">{<button type="button" disabled={status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatTime(start)} - ${slotDate(start + availability.settings.intervalMinutes * 60000)} ${formatTime(start + availability.settings.intervalMinutes * 60000)}, ${label}`} onClick={() => { const next = selectRange(court.id, wi, window, grid, index, selected); setRanges([...ranges.filter(r => r.courtId !== court.id), ...(next ? [next] : [])]); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f28500] enabled:hover:ring-2 enabled:hover:ring-[#f28500] disabled:cursor-not-allowed`}>{content}</button>}</td>;
           })}</tr>)}
         </tbody></table></div>}
-      <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#16384d] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <Photo src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} label={court.name} className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-[#405966]">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit">Close</Button></form></dialog>
+      <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#447244] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <Photo src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} label={court.name} className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-[#405966]">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit">Close</Button></form></dialog>
       {!review && ranges.length > 0 && <div className="flex flex-wrap gap-3">{ranges.map(r => <button key={r.courtId} className="text-sm text-primary underline" onClick={() => setRanges(ranges.filter(item => item.courtId !== r.courtId))}>Clear {availability.courts.find(c => c.id === r.courtId)?.name}</button>)}</div>}
 
       {ranges.length > 0 && <section aria-labelledby="selection-heading" className="border-t border-[#dce5e8] pt-6">
-        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">Your selection</p><h3 id="selection-heading" className="font-display mt-1 text-2xl font-bold text-[#16384d]">Review chosen times</h3></div></div>
+        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">Your selection</p><h3 id="selection-heading" className="font-display mt-1 text-2xl font-bold text-[#447244]">Review chosen times</h3></div></div>
         <ul className="mt-5 divide-y divide-[#dce5e8] overflow-hidden rounded-xl border border-[#dce5e8]">
           {ranges.map(r => {
             const minutes = (Date.parse(r.end) - Date.parse(r.start)) / 60_000;
             return <li key={r.courtId} className="grid gap-4 bg-[#f8fafb] p-4 sm:grid-cols-[1fr_auto] sm:items-start sm:p-5">
-              <div className="min-w-0"><h4 className="font-display text-lg font-bold text-[#16384d]">{availability.courts.find(c => c.id === r.courtId)?.name}</h4>
+              <div className="min-w-0"><h4 className="font-display text-lg font-bold text-[#447244]">{availability.courts.find(c => c.id === r.courtId)?.name}</h4>
                 <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-xs font-bold uppercase tracking-wide text-[#405966]">From</dt><dd className="mt-1"><time dateTime={r.start}>{formatDate(r.start)}</time></dd></div><div><dt className="text-xs font-bold uppercase tracking-wide text-[#405966]">To</dt><dd className="mt-1"><time dateTime={r.end}>{formatDate(r.end)}</time></dd></div></dl>
                 <p className="mt-3 text-sm text-[#405966]">{minutes} min · {money(r.rate)} / hour</p>
-              </div><div className="sm:text-right"><p className="text-xs font-bold uppercase tracking-wide text-[#405966]">Item estimate</p><p className="mt-1 text-lg font-bold tabular-nums text-[#16384d]">{total ? money(pesos(priceItems([{ rate: r.rate, minutes }]))) : "Unavailable"}</p></div>
+              </div><div className="sm:text-right"><p className="text-xs font-bold uppercase tracking-wide text-[#405966]">Item estimate</p><p className="mt-1 text-lg font-bold tabular-nums text-[#447244]">{total ? money(pesos(priceItems([{ rate: r.rate, minutes }]))) : "Unavailable"}</p></div>
             </li>;
           })}
         </ul>
         {!validRanges && <p className="mt-3 text-sm text-muted-foreground">Each range must be at least {availability.settings.minimumMinutes} minutes and start in the future.</p>}
-        <div className="mt-5 flex flex-wrap items-end justify-between gap-4 rounded-xl bg-[#16384d] p-5 text-white"><div><p className="text-sm font-medium text-white/80">Estimated total</p><p className="font-display mt-1 text-3xl font-bold tabular-nums">{total ? money(total) : "Unavailable"}</p><p className="mt-1 text-xs text-white/80">Final amount confirmed at checkout.</p></div><div className="w-full sm:w-auto sm:min-w-52">{bookingPage ? <Button className="w-full" disabled={busy || !availability.configured || !validRanges || !total} onClick={() => review ? void beginCheckout() : setReview(true)}>{busy ? "Starting checkout…" : review ? "Confirm and hold" : "Review selection"}</Button> : validRanges ? <a className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#f28500] px-4 text-sm font-bold text-white" href={`/book?${new URLSearchParams({ date: chosenDate, ranges: JSON.stringify(ranges.map(({ courtId, start, end }) => ({ courtId, start, end }))) })}`}>Continue booking</a> : <p className="text-sm">Choose valid times to continue.</p>}{review && <Button variant="outline" className="mt-2 w-full" onClick={() => setReview(false)}>Back to slots</Button>}</div></div>
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-4 rounded-xl bg-[#447244] p-5 text-white"><div><p className="text-sm font-medium text-white/80">Estimated total</p><p className="font-display mt-1 text-3xl font-bold tabular-nums">{total ? money(total) : "Unavailable"}</p><p className="mt-1 text-xs text-white/80">Final amount confirmed at checkout.</p></div><div className="w-full sm:w-auto sm:min-w-52">{bookingPage ? <Button className="w-full" disabled={busy || !availability.configured || !validRanges || !total} onClick={() => review ? void beginCheckout() : setReview(true)}>{busy ? "Starting checkout…" : review ? "Confirm and hold" : "Review selection"}</Button> : validRanges ? <a className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#f28500] px-4 text-sm font-bold text-white" href={`/book?${new URLSearchParams({ date: chosenDate, ranges: JSON.stringify(ranges.map(({ courtId, start, end }) => ({ courtId, start, end }))) })}`}>Continue booking</a> : <p className="text-sm">Choose valid times to continue.</p>}{review && <Button variant="outline" className="mt-2 w-full" onClick={() => setReview(false)}>Back to slots</Button>}</div></div>
       </section>}</>}
     </section>}
 
           {!bookingPage && <>{/* GUIDE GRID */}
           <div className="grid gap-4 md:grid-cols-3">
-            <section className="flex min-w-0 flex-col rounded-2xl bg-white p-4 text-[#16384d] md:col-span-2">
+            <section className="flex min-w-0 flex-col rounded-2xl bg-white p-4 text-[#447244] md:col-span-2">
               <h3 className="font-display text-2xl font-black uppercase">Visit us</h3>
               <p className="mt-1 text-xs leading-5">Daylor Village, Abucayan, Balamban, Cebu</p>
               <iframe title="Google map of Daylor Village 1" src={VENUE_MAP_EMBED} className="mt-3 min-h-[300px] w-full flex-1 rounded-xl border-0" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
             </section>
             <div className="grid gap-4">
               <div className="flex flex-col justify-end rounded-2xl bg-[#0f2938] p-4 text-white shadow-xl">
-                <div className="flex items-start justify-between gap-3"><p className="text-base font-semibold leading-tight">How booking<br />works</p><span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#16384d]"><Ball className="h-5 w-5" /></span></div>
+                <div className="flex items-start justify-between gap-3"><p className="text-base font-semibold leading-tight">How booking<br />works</p><span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#447244]"><Ball className="h-5 w-5" /></span></div>
                 <div className="mt-5 flex items-end justify-between"><p className="font-display text-4xl font-black text-[#ffad4c]">3 steps</p><p className="text-right text-xs leading-4 text-white/70">Reserve, pay,<br />get confirmed</p></div>
                 <div aria-hidden="true" className="mt-3 flex h-12 items-end gap-[3px]">{Array.from({ length: 24 }, (_, i) => <span key={i} className={`flex-1 rounded-full ${i < 16 ? "bg-[#ffad4c]" : "bg-white/15"}`} style={{ height: "100%" }} />)}</div>
               </div>
-              <div className="rounded-2xl bg-[#cfe3ec] p-6 text-[#16384d]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pay with GCash</h3><p className="mt-3 text-xs leading-5">Pay the venue&apos;s GCash recipient, upload your proof, and staff confirm your booking.</p><a href="/track" className={tileBtn}>Track booking <span aria-hidden="true" className="ml-2">→</span></a></div>
-              <div className="rounded-2xl bg-[#ffad4c] p-6 text-[#16384d]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pick your time</h3><p className="mt-3 text-xs leading-5">Choose a continuous range inside one opening window on either court.</p><a href="/book" className={tileBtn}>See open times <span aria-hidden="true" className="ml-2">→</span></a></div>
+              <div className="rounded-2xl bg-[#cfe3ec] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pay and upload</h3><p className="mt-3 text-xs leading-5">Pay using a listed method, upload your proof, and staff confirm your booking.</p><a href="/track" className={tileBtn}>Track booking <span aria-hidden="true" className="ml-2">→</span></a></div>
+              <div className="rounded-2xl bg-[#ffad4c] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pick your time</h3><p className="mt-3 text-xs leading-5">Choose a continuous range inside one opening window on either court.</p><a href="/book" className={tileBtn}>See open times <span aria-hidden="true" className="ml-2">→</span></a></div>
             </div>
           </div></>}
         </div>
@@ -423,11 +427,11 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       {!bookingPage && <>{/* PLAY YOUR WAY */}
       <section id="open-plays" className="scroll-mt-28 sm:scroll-mt-32 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-7 sm:px-8">
-          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#16384d] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Play your<br />way</h2></div>
+          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#447244] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Play your<br />way</h2></div>
           <div className="flex max-w-sm flex-col gap-4 text-[11px] leading-5 text-[#405966]"><a href="/open-plays" className={darkBtn}><Users aria-hidden="true" className="mr-2 size-4" />View open plays</a><p>Discover upcoming open plays, or reserve a court for your own group.</p></div>
         </div>
         <div className="mx-auto grid max-w-7xl gap-4 px-5 pb-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
-          {playCards.map(c => <a key={c.label} href={c.href} className="group block"><div className="relative aspect-[3/4] overflow-hidden rounded-2xl"><Photo src={c.image} label={c.label} className="h-full w-full transition-transform duration-500 group-hover:scale-105" /><span className="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-[#16384d] opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">{c.label}<span aria-hidden="true">↗</span></span></div><p className="mt-2 text-xs font-medium text-[#405966]">{c.caption}</p></a>)}
+          {playCards.map(c => <a key={c.label} href={c.href} className="group block"><div className="relative aspect-[3/4] overflow-hidden rounded-2xl"><Photo src={c.image} label={c.label} className="h-full w-full transition-transform duration-500 group-hover:scale-105" /><span className="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-[#447244] opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">{c.label}<span aria-hidden="true">↗</span></span></div><p className="mt-2 text-xs font-medium text-[#405966]">{c.caption}</p></a>)}
         </div>
       </section>
     </>}
@@ -435,7 +439,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       {!bookingPage && <HowItWorks />}
 
       {!bookingPage && <>{/* TRACK */}
-      <section id="track" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#16384d] px-4 py-14 text-center text-white sm:px-6">
+      <section id="track" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#447244] px-4 py-14 text-center text-white sm:px-6">
         <Guides />
         <h2 className="font-display mx-auto max-w-2xl text-[clamp(2.5rem,7vw,4.5rem)] font-black uppercase leading-[.85] tracking-tight text-[#ffad4c]">Track your<br />reservation</h2>
         <p className="mx-auto mt-5 max-w-sm text-xs leading-5 text-white/75">Use the tracking code and email from your request to see where your booking stands.</p>
@@ -449,22 +453,22 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       {/* FAQ */}
       <section className="bg-white">
         <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
-          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#16384d] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Quick answers<br />before you play</h2></div>
+          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#447244] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Quick answers<br />before you play</h2></div>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-[#e7f0f3] p-6"><h3 className="font-bold text-[#16384d]">Do I need an account?</h3><p className="mt-2 text-sm leading-6 text-[#405966]">No. Book as a guest and track your request with your private link or tracking details.</p></div>
-            <div className="rounded-2xl bg-[#fff0dc] p-6"><h3 className="font-bold text-[#16384d]">When is my booking confirmed?</h3><p className="mt-2 text-sm leading-6 text-[#405966]">Staff review your payment before confirming your reservation.</p></div>
+            <div className="rounded-2xl bg-[#e7f0f3] p-6"><h3 className="font-bold text-[#447244]">Do I need an account?</h3><p className="mt-2 text-sm leading-6 text-[#405966]">No. Book as a guest and track your request with your private link or tracking details.</p></div>
+            <div className="rounded-2xl bg-[#fff0dc] p-6"><h3 className="font-bold text-[#447244]">When is my booking confirmed?</h3><p className="mt-2 text-sm leading-6 text-[#405966]">Staff review your payment before confirming your reservation.</p></div>
           </div>
         </div>
       </section>
 
       {/* FIND US + FOOTER */}
-      <section id="find-us" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#16384d] px-4 py-16 text-center text-white sm:px-6">
+      <section id="find-us" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#447244] px-4 py-16 text-center text-white sm:px-6">
         <Guides />
         <h2 className="font-display mx-auto max-w-3xl text-[clamp(2.5rem,7vw,4.5rem)] font-black uppercase leading-[.85] tracking-tight text-[#ffad4c]">Your neighborhood<br />court</h2>
         <p className="mx-auto mt-5 max-w-sm text-xs leading-5 text-white/75">Daylor Village, Abucayan, Balamban, Cebu. Better rallies, right where you live.</p>
-        <a href="/book" className="mt-7 inline-flex min-h-10 items-center rounded-md bg-white px-5 text-xs font-bold text-[#16384d] transition hover:bg-[#ffad4c]">Book a court</a>
+        <a href="/book" className="mt-7 inline-flex min-h-10 items-center rounded-md bg-white px-5 text-xs font-bold text-[#447244] transition hover:bg-[#ffad4c]">Book a court</a>
       </section>
-      <footer className="border-t border-white/10 bg-[#16384d] px-5 py-10 text-sm text-white/70 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-8 md:flex-row"><div><div className="flex items-center gap-3"><img src="/ethn-courts-mark.png" alt="" className="h-9 w-9 object-cover" /><span className="font-bold tracking-[.12em] text-white">ETHN <span className="text-[#f28500]">COURTS</span></span></div><p className="mt-4 max-w-xs leading-6 text-white/55">Your neighborhood court for better rallies in Balamban.</p></div><div><p className="font-bold text-white">Visit</p><p className="mt-3 text-white/60">Daylor Village<br />Abucayan, Balamban<br />Cebu, Philippines</p></div><div><p className="font-bold text-white">Explore</p><div className="mt-3 flex gap-4"><a href="/contact" className="hover:text-white">Contact</a><a href="/terms" className="hover:text-white">Terms</a><a href="/privacy" className="hover:text-white">Privacy</a></div></div></div></footer>
+      <footer className="border-t border-white/10 bg-[#447244] px-5 py-10 text-sm text-white/70 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-8 md:flex-row"><div><div className="flex items-center gap-3"><img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-36" /></div><p className="mt-4 max-w-xs leading-6 text-white/55">Your neighborhood court for better rallies in Balamban.</p></div><div><p className="font-bold text-white">Visit</p><p className="mt-3 text-white/60">Daylor Village<br />Abucayan, Balamban<br />Cebu, Philippines</p></div><div><p className="font-bold text-white">Explore</p><div className="mt-3 flex gap-4"><a href="/contact" className="hover:text-white">Contact</a><a href="/terms" className="hover:text-white">Terms</a><a href="/privacy" className="hover:text-white">Privacy</a></div></div></div></footer>
     </>}
     </main></div>;
 }

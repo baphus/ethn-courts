@@ -88,8 +88,8 @@ export default function SetupForm() {
       <CardContent className="p-0">
         <div className="flex flex-col gap-6 p-6 md:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
-            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#16384d]">First owner setup</h1>
+            <img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-40" />
+            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#447244]">First owner setup</h1>
             <p className="text-balance text-sm text-muted-foreground">Create the first owner account for ETHN Courts.</p>
           </div>
           {status === "checking" && <p role="status" className="text-center text-sm text-muted-foreground">Checking setup availability…</p>}
@@ -109,7 +109,7 @@ export default function SetupForm() {
           {status === "closed" && <p role="status" className="text-center text-sm text-muted-foreground">First owner setup is already complete.</p>}
           {status === "unavailable" && <p role="alert" className="text-center text-sm text-muted-foreground">Setup is currently unavailable. Please try again later.</p>}
           {status === "created" && <p role="status" className="text-center text-sm text-muted-foreground">Your owner account was created. If you are not signed in automatically, sign in below.</p>}
-          {status !== "checking" && <a href="/login" className="text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-[#16384d]">Go to staff sign in</a>}
+          {status !== "checking" && <a href="/login" className="text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-[#447244]">Go to staff sign in</a>}
         </div>
       </CardContent>
     </Card>

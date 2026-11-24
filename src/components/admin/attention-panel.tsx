@@ -22,6 +22,6 @@ export function AttentionPanel({ items, now, onOpen }: { items: Item[]; now: num
         <button type="button" onClick={() => onOpen(item.bookingId!)} className="shrink-0 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-primary">Open</button>
       </li>)}
     </ul> : <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" />All caught up. None past start.</div>}
-    <Link href="/admin/payments" className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-4 hover:underline">Review payments</Link>
+    <Link href="/admin/bookings?status=pending" className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-4 hover:underline">Review payments</Link>
   </aside>;
 }

@@ -14,8 +14,8 @@ const operations: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
-  { href: "/admin/payments", label: "Payments", icon: CreditCard },
-  { href: "/admin/walk-in", label: "Prepaid walk-in", icon: CalendarPlus },
+  { href: "/admin/bookings/new", label: "New booking", icon: CalendarPlus },
+  { href: "/admin/payment-instructions", label: "Payment instructions", icon: Settings },
   { href: "/admin/open-plays", label: "Open Plays", icon: CalendarDays },
   { href: "/admin/sales", label: "Paid sales", icon: CreditCard },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
@@ -27,7 +27,6 @@ const management: NavItem[] = [
   { href: "/admin/finance", label: "Finance", icon: CreditCard },
   { href: "/admin/activity", label: "Activity history", icon: ScrollText },
   { href: "/admin/staff", label: "Staff access", icon: Users },
-  { href: "/admin/settings", label: "Payment instructions", icon: Settings },
 ];
 
 export default function AdminSidebar({ email, name, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
@@ -49,7 +48,7 @@ export default function AdminSidebar({ email, name, isOwner }: { email: string; 
 
   return <Sidebar collapsible="icon">
     <nav aria-label="Staff navigation" className="flex h-full min-h-0 flex-col">
-    <SidebarHeader><div className="flex items-center gap-3 px-2 py-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-mark.png" alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover"/><div className="min-w-0 group-data-[collapsible=icon]:hidden"><div className="text-sm font-extrabold tracking-[.12em]">ETHN <span className="text-[#f28500]">COURTS</span></div><span className="block text-xs text-[#b7c7cf]">Staff portal</span></div></div></SidebarHeader>
+    <SidebarHeader><div className="flex flex-col items-start gap-1 px-2 py-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={150} height={85} className="h-auto w-36 group-data-[collapsible=icon]:w-9"/><span className="text-xs text-[#b7c7cf] group-data-[collapsible=icon]:hidden">Staff portal</span></div></SidebarHeader>
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>Operations</SidebarGroupLabel>

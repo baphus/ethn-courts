@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   try {
     staff = await getCurrentStaff();
   } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login?next=/admin/payments");
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login?next=/admin/bookings");
     if (error instanceof Error && error.message === "FORBIDDEN") return <main className="p-8">Staff access is not enabled for this account.</main>;
     return <main role="alert" className="p-8">Staff services are unavailable. Please try again later.</main>;
   }

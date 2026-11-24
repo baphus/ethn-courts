@@ -15,7 +15,7 @@ const faqs = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="scroll-mt-28 bg-[#f2f6f7] px-5 py-14 text-[#16384d] sm:scroll-mt-32 sm:px-8 sm:py-20" aria-labelledby="how-heading">
+    <section id="how-it-works" className="scroll-mt-28 bg-[#f2f6f7] px-5 py-14 text-[#447244] sm:scroll-mt-32 sm:px-8 sm:py-20" aria-labelledby="how-heading">
       <div className="mx-auto max-w-7xl">
         <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#a65300]">From booking to court</p>
         <h2 id="how-heading" className="font-display mt-3 text-4xl font-black uppercase leading-none sm:text-6xl">How booking works</h2>
@@ -29,13 +29,13 @@ export default function HowItWorks() {
             </li>
           ))}
         </ol>
-        <a href="/book" className="mt-7 inline-flex min-h-12 items-center rounded-lg bg-[#16384d] px-6 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16384d]">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
+        <a href="/book" className="mt-7 inline-flex min-h-12 items-center rounded-lg bg-[#447244] px-6 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
         <div className="mt-14 max-w-3xl">
           <h3 className="font-display text-3xl font-black uppercase">Questions, answered</h3>
           <div className="mt-5 space-y-3">
             {faqs.map((faq) => (
               <details key={faq.q} className="group rounded-xl border border-[#d5e1e5] bg-white px-5">
-                <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16384d]">{faq.q}<span aria-hidden="true" className="text-xl text-[#a65300] group-open:rotate-45">+</span></summary>
+                <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">{faq.q}<span aria-hidden="true" className="text-xl text-[#a65300] group-open:rotate-45">+</span></summary>
                 <p className="pb-5 text-sm leading-6 text-[#405966]">{faq.a}</p>
               </details>
             ))}

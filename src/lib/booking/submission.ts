@@ -2,20 +2,20 @@ import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { gcashReference, parsePesos, validateGuest } from "./core";
 
-type Input = { ownerToken: string; checkoutId: string; idempotencyKey: string; customer: { name: string; email: string; phone: string }; reservationId: string; reference: string; claimedAmount: string; acknowledgedTotal?: string };
+type Input = { ownerToken: string; checkoutId: string; idempotencyKey: string; customer: { name: string; email: string; phone: string }; reservationId: string; paymentMethodId?: string; reference?: string; claimedAmount?: string; acknowledgedTotal?: string };
 type Inspector = { inspect(path: string): Promise<{ bytes: number; mimeType: string }> };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const money = (value: string) => { const n = parsePesos(value); return `${n / BigInt(100)}.${(n % BigInt(100)).toString().padStart(2, "0")}`; };
 
 export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspector, input: Input) {
-  if (!input || typeof input.ownerToken !== "string" || !uuid.test(input.ownerToken) || typeof input.checkoutId !== "string" || !uuid.test(input.checkoutId) || typeof input.reservationId !== "string" || !uuid.test(input.reservationId) || typeof input.idempotencyKey !== "string" || !/^[\x21-\x7e]{1,200}$/.test(input.idempotencyKey) || !input.customer || [input.customer.name, input.customer.email, input.customer.phone, input.reference].some(v => typeof v !== "string") || typeof input.claimedAmount !== "string" || (input.acknowledgedTotal !== undefined && typeof input.acknowledgedTotal !== "string")) throw new Error("INVALID_INPUT");
+  if (!input || typeof input.ownerToken !== "string" || !uuid.test(input.ownerToken) || typeof input.checkoutId !== "string" || !uuid.test(input.checkoutId) || typeof input.reservationId !== "string" || !uuid.test(input.reservationId) || typeof input.idempotencyKey !== "string" || !/^[\x21-\x7e]{1,200}$/.test(input.idempotencyKey) || !input.customer || [input.customer.name, input.customer.email, input.customer.phone].some(v => typeof v !== "string") || (input.reference !== undefined && typeof input.reference !== 'string') || (input.claimedAmount !== undefined && typeof input.claimedAmount !== 'string') || typeof input.paymentMethodId !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(input.paymentMethodId) || (input.acknowledgedTotal !== undefined && typeof input.acknowledgedTotal !== "string")) throw new Error("INVALID_INPUT");
   if (!validateGuest({ kind: "online", ...input.customer })) throw new Error("INVALID_INPUT");
-  let claimedAmount: string, acknowledgedTotal: string | null, reference: string;
-  try { reference = gcashReference(input.reference); claimedAmount = money(input.claimedAmount); if (parsePesos(claimedAmount) <= BigInt(0)) throw new Error(); acknowledgedTotal = input.acknowledgedTotal === undefined ? null : money(input.acknowledgedTotal); } catch { throw new Error("INVALID_INPUT"); }
+  let claimedAmount: string | null, acknowledgedTotal: string | null, reference: string | null;
+  try { reference = input.reference?.trim() ? gcashReference(input.reference) : null; claimedAmount = input.claimedAmount === undefined ? null : money(input.claimedAmount); if (claimedAmount !== null && parsePesos(claimedAmount) <= BigInt(0)) throw new Error(); acknowledgedTotal = input.acknowledgedTotal === undefined ? null : money(input.acknowledgedTotal); } catch { throw new Error("INVALID_INPUT"); }
   const owner = hash(input.ownerToken.toLowerCase()), checkout = input.checkoutId.toLowerCase(), reservation = input.reservationId.toLowerCase();
   const customer = { name: input.customer.name.trim(), email: input.customer.email.trim(), phone: input.customer.phone.trim() };
-  const fingerprint = hash(JSON.stringify({ checkout, reservation, customer, reference, claimedAmount, acknowledgedTotal }));
+  const fingerprint = hash(JSON.stringify({ checkout, reservation, customer, paymentMethodId: input.paymentMethodId, reference, claimedAmount, acknowledgedTotal }));
   let client;
   try { client = await pool.connect(); } catch { throw new Error("SUBMISSION_UNAVAILABLE"); }
   let transaction = false, committing = false, discard = false;
@@ -45,7 +45,7 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
     if (!inserted.rows.length) { if (row.result == null) throw new Error("IDEMPOTENCY_INCOMPLETE"); committing = true; await client.query("COMMIT"); return row.result; }
     // shortcut: all-court lock serializes small venue inventory; revisit on measured contention.
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
-    const booking = (await client.query("SELECT status, expires_at, total::text, price_acknowledged, merchant_snapshot FROM ethn.bookings WHERE id = $1 AND owner_hash = $2 FOR UPDATE", [checkout, owner])).rows[0];
+    const booking = (await client.query("SELECT status, expires_at, total::text, price_acknowledged, merchant_snapshot,payment_methods_snapshot FROM ethn.bookings WHERE id = $1 AND owner_hash = $2 FOR UPDATE", [checkout, owner])).rows[0];
     const locked = (await client.query("SELECT state, object_path, mime_type, byte_size FROM ethn.proof_reservations WHERE id = $1 AND booking_id = $2 AND owner_hash = $3 FOR UPDATE", [reservation, checkout, owner])).rows[0];
     const now = (await client.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
     if (!booking || !locked) throw new Error("CHECKOUT_UNAVAILABLE");
@@ -53,7 +53,10 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
     if (locked.object_path !== proof.object_path || locked.mime_type !== observed.mimeType || Number(locked.byte_size) !== observed.bytes) throw new Error("PROOF_METADATA_MISMATCH");
     if (!booking.price_acknowledged && acknowledgedTotal !== booking.total) throw new Error("ACKNOWLEDGEMENT_REQUIRED");
     const timely = booking.status === "held" && now.getTime() < new Date(booking.expires_at).getTime();
-    if (timely && claimedAmount !== booking.total) throw new Error("AMOUNT_MISMATCH");
+    if (timely && claimedAmount !== null && claimedAmount !== booking.total) throw new Error("AMOUNT_MISMATCH");
+    const methods = booking.payment_methods_snapshot as {id:string;name:string;instructions:string}[] | null;
+    const method = Array.isArray(methods) ? methods.find(m => m.id === input.paymentMethodId) : undefined;
+    if (!method) throw new Error('INVALID_INPUT');
     await client.query("UPDATE ethn.proof_reservations SET state = 'attached' WHERE id = $1", [reservation]);
     let result: object;
     if (timely) {
@@ -70,7 +73,7 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
       await client.query("UPDATE ethn.court_allocations SET state = 'expired' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = $1)", [checkout]);
       result = { booked: false, status: "payment_exception", requiresStaffReview: true, message: "Not booked. Staff review required." };
     }
-    await client.query("INSERT INTO ethn.payments (id, booking_id, method, merchant_snapshot, status, claimed_reference, claimed_amount, proof_id) VALUES ($1,$2,'gcash',$3,$4,$5,$6,$7)", [randomUUID(), checkout, booking.merchant_snapshot, timely ? "unverified" : "exception", reference, claimedAmount, reservation]);
+    await client.query("INSERT INTO ethn.payments (id, booking_id, method, merchant_snapshot, status, claimed_reference, claimed_amount, proof_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", [randomUUID(), checkout, method.id, JSON.stringify({name:method.name,instructions:method.instructions}), timely ? "unverified" : "exception", reference, claimedAmount, reservation]);
     await client.query("INSERT INTO ethn.audit (booking_id, actor, action, detail) VALUES ($1,$2,'booking.submit',$3::jsonb)", [checkout, owner, JSON.stringify({ outcome: timely ? "pending" : "payment_exception", reservationId: reservation })]);
     await client.query("UPDATE ethn.idempotency SET result = $4::jsonb WHERE owner_hash = $1 AND operation = 'submission' AND key = $2 AND fingerprint = $3", [owner, input.idempotencyKey, fingerprint, JSON.stringify(result)]);
     committing = true; await client.query("COMMIT"); return result;

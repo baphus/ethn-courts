@@ -11,7 +11,7 @@ import { LoadingAnimation } from "@/components/ui/loading-animation";
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/admin/payments";
+  const next = searchParams.get("next") ?? "/admin/bookings";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +46,8 @@ export default function LoginForm() {
       <CardContent className="p-0">
         <form onSubmit={onSubmit} className="flex flex-col gap-6 p-6 md:p-8">
           <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-sm font-black tracking-[.16em]">ETHN <span className="text-[#f28500]">COURTS</span></p>
-            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#16384d]">Welcome back</h1>
+            <img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-40" />
+            <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#447244]">Welcome back</h1>
             <p className="text-sm text-balance text-muted-foreground">
               Sign in to your ETHN Courts staff account
             </p>

@@ -20,7 +20,7 @@ function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false)
     if (sql.includes("WITH parts AS")) return { rows: [{ id: "item:1", booking_id: "booking", guest_name: null, status: "confirmed", operating_date: "2026-11-01", starts_at: now, ends_at: "2026-11-01T01:00:00Z", court: "Court 1" }] };
     if (sql.includes("SELECT 1 FROM ethn.staff_access")) return { rows: [{ '?column?': 1 }] };
     if (sql.includes("transaction_timestamp() AS now")) return { rows: [{ now }] };
-    if (sql.includes("WITH days AS")) return { rows: [{ date: "2026-11-01", bookingcash: "0.00", bookinggcash: "0.00", salescash: "0.00", salesgcash: "0.00", cash: "0.00", gcash: "0.00", collected: "0.00", expenses: "0.00" }] };
+    if (sql.includes("WITH days AS")) return { rows: [{ date: "2026-11-01", bookingcash: "0.00", bookinggcash: "0.00", salescash: "0.00", salesgcash: "0.00", cash: "0.00", gcash: "0.00", other:'0.00', refunds:'0.00', collected: "0.00", expenses: "0.00" }] };
     return { rows: [] };
   }, release: () => { released++; } }) } as unknown as Pick<Pool, "connect">;
   return { pool, queries, releases: () => released };

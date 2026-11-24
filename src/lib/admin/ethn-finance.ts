@@ -30,22 +30,25 @@ export async function getFinance(pool: Db, verify: StaffVerifier, from: string |
     const now = (await c.query("SELECT transaction_timestamp() AS now")).rows[0].now as Date;
     const today = manilaDateStr(now), [a,b] = range(from,to,today);
     const { rows } = await c.query(`WITH days AS (SELECT d::date AS day FROM generate_series($1::date,$2::date,interval '1 day') d),
-      collections AS (SELECT (p.received_at AT TIME ZONE 'Asia/Manila')::date AS day,
+      collections AS (SELECT (coalesce(p.received_at,p.verified_at) AT TIME ZONE 'Asia/Manila')::date AS day,
         sum(p.collected_amount) FILTER (WHERE p.method='cash') cash,
-        sum(p.collected_amount) FILTER (WHERE p.method='gcash') gcash
-        FROM ethn.payments p WHERE p.status='accepted' AND p.received_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND p.received_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila') GROUP BY 1),
+        sum(p.collected_amount) FILTER (WHERE p.method='gcash') gcash,
+        sum(p.collected_amount) FILTER (WHERE p.method NOT IN ('cash','gcash')) other
+        FROM ethn.payments p WHERE p.status='accepted' AND coalesce(p.received_at,p.verified_at) >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND coalesce(p.received_at,p.verified_at) < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila') GROUP BY 1),
+      refunds AS (SELECT (recorded_at AT TIME ZONE 'Asia/Manila')::date AS day,sum(amount) AS amount FROM ethn.booking_refunds WHERE recorded_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND recorded_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila') GROUP BY 1),
       sales_ledger AS (SELECT (received_at AT TIME ZONE 'Asia/Manila')::date AS day, CASE WHEN method='cash' THEN amount ELSE 0 END cash,CASE WHEN method='gcash' THEN amount ELSE 0 END gcash FROM ethn.sales UNION ALL SELECT (created_at AT TIME ZONE 'Asia/Manila')::date,cash_delta,gcash_delta FROM ethn.sale_corrections),
       sales_totals AS (SELECT day,sum(cash) cash,sum(gcash) gcash FROM sales_ledger WHERE day BETWEEN $1 AND $2 GROUP BY day),
       expense_ledger AS (SELECT paid_date AS day,amount FROM ethn.expenses UNION ALL SELECT correction_date,amount_delta FROM ethn.expense_corrections),
       costs AS (SELECT day,sum(amount) expenses FROM expense_ledger WHERE day BETWEEN $1 AND $2 GROUP BY day)
       SELECT days.day::text date,coalesce(collections.cash,0)::numeric(30,2)::text bookingCash,coalesce(collections.gcash,0)::numeric(30,2)::text bookingGCash,coalesce(sales_totals.cash,0)::numeric(30,2)::text salesCash,coalesce(sales_totals.gcash,0)::numeric(30,2)::text salesGCash,(coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))::numeric(30,2)::text cash,(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0))::numeric(30,2)::text gcash,
-        ((coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))+(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0)))::numeric(30,2)::text collected,coalesce(costs.expenses,0)::numeric(30,2)::text expenses
-      FROM days LEFT JOIN collections USING(day) LEFT JOIN sales_totals USING(day) LEFT JOIN costs USING(day) ORDER BY days.day`, [a,b]);
+        coalesce(collections.other,0)::numeric(30,2)::text other,coalesce(refunds.amount,0)::numeric(30,2)::text refunds,
+        ((coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))+(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0))+coalesce(collections.other,0))::numeric(30,2)::text collected,coalesce(costs.expenses,0)::numeric(30,2)::text expenses
+      FROM days LEFT JOIN collections USING(day) LEFT JOIN sales_totals USING(day) LEFT JOIN costs USING(day) LEFT JOIN refunds USING(day) ORDER BY days.day`, [a,b]);
     const sum = (field: string) => rows.reduce<bigint>((n, r) => n + BigInt(String(r[field]).replace(".", "")), BigInt(0));
-    const cash=sum("cash"),gcash=sum("gcash"),expenses=sum("expenses"),collected=cash+gcash;
-    const components={bookingAndExtensionCollections:peso(sum('bookingcash')+sum('bookinggcash')),manualSalesAfterCorrections:peso(sum('salescash')+sum('salesgcash'))};
+    const cash=sum("cash"),gcash=sum("gcash"),other=sum('other'),refunds=sum('refunds'),expenses=sum("expenses"),collected=cash+gcash+other;
+    const components={bookingAndExtensionCollections:peso(sum('bookingcash')+sum('bookinggcash')+other),manualSalesAfterCorrections:peso(sum('salescash')+sum('salesgcash'))};
     await c.query("COMMIT");
-    return { from:a,to:b,components,scope:"Verified booking and extension collections plus paid manual sales, with separately dated record corrections, minus recorded expenses. Corrections are not cash movements or refunds.",totals:{cash:peso(cash),gcash:peso(gcash),collected:peso(collected),expenses:peso(expenses),net:peso(collected-expenses)},daily:rows.map((r: Record<string, unknown>)=>({date:r.date,cash:r.cash,gcash:r.gcash,collected:r.collected,expenses:r.expenses,net:peso(BigInt(String(r.collected).replace(".",""))-BigInt(String(r.expenses).replace(".","")))})) };
+    return { from:a,to:b,components,scope:"Gross accepted collections include all payment methods. Reporting uses actual receipt time when recorded, otherwise verification time; fallback is not an actual receipt timestamp. Net subtracts recorded external refunds and expenses. Archive does not change totals.",totals:{cash:peso(cash),gcash:peso(gcash),other:peso(other),refunds:peso(refunds),collected:peso(collected),expenses:peso(expenses),net:peso(collected-refunds-expenses)},daily:rows.map((r: Record<string, unknown>)=>({date:r.date,cash:r.cash,gcash:r.gcash,other:r.other,refunds:r.refunds,collected:r.collected,expenses:r.expenses,net:peso(BigInt(String(r.collected).replace(".",""))-BigInt(String(r.refunds).replace(".",""))-BigInt(String(r.expenses).replace(".","")))})) };
   } catch(e) { try { await c.query("ROLLBACK"); } catch {} throw e; }
   finally { c.release(); }
 }

@@ -16,7 +16,7 @@ const bodySchema = z.object({
   ownerToken: z.string().regex(uuid), checkoutId: z.string().regex(uuid), reservationId: z.string().regex(uuid),
   idempotencyKey: z.string().regex(/^[\x21-\x7e]{1,200}$/),
   customer: z.object({ name: z.string().max(200), email: z.string().max(254), phone: z.string().max(50) }).strict(),
-  reference: z.string().max(200), claimedAmount: amount, acknowledgedTotal: amount.optional(),
+  paymentMethodId: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/), reference: z.string().max(200).optional(), claimedAmount: amount.optional(), acknowledgedTotal: amount.optional(),
 }).strict();
 const fail = (error: string, status: number) => Response.json({ error }, { status });
 
@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
     try { input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { return fail("INVALID_INPUT", 400); }
     const parsed = bodySchema.safeParse(input);
     if (!parsed.success || !validateGuest({ kind: "online", ...parsed.data.customer })) return fail("INVALID_INPUT", 400);
-    try { gcashReference(parsed.data.reference); } catch { return fail("INVALID_INPUT", 400); }
+    try { if (parsed.data.reference?.trim()) gcashReference(parsed.data.reference); } catch { return fail("INVALID_INPUT", 400); }
     const result = await submitBooking(getCheckoutPool(), proofStorage, parsed.data);
     if (result.booked && process.env.ETHN_MAIL_ENABLED === "1") {
       try { after(() => sendEthnMailBestEffort(parsed.data.checkoutId)); }

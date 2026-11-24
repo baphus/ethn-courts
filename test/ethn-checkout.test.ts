@@ -16,6 +16,7 @@ function fake(options: { replay?: unknown; mismatch?: boolean; incomplete?: bool
     if (sql.startsWith("INSERT INTO ethn.idempotency")) { fingerprint = params[2] as string; return { rows: options.replay || options.incomplete ? [] : [{ key: "key" }] }; }
     if (sql.startsWith("SELECT fingerprint")) return { rows: [{ fingerprint: options.mismatch ? "other" : fingerprint, result: options.replay ?? null }] };
     if (sql.startsWith("SELECT version")) return { rows: [{ version: "1", interval_minutes: 30, minimum_minutes: 30, anchor_minutes: 420, horizon_days: 30, hold_minutes: 10, merchant: options.merchant === undefined ? "merchant" : options.merchant }] };
+    if (sql.includes('FROM ethn.payment_methods')) return {rows: options.merchant === null || options.merchant === '' ? [] : [{id:'bank',name:'Bank',instructions:'Pay here',qrAvailable:false,version:'1'}]};
     if (sql.startsWith("SELECT id::text")) return { rows: [{ id: "1", active: true }, { id: "2", active: true }] };
     if (sql.startsWith("SELECT court_id::text")) return { rows: [{ court_id: "1", weekday: 5, opens: "07:00:00", closes: "03:00:00", hourly_rate: options.rate === undefined ? "101.01" : options.rate }, { court_id: "2", weekday: 5, opens: "07:00:00", closes: "03:00:00", hourly_rate: "120.00" }] };
     if (sql.startsWith("SELECT DISTINCT")) return { rows: [{ id: "123e4567-e89b-42d3-a456-426614174001" }] };

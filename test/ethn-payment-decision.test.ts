@@ -24,7 +24,7 @@ test("payment decisions on fresh restricted local database", { skip: !url || !ad
       const checkout = await createCheckout(pool, { ownerToken, idempotencyKey: randomUUID(), date: day, ranges: [{ courtId: "1", start: start.toISOString(), end: end.toISOString() }], displayedTotal: "100.00", displayedVersion: "1" });
       const proof = await reserveProof(pool, { ownerToken, checkoutId: checkout.checkoutId, idempotencyKey: randomUUID(), mimeType: "image/png", byteSize: 10 });
       if (late) await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [checkout.checkoutId]);
-      await submitBooking(pool, { inspect: async () => ({ bytes: 10, mimeType: "image/png" }) }, { ownerToken, checkoutId: checkout.checkoutId, reservationId: proof.reservationId, idempotencyKey: randomUUID(), customer: { name: "Guest", email: "guest@example.test", phone: "123" }, reference, claimedAmount: "100.00" });
+      await submitBooking(pool, { inspect: async () => ({ bytes: 10, mimeType: "image/png" }) }, { ownerToken, checkoutId: checkout.checkoutId, reservationId: proof.reservationId, idempotencyKey: randomUUID(), customer: { name: "Guest", email: "guest@example.test", phone: "123" }, paymentMethodId: 'gcash', reference, claimedAmount: "100.00" });
       return checkout.checkoutId;
     }
     const first = await submitted("ref-one");

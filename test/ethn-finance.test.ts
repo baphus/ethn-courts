@@ -26,7 +26,7 @@ test("finance reads and immutable expense entries on fresh restricted database",
       await admin.query("INSERT INTO ethn.payments(id,booking_id,method,status,merchant_snapshot,claimed_amount,accepted_reference,collected_amount,received_at,verified_at,verified_by,reviewed_at,reviewed_by,review_reason) VALUES($1,$2,$3,$4,'fixture merchant',$5,$6,$7,$8,$9,$10,$11,$12,$13)",[randomUUID(),bookingId,method,status,amount,status==='accepted'&&method==='gcash'?randomUUID():null,status==='accepted'?amount:null,status==='accepted'?receivedAt:null,status==='accepted'?'2026-11-21T00:00:00Z':null,status==='accepted'?owner:null,['rejected','exception'].includes(status)?'2026-11-21T00:00:00Z':null,['rejected','exception'].includes(status)?owner:null,['rejected','exception'].includes(status)?'fixture exclusion check':null]);
     }
     const reconciled=await getFinance(pool,verify,"2026-11-20","2026-11-20");
-    assert.deepEqual(reconciled.totals,{cash:"0.10",gcash:"0.20",collected:"0.30",expenses:"100.25",net:"-99.95"});
+    assert.deepEqual(reconciled.totals,{cash:"0.10",gcash:"0.20",other:'0.00',refunds:'0.00',collected:"0.30",expenses:"100.25",net:"-99.95"});
     assert.equal(reconciled.daily[0].collected,"0.30");
     const retryInput={...input,title:'Concurrent',amount:'0.05',idempotencyKey:randomUUID()};
     const retries=await Promise.all([addExpense(pool,verify,retryInput),addExpense(pool,verify,retryInput)]);

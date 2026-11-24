@@ -3,15 +3,17 @@ import type { Pool } from "pg";
 import { gcashReference, parsePesos } from "../booking/core";
 import type { StaffVerifier } from "./ethn-payments";
 
-type Input = { bookingId: string; key: string } & ({ action: "approve"; acceptedReference: string; collectedAmount: string; receivedAt: string } | { action: "reject"; reason: string });
+type Input = { bookingId: string; key: string } & ({ action: "approve"; paymentReceived?: true; acceptedReference?: string; collectedAmount?: string; receivedAt?: string } | { action: "reject"; reason: string });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVerifier, input: Input) {
   if (!input || typeof input.bookingId !== "string" || !uuid.test(input.bookingId) || typeof input.key !== "string" || !/^[\x21-\x7e]{1,200}$/.test(input.key)) throw new Error("INVALID_INPUT");
-  let decision: { action: "approve"; reference: string; amount: string; receivedAt: string } | { action: "reject"; reason: string };
+  let decision: { action: "approve"; reference: string | null; amount: string | null; receivedAt: string | null } | { action: "reject"; reason: string };
   try {
-    if (input.action === "approve" && typeof input.acceptedReference === "string" && typeof input.collectedAmount === "string" && typeof input.receivedAt === "string") {
+    if (input.action === "approve" && input.paymentReceived === true && input.acceptedReference === undefined && input.collectedAmount === undefined && input.receivedAt === undefined) {
+      decision = { action: 'approve', reference: null, amount: null, receivedAt: null };
+    } else if (input.action === "approve" && typeof input.acceptedReference === "string" && typeof input.collectedAmount === "string" && typeof input.receivedAt === "string") {
       const cents = parsePesos(input.collectedAmount), date = new Date(input.receivedAt);
       const match = /^(\d{4}-\d\d-\d\d)T\d\d:\d\d:\d\d(?:\.\d{1,3})?(?:Z|[+-]\d\d:\d\d)$/.exec(input.receivedAt);
       const day = match ? new Date(`${match[1]}T00:00:00.000Z`) : new Date(NaN);
@@ -45,13 +47,13 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
     if (!booking || booking.status !== "pending" || payments.length !== 1) throw new Error("DECISION_ALREADY_FINAL");
     const payment = payments[0];
     const proof = (await client.query("SELECT id FROM ethn.proof_reservations WHERE id=$1 AND booking_id=$2 AND owner_hash=$3 AND state='attached'", [payment.proof_id, bookingId, booking.owner_hash])).rows[0];
-    if (payment.method !== "gcash" || !proof || !payment.merchant_snapshot || payment.merchant_snapshot !== booking.merchant_snapshot) throw new Error("DECISION_INCOMPATIBLE");
+    if (payment.method === "cash" || !proof || !payment.merchant_snapshot) throw new Error("DECISION_INCOMPATIBLE");
     const now = (await client.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
     if (decision.action === "approve") {
-      if (decision.reference !== payment.claimed_reference?.trim()) throw new Error("REFERENCE_MISMATCH");
-      if (decision.amount !== booking.total) throw new Error("AMOUNT_MISMATCH");
-      if (new Date(decision.receivedAt) > now) throw new Error("INVALID_INPUT");
-      await client.query("UPDATE ethn.payments SET status='accepted', accepted_reference=$2, collected_amount=$3, received_at=$4, verified_at=$5, verified_by=$6 WHERE id=$1", [payment.id, decision.reference, decision.amount, decision.receivedAt, now, actor]);
+      if (decision.reference !== null && decision.reference !== payment.claimed_reference?.trim()) throw new Error("REFERENCE_MISMATCH");
+      if (decision.amount !== null && decision.amount !== booking.total) throw new Error("AMOUNT_MISMATCH");
+      if (decision.receivedAt && new Date(decision.receivedAt) > now) throw new Error("INVALID_INPUT");
+      await client.query("UPDATE ethn.payments SET status='accepted', accepted_reference=$2, collected_amount=$3, received_at=$4, verified_at=$5, verified_by=$6 WHERE id=$1", [payment.id, decision.reference, booking.total, decision.receivedAt, now, actor]);
     } else await client.query("UPDATE ethn.payments SET status='rejected', review_reason=$2, reviewed_at=$3, reviewed_by=$4 WHERE id=$1", [payment.id, decision.reason, now, actor]);
     const status = decision.action === "approve" ? "confirmed" : "rejected", paymentStatus = decision.action === "approve" ? "accepted" : "rejected";
     await client.query("UPDATE ethn.bookings SET status=$2 WHERE id=$1", [bookingId, status]);

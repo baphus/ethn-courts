@@ -42,7 +42,9 @@ export async function createCheckout(pool: Pick<Pool, "connect">, input: Checkou
       return row.result;
     }
     const settings = (await client.query("SELECT version::text, interval_minutes, minimum_minutes, anchor_minutes, horizon_days, hold_minutes, merchant FROM ethn.settings WHERE singleton = true FOR UPDATE")).rows[0];
-    if (!settings || typeof settings.merchant !== "string" || !settings.merchant.trim()) throw new Error("NOT_CONFIGURED");
+    if (!settings) throw new Error("NOT_CONFIGURED");
+    const paymentMethods = (await client.query('SELECT id,name,instructions,(qr IS NOT NULL) AS "qrAvailable",version::text FROM ethn.payment_methods WHERE enabled ORDER BY name,id')).rows;
+    if (!paymentMethods.length) throw new Error('NOT_CONFIGURED');
     // shortcut: all-court lock serializes small venue inventory; revisit on measured contention.
     const courts = (await client.query("SELECT id::text, active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
     await expireExtensionHolds(client);
@@ -59,8 +61,8 @@ export async function createCheckout(pool: Pick<Pool, "connect">, input: Checkou
     const deadline = (await client.query("SELECT clock_timestamp() + $1::integer * interval '1 minute' AS expires_at", [settings.hold_minutes])).rows[0].expires_at as Date;
     const bookingId = randomUUID();
     const items = resolved.ranges.map(r => ({ courtId: r.courtId, start: r.start.toISOString(), end: r.end.toISOString(), rate: pesos(parsePesos(r.rate)), minutes: r.minutes, amount: pesos(priceItems([r])) }));
-    const result = { checkoutId: bookingId, items, total, expiresAt: deadline.toISOString(), settingsVersion: settings.version as string, merchant: settings.merchant as string, priceChanged: changed, acknowledgementRequired: changed };
-    await client.query("INSERT INTO ethn.bookings (id, owner_hash, operating_date, status, expires_at, total, price_acknowledged, merchant_snapshot, settings_version) VALUES ($1, $2, $3, 'held', $4, $5, $6, $7, $8)", [bookingId, ownerHash, input.date, deadline, total, !changed, settings.merchant, settings.version]);
+    const result = { checkoutId: bookingId, items, total, expiresAt: deadline.toISOString(), settingsVersion: settings.version as string, merchant: settings.merchant as string, paymentMethods, priceChanged: changed, acknowledgementRequired: changed };
+    await client.query("INSERT INTO ethn.bookings (id, owner_hash, operating_date, status, expires_at, total, price_acknowledged, merchant_snapshot, settings_version,payment_methods_snapshot) VALUES ($1, $2, $3, 'held', $4, $5, $6, $7, $8,$9::jsonb)", [bookingId, ownerHash, input.date, deadline, total, !changed, settings.merchant, settings.version,JSON.stringify(paymentMethods)]);
     for (const item of items) {
       const itemId = randomUUID();
       await client.query("INSERT INTO ethn.booking_items (id, booking_id, court_id, starts_at, ends_at, hourly_rate, duration_minutes, amount, interval_minutes, minimum_minutes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", [itemId, bookingId, item.courtId, item.start, item.end, item.rate, item.minutes, item.amount, settings.interval_minutes, settings.minimum_minutes]);
