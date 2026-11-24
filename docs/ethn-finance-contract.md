@@ -1,12 +1,14 @@
 # ETHN finance API contract
 
-Owner-only, private `no-store` endpoints. Shared checkout DB role is not authorization; each request verifies current enabled owner identity. Amounts are decimal peso strings, never floating-point values.
+Owner-only, private `no-store` endpoints. Shared checkout DB role is not authorization; each request verifies current enabled owner identity. Receipt-date amounts are decimal peso strings. The approval-date report uses integer centavos.
 
 ## Meaning
 
 `GET /api/ethn/admin/finance?from=YYYY-MM-DD&to=YYYY-MM-DD` returns inclusive Manila calendar days, capped at 366 days and not later than today. Omit both dates for current Manila month through today; provide both or neither. `daily` zero-fills every day. `cash` and `gcash` count only accepted payments using `collected_amount` and `received_at` Manila date. Pending, rejected, exception records and booking charges are excluded. Current report also includes accepted extension receipts from the same payment ledger, original paid manual sales by receipt date, and signed sale corrections by their creation date. Expenses include original paid-date amounts plus signed corrections on their correction date. Corrections are record corrections, not actual cash movement or refund processing. Totals are net recorded collections minus expenses, not accounting profit/revenue.
 
 Response: `{from,to,scope,components:{bookingAndExtensionCollections,manualSalesAfterCorrections},totals:{cash,gcash,collected,expenses,net},daily:[{date,cash,gcash,collected,expenses,net}]}`. Each amount has two decimal places; negative net is valid.
+
+`GET /api/ethn/admin/finance?basis=approval` returns a separate approval-date report, defaulting to the last 30 Manila days. Explicit `from` and `to` use the same validation as the receipt-date report. `days` zero-fills the period. Booking revenue counts the original total once per currently confirmed or completed booking on its accepted original payment’s Manila verification date, regardless of archive status. It excludes extensions, manual sales, and cancelled or refunded bookings. Expenses count effective amounts on original paid dates; profit is booking revenue minus these expenses. Fields ending in `Cents` are safe-integer centavos; the existing receipt-date report is unchanged.
 
 ## Expenses
 

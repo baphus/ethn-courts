@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
-import { addExpense, getFinance, listExpenses } from "../src/lib/admin/ethn-finance";
+import { addExpense, getApprovalFinance, getFinance, listExpenses } from "../src/lib/admin/ethn-finance";
 
 const url=process.env.ETHN_FINANCE_TEST_DATABASE_URL;
 test("finance reads and immutable expense entries on fresh restricted database",{skip:!url},async()=>{
@@ -25,6 +25,21 @@ test("finance reads and immutable expense entries on fresh restricted database",
       await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'finance-fixture','2026-11-01','confirmed',clock_timestamp(),$2,1)",[bookingId,amount]);
       await admin.query("INSERT INTO ethn.payments(id,booking_id,method,status,merchant_snapshot,claimed_amount,accepted_reference,collected_amount,received_at,verified_at,verified_by,reviewed_at,reviewed_by,review_reason) VALUES($1,$2,$3,$4,'fixture merchant',$5,$6,$7,$8,$9,$10,$11,$12,$13)",[randomUUID(),bookingId,method,status,amount,status==='accepted'&&method==='gcash'?randomUUID():null,status==='accepted'?amount:null,status==='accepted'?receivedAt:null,status==='accepted'?'2026-11-21T00:00:00Z':null,status==='accepted'?owner:null,['rejected','exception'].includes(status)?'2026-11-21T00:00:00Z':null,['rejected','exception'].includes(status)?owner:null,['rejected','exception'].includes(status)?'fixture exclusion check':null]);
     }
+    await assert.rejects(getApprovalFinance(pool,async()=>staff,"2026-11-20","2026-11-21"), /FORBIDDEN/);
+    const approval = await getApprovalFinance(pool,verify,"2026-11-20","2026-11-21");
+    assert.deepEqual(approval.days, [
+      { date: "2026-11-20", revenueCents: 0, expenseCents: 10025, profitCents: -10025, bookings: 0 },
+      { date: "2026-11-21", revenueCents: 90030, expenseCents: 0, profitCents: 90030, bookings: 3 },
+    ]);
+    await admin.query("UPDATE ethn.bookings SET status='completed',archived_at=now(),archived_by=$1 WHERE owner_hash='finance-fixture' AND total=0.10",[owner]);
+    await admin.query("UPDATE ethn.bookings SET status='cancelled' WHERE owner_hash='finance-fixture' AND total=0.20");
+    await admin.query("UPDATE ethn.bookings SET status='refunded' WHERE owner_hash='finance-fixture' AND total=900.00");
+    await admin.query("UPDATE ethn.payments SET verified_at='2026-11-20T16:00:00Z' WHERE booking_id IN (SELECT id FROM ethn.bookings WHERE owner_hash='finance-fixture' AND total=0.10)");
+    const after = await getApprovalFinance(pool,verify,"2026-11-20","2026-11-21");
+    assert.deepEqual(after.days.map(({date,revenueCents,bookings})=>({date,revenueCents,bookings})),[
+      {date:"2026-11-20",revenueCents:0,bookings:0},
+      {date:"2026-11-21",revenueCents:10,bookings:1},
+    ]);
     const reconciled=await getFinance(pool,verify,"2026-11-20","2026-11-20");
     assert.deepEqual(reconciled.totals,{cash:"0.10",gcash:"0.20",other:'0.00',refunds:'0.00',collected:"0.30",expenses:"100.25",net:"-99.95"});
     assert.equal(reconciled.daily[0].collected,"0.30");

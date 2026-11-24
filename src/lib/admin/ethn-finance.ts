@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { manilaDateStr, manilaWallClock } from "../booking/slots";
+import { addDaysManilaStr } from "../courts";
 import type { StaffVerifier } from "./ethn-payments";
 
 type Db = Pick<Pool, "connect">;
@@ -52,6 +53,47 @@ export async function getFinance(pool: Db, verify: StaffVerifier, from: string |
   } catch(e) { try { await c.query("ROLLBACK"); } catch {} throw e; }
   finally { c.release(); }
 }
+export async function getApprovalFinance(pool: Db, verify: StaffVerifier, from: string | null, to: string | null) {
+  const actor = actorId(await verify());
+  const c = await pool.connect();
+  try {
+    await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    if (!(await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
+    const today = manilaDateStr((await c.query("SELECT transaction_timestamp() AS now")).rows[0].now);
+    const [a, b] = from === null && to === null ? [addDaysManilaStr(today, -29), today] : range(from, to, today);
+    const { rows } = await c.query(`WITH days AS (SELECT d::date AS day FROM generate_series($1::date,$2::date,interval '1 day') d),
+      revenue AS (
+        SELECT (p.verified_at AT TIME ZONE 'Asia/Manila')::date AS day, sum(b.total) AS amount, count(*)::int AS bookings
+        FROM ethn.payments p JOIN ethn.bookings b ON b.id=p.booking_id
+        WHERE p.status='accepted' AND p.extension_id IS NULL AND b.status IN ('confirmed','completed')
+          AND p.verified_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')
+          AND p.verified_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+        GROUP BY 1
+      ), costs AS (
+        SELECT e.paid_date AS day, sum(e.amount + coalesce((SELECT sum(x.amount_delta) FROM ethn.expense_corrections x WHERE x.expense_id=e.id),0)) AS amount
+        FROM ethn.expenses e WHERE e.paid_date BETWEEN $1 AND $2 GROUP BY 1
+      )
+      SELECT days.day::text AS date, (coalesce(revenue.amount,0)*100)::numeric(30,0)::text AS revenue,
+        (coalesce(costs.amount,0)*100)::numeric(30,0)::text AS expenses, coalesce(revenue.bookings,0) AS bookings
+      FROM days LEFT JOIN revenue USING(day) LEFT JOIN costs USING(day) ORDER BY days.day`, [a,b]);
+    const checked = (value: bigint) => {
+      const n = Number(value);
+      if (!Number.isSafeInteger(n)) throw new Error("FINANCE_UNAVAILABLE");
+      return n;
+    };
+    let revenue = BigInt(0), expenses = BigInt(0), bookings = 0;
+    const days = rows.map(row => {
+      const r = BigInt(row.revenue), e = BigInt(row.expenses);
+      revenue += r; expenses += e; bookings += row.bookings;
+      return { date: row.date as string, revenueCents: checked(r), expenseCents: checked(e), profitCents: checked(r-e), bookings: row.bookings as number };
+    });
+    const report = { from: a, to: b, days, revenueCents: checked(revenue), expenseCents: checked(expenses), profitCents: checked(revenue-expenses), bookings, profitMargin: revenue ? Number(revenue-expenses)/Number(revenue)*100 : null, averageRevenueCents: bookings ? Math.round(Number(revenue)/bookings) : null };
+    await c.query("COMMIT");
+    return report;
+  } catch (error) { try { await c.query("ROLLBACK"); } catch {} throw error; }
+  finally { c.release(); }
+}
+
 export async function listExpenses(pool: Db, verify: StaffVerifier, from: string | null, to: string | null, page: number, limit: number) {
   const actor=actorId(await verify()); await owner(pool,actor); if(!Number.isInteger(page)||page<1||page>1000||!Number.isInteger(limit)||limit<1||limit>50) throw new Error("INVALID_INPUT");
   const c=await pool.connect();

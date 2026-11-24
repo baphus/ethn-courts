@@ -4,7 +4,11 @@ import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { LoadingAnimation } from "@/components/ui/loading-animation";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, DollarSign, ReceiptText, TrendingUp } from "lucide-react";
+import { StatCard, STAT_CARD_GRID } from "@/components/admin/stat-card";
+import { FinanceChart } from "@/components/admin/finance-chart";
+import type { FinanceReport } from "@/lib/admin/finance";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDisplayDate } from "@/lib/display-date";
@@ -19,13 +23,19 @@ type Payload = { title: string; category: string; amount: string; paidDate: stri
 const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
 const button = "rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
 const money = (value: string) => `₱${value}`;
+const formatCents = (value: number) => {
+  const cents = BigInt(Math.abs(value));
+  return `₱${value < 0 ? "-" : ""}${(cents / BigInt(100)).toLocaleString("en-PH")}.${String(cents % BigInt(100)).padStart(2, "0")}`;
+};
 
 export default function Finance() {
   const [today] = useState(() => manilaTodayStr());
-  const [draft, setDraft] = useState(() => ({ from: `${manilaTodayStr().slice(0, 7)}-01`, to: manilaTodayStr() }));
+  const [draft, setDraft] = useState(() => { const to = manilaTodayStr(); return { from: addDaysManilaStr(to, -29), to }; });
   const [filters, setFilters] = useState(draft);
   const [page, setPage] = useState(1);
-  const [report, setReport] = useState<Report | null>(null);
+  const [report, setReport] = useState<(FinanceReport & { from: string; to: string }) | null>(null);
+  const currentRange = useRef(filters);
+  currentRange.current = filters;
   const [expenses, setExpenses] = useState<Expenses | null>(null);
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(true);
@@ -46,11 +56,17 @@ export default function Finance() {
   const [exportError, setExportError] = useState("");
 
   async function exportReport() {
-    if (!report || loading || error || exporting) return;
+    if (!report || report.from !== filters.from || report.to !== filters.to || loading || error || exporting) return;
     setExporting(true); setExportError("");
     try {
+      const range = { ...filters };
+      const response = await fetch(`/api/ethn/admin/finance?${new URLSearchParams(range)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error();
+      const legacyReport: Report = await response.json();
+      if (legacyReport.from !== range.from || legacyReport.to !== range.to || currentRange.current.from !== range.from || currentRange.current.to !== range.to) throw new Error();
       const { default: writeXlsxFile } = await import("write-excel-file/browser");
-      await writeXlsxFile(financeExportRows(report), { sheet: "Finance", columns: [18, 20, 20, 20, 32, 22, 22, 32].map(width => ({ width })) }).toFile(`finance-${report.from}-to-${report.to}.xlsx`);
+      if (currentRange.current.from !== range.from || currentRange.current.to !== range.to) throw new Error();
+      await writeXlsxFile(financeExportRows(legacyReport), { sheet: "Finance", columns: [18, 20, 20, 20, 32, 22, 22, 32].map(width => ({ width })) }).toFile(`finance-${range.from}-to-${range.to}.xlsx`);
     } catch { setExportError("Could not export report. Please try again."); }
     finally { setExporting(false); }
   }
@@ -62,7 +78,7 @@ export default function Finance() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setReport(null); setError("");
-    fetch(`/api/ethn/admin/finance?${new URLSearchParams(filters)}`, { cache: "no-store", signal: controller.signal })
+    fetch(`/api/ethn/admin/finance?${new URLSearchParams({ ...filters, basis: "approval" })}`, { cache: "no-store", signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error(); return response.json(); })
       .then(data => { if (!controller.signal.aborted) setReport(data); })
       .catch(() => { if (!controller.signal.aborted) setError("Report unavailable. Please try again."); })
@@ -103,7 +119,7 @@ export default function Finance() {
   }
 
   return <main className="mx-auto max-w-7xl space-y-8 p-4 text-slate-900 sm:p-8">
-    <header className="space-y-3"><h1 className="text-2xl font-semibold tracking-tight">Collections & expenses</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Collections use the actual receipt date when known, otherwise the verification date. Gross includes all methods and dated sales corrections. External refunds are recorded on their return date; net subtracts refunds and expenses. This is a cash-record report, not formal accounting profit.</p></header>
+    <header className="space-y-3"><h1 className="text-2xl font-semibold tracking-tight">Finance</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Booking revenue is counted on the original payment approval date in Manila; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</p></header>
     <div className="flex flex-wrap items-center gap-3">
       <Popover open={rangeOpen} onOpenChange={open => { setRangeOpen(open); if (open) { setDraft(filters); setFilterError(""); } }}>
         <PopoverTrigger render={<Button variant="outline" />}>Date range</PopoverTrigger>
@@ -119,16 +135,20 @@ export default function Finance() {
       </Popover>
       <p className="text-sm text-muted-foreground">{formatDisplayDate(filters.from)} to {formatDisplayDate(filters.to)}</p>
       <button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Download XLSX"}</button>
+      <p className="text-sm text-muted-foreground">XLSX uses receipt-date collections and includes sales, refunds, and expenses.</p>
       {exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
     </div>
     <section aria-label="Finance summary" aria-busy={loading}>
-      {report?.components&&<p className="text-sm text-muted-foreground">Verified bookings/extensions {money(report.components.bookingAndExtensionCollections)} · Manual sales after dated corrections {money(report.components.manualSalesAfterCorrections)}</p>}
-      {loading ? <LoadingAnimation label="Loading report" className="py-4" /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : report && <div className="grid gap-4 md:grid-cols-3">
-        {[["Gross collections after sales corrections", report.totals.collected], ["External refunds", report.totals.refunds], ["Recorded expenses", report.totals.expenses], ["Net after refunds and expenses", report.totals.net]].map(([label, value], index) => <div key={label} className={`rounded-2xl p-6 ${index === 3 ? "bg-slate-900 text-white" : "border border-slate-200 bg-white"}`}><p className="text-sm font-medium opacity-75">{label}</p><p className="mt-4 text-3xl font-bold tracking-tight">{money(value)}</p>{index === 0 && <p className="mt-3 text-sm opacity-75">Cash {money(report.totals.cash)} · GCash {money(report.totals.gcash)} · Other methods {money(report.totals.other)}</p>}</div>)}
+      {loading ? <LoadingAnimation label="Loading report" className="py-4" /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : report && <div className={STAT_CARD_GRID}>
+        <StatCard label="Booking Revenue" value={formatCents(report.revenueCents)} icon={DollarSign} subtitle="Counted on approval date" />
+        <StatCard label="Expenses" value={formatCents(report.expenseCents)} icon={ReceiptText} subtitle="Effective amounts by paid date" />
+        <StatCard label="Net Profit" value={formatCents(report.profitCents)} icon={TrendingUp} subtitle="Booking revenue less expenses" />
+        <StatCard label="Booking Count" value={String(report.bookings)} icon={CalendarDays} subtitle="Eligible bookings approved in range" />
       </div>}
     </section>
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="text-xl font-bold">Daily breakdown</h2><p className="mt-1 text-sm text-slate-600">{formatDisplayDate(filters.from)} to {formatDisplayDate(filters.to)}</p></div>
-      {loading ? <LoadingAnimation label="Loading daily breakdown" className="py-4" /> : error ? <p>Daily breakdown unavailable.</p> : report?.daily.length ? <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="border-b text-slate-500"><tr>{["Date", "Cash", "GCash", "Other methods", "Gross collections", "External refunds", "Recorded expenses", "Net after refunds and expenses"].map(x => <th className="px-3 py-3 font-semibold" key={x}>{x}</th>)}</tr></thead><tbody>{report.daily.map(row => <tr key={row.date} className="border-b border-slate-100"><td className="px-3 py-3">{formatDisplayDate(row.date)}</td>{[row.cash, row.gcash, row.other, row.collected, row.refunds, row.expenses, row.net].map((v, i) => <td className="px-3 py-3 tabular-nums" key={i}>{money(v)}</td>)}</tr>)}</tbody></table></div> : <p className="text-sm text-slate-600 text-center"><EmptyIcon /> No activity in this date range.</p>}
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Revenue and profit trend" aria-busy={loading}>
+      <div className="mb-5"><h2 className="text-xl font-bold">Revenue and profit trend</h2><p className="mt-1 text-sm text-slate-600">Daily, weekly, or monthly totals based on the selected range.</p></div>
+      {loading ? <LoadingAnimation label="Loading trend" className="py-4" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
     </section>
     {pending && !expenseOpen && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Expense outcome uncertain. Review or retry the saved request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
     <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving && (!title && !amount && !category || window.confirm("Close this form? Your entries will remain until you leave this page."))) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>+ Record expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Record an expense already paid. Original entries are permanent.</DialogDescription>
