@@ -57,6 +57,16 @@ test("finance reads and immutable expense entries on fresh restricted database",
     const workbook = await getFinanceExport(pool, verify, "2026-11-20", "2026-11-21", "Utilities", "UTIL");
     assert.equal(workbook.bookings.length, 1);
     assert.equal(workbook.expenses[0].amountCentavos, 10000);
+    await admin.query("UPDATE ethn.payments SET method='metrobank' WHERE booking_id IN (SELECT id FROM ethn.bookings WHERE owner_hash='finance-fixture' AND total=900.00)");
+    const { overview } = await getFinance(pool, verify, "2026-11-21", "2026-11-21", true);
+    assert.ok(overview);
+    assert.deepEqual(overview.paymentMethods.find(method => method.id === "metrobank"), { id: "metrobank", name: "Metrobank", amount: "900.00" });
+    assert.deepEqual(overview.paymentMethods.find(method => method.id === "cash"), { id: "cash", name: "Cash", amount: "0.00" });
+    assert.ok(!overview.paymentMethods.some(method => method.id === "other"));
+    assert.deepEqual(overview.expenseCategories, [{ category: "Utilities", amount: "-0.25" }]);
+    assert.deepEqual(overview.current, { bookingPayments: "900.00", otherSales: "0.00", expenses: "-0.25", refunds: "0.00", net: "900.25" });
+    assert.deepEqual(overview.previous, { from: "2026-11-20", to: "2026-11-20", bookingPayments: "0.30", otherSales: "0.00", expenses: "100.30", refunds: "0.00", net: "-100.00" });
+    assert.equal(overview.daily.length, 1);
     await assert.rejects(getFinanceExport(pool, async () => staff, "2026-11-20", "2026-11-21", "", ""), /FORBIDDEN/);
     const original = { revision: entry.revision, lastCorrectionId: correction };
     await changeExpense(pool, verify, saved.id, "edit", { ...original, title: "Utilities", category: "Utilities", amount: "12.30", paidDate: "2026-11-20", vendor: "Vendor" });

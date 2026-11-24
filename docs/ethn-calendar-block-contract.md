@@ -1,5 +1,10 @@
 # ETHN calendar and court-block contract
 
+## Court Setup closure controls — 2026-11-24
+
+- `/admin/courts` lists upcoming and ongoing maintenance and private-use closures by Manila start date. Open Plays and history stay out of this list. It uses the existing block list (up to 50 rows before filtering by kind).
+- Owners can add a closure for one or more saved active courts and release individual court blocks after confirmation. Calendar retains its existing controls. These actions use the same block endpoints, owner checks, and conflict rules; no schema changes.
+
 ## Create event amendment — 2026-11-22
 
 - Calendar **Create event** replaces **Block time**. One modal switches between Closure (Maintenance/Private) and Open Play, with multiple active courts, selected calendar date defaults and explicit Manila start/end dates/times. No recurrence.

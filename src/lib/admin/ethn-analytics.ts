@@ -1,10 +1,11 @@
 import type { Pool, PoolClient } from "pg";
+import { addDaysManilaStr as addDays } from "../courts";
 import { manilaDateStr } from "../booking/slots";
 import { getAvailability } from "../booking/ethn-availability";
 import { scheduleWindows } from "../booking/schedule";
-import { getApprovalFinance, getFinance } from "./ethn-finance";
+import { getApprovalFinance, getFinance, listCollectionMethods } from "./ethn-finance";
 import { getStaff, type StaffVerifier } from "./ethn-payments";
-import { analyticsAverage, analyticsCents, analyticsMonth, analyticsParams } from "./dashboard-analytics-helpers";
+import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analyticsParams } from "./dashboard-analytics-helpers";
 
 /**
  * Dashboard analytics on ETHN tables. Every section is a bounded, read-only aggregate.
@@ -24,7 +25,6 @@ const MAX_WINDOWS = 4000;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 function invalid(): never { throw new Error("INVALID_INPUT"); }
-function addDays(day: string, n: number) { const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 const lastDayOfMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 function weekStart(day: string) { const dow = new Date(`${day}T12:00:00Z`).getUTCDay(); return addDays(day, -((dow + 6) % 7)); }
 /** Same elapsed dates in the previous month (clamped to its length), e.g. Oct 1-9 -> Sep 1-9. */
@@ -211,10 +211,15 @@ async function chart(pool: Db, verify: StaffVerifier, owner: boolean, params: UR
 }
 
 async function methods(pool: Db, verify: StaffVerifier, range: Range) {
-  const today = await readOnly(pool, async client => (await clock(client)).calendarDate);
-  const from = range === "week" ? weekStart(today) : `${today.slice(0, 7)}-01`;
-  const finance = await getFinance(pool, verify, from, today);
-  return { range, from, to: today, totals: { cash: finance.totals.cash, gcash: finance.totals.gcash, collected: finance.totals.collected }, components: finance.components };
+  return readOnly(pool, async client => {
+    const actor = await verify();
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
+    const { calendarDate: today } = await clock(client);
+    const from = range === "week" ? weekStart(today) : `${today.slice(0, 7)}-01`;
+    const paymentMethods = await listCollectionMethods(client, from, today, true);
+    const collected = analyticsMoney(paymentMethods.reduce((total, method) => total + analyticsCents(method.amount), BigInt(0)));
+    return { range, from, to: today, collected, paymentMethods };
+  });
 }
 
 async function schedule(pool: Db) {

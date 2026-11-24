@@ -108,7 +108,6 @@ export default function PaymentReview() {
   return <div className="mx-auto w-full max-w-7xl space-y-6 py-2">
     <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
       <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">ETHN Courts / Staff</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Payment review</h1><p className="mt-2 text-sm text-muted-foreground">Review proof and verify payment before confirming a reservation.</p></div>
-      <Button variant="outline" disabled={busy} onClick={() => { setError(""); void loadQueue(); if (selected) void loadDetail(selected); }}>Refresh</Button>
     </header>
     {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/payments">Sign in</a>}</div>}
     {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}

@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, selectRange, slotDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
+import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, selectRange, slotDate, slotEndDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
+import { manilaDateStr } from "../src/lib/booking/slots.ts";
+
+test("landing default date rolls over at Manila midnight and matches the returned schedule", () => {
+  const before = manilaDateStr(new Date("2026-11-19T15:59:59Z"));
+  const after = manilaDateStr(new Date("2026-11-19T16:00:00Z"));
+  assert.equal(before, "2026-11-19");
+  assert.equal(acceptedDate(after, "2026-11-20", false), "2026-11-20");
+});
 
 test("booking date requires an accepted explicit date and displays Manila overnight dates", () => {
   assert.equal(acceptedDate(undefined, "2026-11-19", false), "");
@@ -10,6 +18,19 @@ test("booking date requires an accepted explicit date and displays Manila overni
   assert.equal(acceptedDate("2026-02-30", "2026-02-30", false), "");
   assert.match(bookingDate("2026-11-19"), /Thursday.*November.*19.*2026/);
   assert.notEqual(slotDate(Date.parse("2026-11-19T15:30:00Z")), slotDate(Date.parse("2026-11-19T16:30:00Z")));
+});
+
+test("day navigation crosses month and year boundaries in both directions", () => {
+  assert.equal(addDays("2027-01-01", -1), "2026-12-31");
+  assert.equal(addDays("2026-12-31", 1), "2027-01-01");
+  assert.equal(addDays("2028-03-01", -1), "2028-02-29");
+});
+
+test("time rows show an end date only when they cross Manila midnight", () => {
+  const start = Date.parse("2026-11-24T15:00:00Z");
+  assert.equal(slotEndDate(start, Date.parse("2026-11-24T15:59:00Z")), "");
+  assert.equal(slotEndDate(start, Date.parse("2026-11-24T16:00:00Z")), "Wed, Nov 25");
+  assert.equal(slotEndDate(Date.parse("2026-11-24T16:00:00Z"), Date.parse("2026-11-24T17:00:00Z")), "");
 });
 
 test("selection stays within one window and never crosses occupied slots", () => {

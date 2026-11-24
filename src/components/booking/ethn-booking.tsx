@@ -4,15 +4,19 @@ import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { LoadingAnimation } from "@/components/ui/loading-animation";
 import HowItWorks from "@/components/landing/how-it-works";
+import Faq from "@/components/landing/faq";
 import RallyCourt from "./rally-court";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { CalendarDays, Clock3, Image as ImageIcon, Users } from "lucide-react";
+import { toast } from "sonner";
+import { checkoutFailure, holdExpiry } from "./checkout-feedback";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Image as ImageIcon, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { priceItems } from "@/lib/booking/core";
-import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, selectRange, slotDate, slots, validDate, type Window, type Occupied, type Range } from "./ethn-selection";
+import { manilaDateStr } from "@/lib/booking/slots";
+import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, selectRange, slotDate, slotEndDate, slots, validDate, type Window, type Occupied, type Range } from "./ethn-selection";
 import { formatDisplayDate } from "@/lib/display-date";
 import { VENUE_MAP_EMBED } from "@/lib/venue";
 
@@ -125,6 +129,11 @@ const friendly = (e: unknown) => {
   if (code === "NOT_CONFIGURED") return "Booking or payment is not configured yet. Please try again later.";
   if (code === "NOT_FOUND") return "No reservation found for that code and email.";
   if (code === "INVALID_INPUT" || code === "AMOUNT_MISMATCH") return "Check your details and try again.";
+  if (code === "PROOF_METADATA_MISMATCH") return "The uploaded proof does not match the selected file. Check the file before submitting again.";
+  if (code === "ACKNOWLEDGEMENT_REQUIRED") return "Review and acknowledge the current total before continuing.";
+  if (code === "STORAGE_UNAVAILABLE") return "Payment proof storage is unavailable. Please try again later.";
+  if (code === "INVALID_ORIGIN") return "Reload checkout from the booking page and try again.";
+  if (code === "IDEMPOTENCY_MISMATCH") return "This request conflicts with an earlier attempt. Check the current checkout before trying again.";
   if (code === "ALREADY_SUBMITTED") return "This checkout was already submitted. Check your tracking email or contact the venue.";
   return "Could not complete that request. If the result is uncertain, retry without changing your details.";
 };
@@ -141,13 +150,24 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const [chosenDate, setChosenDate] = useState("");
   const [dateStatus, setDateStatus] = useState("");
   const dateId = useId();
+  const [dateFallback, setDateFallback] = useState(false);
+  const dateInput = useRef<HTMLInputElement>(null);
+  function openDatePicker() {
+    try {
+      if (dateInput.current?.type === "date" && dateInput.current.showPicker) { dateInput.current.showPicker(); return; }
+    } catch { /* Show editable date field when native picker cannot open. */ }
+    setDateFallback(true);
+    requestAnimationFrame(() => dateInput.current?.focus());
+  }
   const [ranges, setRanges] = useState<Range[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [restored, setRestored] = useState(false);
   const [ack, setAck] = useState(false);
   const [now, setNow] = useState(0);
   const [clockReady, setClockReady] = useState(false);
-  const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState({ message: "", toasted: false });
+  const setError = useCallback((message: string) => setFeedback({ message, toasted: false }), []);
+  const observedHold = useRef<ReturnType<typeof holdExpiry>["observation"] | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [phone, setPhone] = useState(""); const [reference, setReference] = useState("");
@@ -185,14 +205,16 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       if (handoff && !selected) setError("Your selected times are no longer available or could not be verified. Please select your times again.");
     } catch { if (seq === sequence.current) { setAvailability(null); setRanges([]); setError("Availability is unavailable. Please refresh and try again."); } }
     finally { if (seq === sequence.current) setLoading(false); }
-  }, []);
+  }, [setError]);
   useEffect(() => {
     let hasDraft = false;
     try { const stored = bookingPage ? sessionStorage.getItem(STORAGE) : null; if (stored) { const value = JSON.parse(stored) as Draft; if (value.owner && value.checkout?.checkoutId) { setDraft(value); setRestored(true); hasDraft = true; } } } catch { /* Ignore invalid session draft. */ }
     const params = new URLSearchParams(window.location.search);
     const date = params.getAll("date").length === 1 ? params.get("date") : null;
     const raw = bookingPage && !hasDraft && params.has("ranges") ? params.getAll("ranges").length === 1 ? params.get("ranges")! : "" : null;
-    void load(validDate(date) ? date : undefined, true, raw !== null ? { raw, date: params.getAll("date").length === 1 ? date : null } : undefined);
+    const defaultDate = bookingPage ? undefined : manilaDateStr(new Date());
+    if (defaultDate && !validDate(date)) setChosenDate(defaultDate);
+    void load(validDate(date) ? date : defaultDate, true, raw !== null ? { raw, date: params.getAll("date").length === 1 ? date : null } : undefined);
     const timer = window.setInterval(() => { if (clock.current.server) setNow(clock.current.server + performance.now() - clock.current.monotonic); }, 1000);
     return () => window.clearInterval(timer);
   }, [load, bookingPage]);
@@ -213,11 +235,33 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     else { sequence.current++; setLoading(false); }
   }
 
+  const minDate = availability?.operatingDate;
+  const maxDate = availability ? addDays(availability.operatingDate, availability.settings.horizonDays - 1) : undefined;
+  const previousDate = validDate(chosenDate) ? addDays(chosenDate, -1) : "";
+  const nextDate = validDate(chosenDate) ? addDays(chosenDate, 1) : "";
+
   const validRanges = availability && ranges.length > 0 && ranges.every(r => Date.parse(r.end) - Date.parse(r.start) >= availability.settings.minimumMinutes * 60_000 && Date.parse(r.start) >= now);
   let total = "0.00";
   try { if (ranges.length) total = pesos(priceItems(ranges.map(r => ({ rate: r.rate, minutes: (Date.parse(r.end) - Date.parse(r.start)) / 60_000 })))); } catch { total = ""; }
   const expired = draft ? now > 0 && now >= Date.parse(draft.checkout.expiresAt) : false;
   const seconds = draft && now ? Math.max(0, Math.floor((Date.parse(draft.checkout.expiresAt) - now) / 1000)) : 0;
+  const holdId = result ? undefined : draft?.checkout.checkoutId;
+  useEffect(() => {
+    if (!holdId) { observedHold.current = null; return; }
+    if (!clockReady) return;
+    const { observation, warn } = holdExpiry(observedHold.current, holdId, expired);
+    observedHold.current = observation;
+    if (warn) toast.warning("Your checkout hold expired.");
+  }, [clockReady, expired, holdId]);
+
+  function reportFailure(action: string, e: unknown, guidance = friendly(e)) {
+    const outcome = checkoutFailure(e);
+    if (outcome === "field") { setError(guidance); return; }
+    setFeedback({ message: guidance, toasted: true });
+    if (outcome === "already-submitted") toast.info("This checkout was already submitted.");
+    else if (outcome === "rejected") toast.error(`${action} was not accepted. See details below.`);
+    else toast.warning(`Could not confirm ${action.toLowerCase()}. See details below.`);
+  }
 
   async function beginCheckout() {
     if (!availability || !validRanges || !total || lock.current) return;
@@ -232,8 +276,17 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       checkoutKeys.current[fingerprint] = idempotencyKey;
       sessionStorage.setItem("ethn-checkout-keys-v1", JSON.stringify({ ...storedKeys, [fingerprint]: idempotencyKey }));
       const checkout = await post<Checkout>("/api/checkout", { ownerToken: owner, idempotencyKey, ...payload });
-      save({ owner, checkout, date: chosenDate, offset: now - Date.now() }); setAck(false); setRestored(false);
-    } catch (e) { setError(friendly(e)); }
+      setAck(false); setRestored(false);
+      try { save({ owner, checkout, date: chosenDate, offset: now - Date.now() }); }
+      catch { setFeedback({ message: "This checkout could not be saved in your browser. Keep this page open.", toasted: true }); }
+      const serverNow = clock.current.server + performance.now() - clock.current.monotonic;
+      setNow(serverNow);
+      if (Date.parse(checkout.expiresAt) <= serverNow) {
+        toast.warning("This checkout hold has already expired.");
+      } else {
+        toast.success("Your selected times are temporarily held.");
+      }
+    } catch (e) { reportFailure("Slot hold", e); }
     finally { lock.current = false; setBusy(false); }
   }
   async function upload() {
@@ -250,10 +303,14 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       const reservation = await post<{ reservationId: string; path: string; token: string }>("/api/checkout/proofs", { ownerToken: draft.owner, checkoutId: draft.checkout.checkoutId, idempotencyKey: proofKey, mimeType: file.type, byteSize: file.size, ...(draft.checkout.acknowledgementRequired ? { acknowledgedTotal: draft.checkout.total } : {}) });
       const reserved = { ...next, reservationId: reservation.reservationId }; save(reserved);
       const client = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { error: uploadError } = await client.storage.from("proofs").uploadToSignedUrl(reservation.path, reservation.token, file, { contentType: file.type });
-      if (uploadError) throw new Error("UPLOAD_UNCERTAIN");
-      save({ ...reserved, uploaded: true });
-    } catch (e) { setError(e instanceof Error && e.message === "UPLOAD_UNCERTAIN" ? "Upload could not be confirmed. You may submit this proof for verification, or select a new image and upload again before expiry." : friendly(e)); }
+      const uploaded = await client.storage.from("proofs").uploadToSignedUrl(reservation.path, reservation.token, file, { contentType: file.type }).catch(() => null);
+      if (!uploaded || uploaded.error) throw new Error("UPLOAD_UNCERTAIN");
+      try { save({ ...reserved, uploaded: true }); }
+      catch { setFeedback({ message: "Proof was uploaded, but this browser could not save the latest checkout state. Keep this page open.", toasted: true }); }
+      toast.success("Payment proof uploaded.");
+    } catch (e) {
+      reportFailure("Payment proof upload", e, e instanceof Error && e.message === "UPLOAD_UNCERTAIN" ? "Upload could not be confirmed. You may submit this proof for verification, or select a new image and upload again before expiry." : friendly(e));
+    }
     finally { lock.current = false; setBusy(false); }
   }
   async function submit() {
@@ -266,8 +323,12 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       const key = draft.submitHash === hash && draft.submitKey ? draft.submitKey : crypto.randomUUID();
       save({ ...draft, submitHash: hash, submitKey: key });
       const submitted = await post<Result>("/api/checkout/submit", { ...payload, idempotencyKey: key });
-      setResult(submitted); finishCheckout();
-    } catch (e) { setError(friendly(e)); }
+      setResult(submitted);
+      try { finishCheckout(); }
+      catch { setError("Your proof was submitted, but this browser could not clear the saved checkout. Do not submit it again."); }
+      if (submitted.booked) toast.success("Payment proof submitted for review.");
+      else toast.info("Payment proof sent for review. Your court is not booked.");
+    } catch (e) { reportFailure("Payment proof submission", e); }
     finally { lock.current = false; setBusy(false); }
   }
   async function lookup(e: React.FormEvent) {
@@ -343,7 +404,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <section id="booking" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#447244] px-4 py-4 sm:px-6">
         <Guides />
         <div className="mx-auto max-w-7xl space-y-4">
-    {error && <p role="alert" className="rounded-2xl border border-destructive/30 bg-white p-4 text-sm text-foreground">{error}</p>}
+    {feedback.message && <p role={feedback.toasted ? undefined : "alert"} className="rounded-2xl border border-destructive/30 bg-white p-4 text-sm text-foreground">{feedback.message}</p>}
     {bookingPage && <p className="text-sm font-bold text-white">{result ? "Step 4 of 4 - Submission status" : draft ? "Step 3 of 4 - Payment and contact" : review ? "Step 2 of 4 - Review and hold" : "Step 1 of 4 - Date and slots"}</p>}
     {bookingPage && result ? <section className="rounded-2xl border bg-card p-6"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your payment evidence requires staff review. Your court is not booked."}</p>{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-block font-semibold text-primary underline" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" onClick={() => { setResult(null); void load(); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className={`space-y-6 ${card}`}><div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#dce5e8] pb-5"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f28500]">Your checkout</p><h2 className="font-display mt-1 text-3xl font-bold text-[#447244]">{money(draft.checkout.total)}</h2><p className="text-sm text-[#718189]">Booking date: {formatDisplayDate(draft.date)}</p></div><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
       {restored && <p className="rounded-lg bg-muted p-3 text-sm">Checkout restored on this device. Availability and status will be checked by the server; this is not a guarantee.</p>}
@@ -355,24 +416,36 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input maxLength={200} value={name} onChange={e => setName(e.target.value)} autoComplete="name" /></label><label className={field}>Email<Input type="email" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label><label className={field}>Contact number<Input maxLength={50} value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" /></label><label className={field}>Payment reference (optional)<Input maxLength={200} value={reference} onChange={e => setReference(e.target.value)} /></label></div>
       <div className="space-y-3"><label className={field}>Payment proof (JPG, PNG or WebP, up to 5 MiB)<Input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || expired || !clockReady} onChange={e => setFile(e.target.files?.[0] ?? null)} /></label><div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={busy || !clockReady || expired || !file || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void upload()}>{busy ? "Please wait…" : "Upload proof"}</Button><span className="text-sm text-muted-foreground">{draft.uploaded ? "Proof uploaded." : draft.reservationId ? "Upload not confirmed; submission will check proof." : "After a reload, reattach your file if it was not uploaded."}</span></div></div>
       <div className="flex flex-wrap gap-3"><Button disabled={busy || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" disabled={busy} onClick={() => { if (window.confirm("Leave this checkout? Its hold will expire. If you paid, keep your proof and contact the venue.")) { finishCheckout(); setError(""); void load(); } }}>Leave checkout</Button></div>
-    </section> : <section className={`space-y-5 ${card}`}>
-      <div className="rounded-xl border border-[#f2d8b4] bg-[#fff0dc] p-4 sm:p-5">
-        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">{bookingPage ? "Your schedule" : "Court availability"}</p>
-        <h2 className="font-display mt-1 text-2xl font-bold text-[#447244]">Choose your booking date</h2>
-        <p id={`${dateId}-help`} className="mt-2 text-sm leading-5 text-[#405966]">Times after midnight may appear under the previous booking date. Check the date beside each time.</p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className={`${field} sm:min-w-56`}><label htmlFor={dateId}>Booking date</label><Input id={dateId} aria-describedby={`${dateId}-help`} className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" type="date" value={chosenDate} min={availability?.operatingDate} max={availability ? addDays(availability.operatingDate, availability.settings.horizonDays - 1) : undefined} disabled={loading || review} onChange={e => changeDate(e.target.value)} /></div>
-          {availability && <Button type="button" variant="outline" className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={loading || review} onClick={() => changeDate(availability.operatingDate)}>Book for {bookingDate(availability.operatingDate, false)}</Button>}
+    </section> : <section className={`${bookingPage ? "space-y-5" : "space-y-3"} ${card}`}>
+      <div className={bookingPage ? "rounded-xl border border-[#f2d8b4] bg-[#fff0dc] p-4 sm:p-5" : ""}>
+        {bookingPage && <><p className="text-xs font-bold uppercase tracking-[.16em] text-[#b85f00]">Your schedule</p><h2 className="font-display mt-1 text-2xl font-bold text-[#447244]">Choose your booking date</h2></>}
+        <p id={`${dateId}-help`} className={bookingPage ? "mt-2 text-sm leading-5 text-[#405966]" : "sr-only"}>Times after midnight may appear under the previous booking date. {bookingPage ? "Check the date beside each time." : "A time range that crosses midnight shows the next day’s date."}</p>
+        <div className={`${bookingPage ? "mt-4 " : ""}flex flex-col gap-3 sm:flex-row sm:items-end ${bookingPage ? "" : "justify-center"}`}>
+          {bookingPage ? <div className={`${field} sm:min-w-56`}><label htmlFor={dateId}>Booking date</label><Input id={dateId} aria-describedby={`${dateId}-help`} className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" type="date" value={chosenDate} min={minDate} max={maxDate} disabled={loading || review} onChange={e => changeDate(e.target.value)} /></div> : <div className="mx-auto w-full max-w-sm text-center">
+            <p className="mb-2 block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Booking date</p>
+            <div className="flex items-center justify-center gap-2">
+              <Button type="button" variant="outline" aria-label="Previous day" className="h-11 w-11 shrink-0 border-[#447244] bg-white p-0 text-[#447244] hover:bg-[#edf3e8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={loading || review || !minDate || !maxDate || !previousDate || previousDate < minDate || previousDate > maxDate} onClick={() => changeDate(previousDate)}><ChevronLeft aria-hidden="true" className="size-5" /></Button>
+              <div className="min-w-0 flex-1 space-y-2">
+                <button type="button" onClick={openDatePicker} disabled={loading || review} aria-label={`Choose booking date${validDate(chosenDate) ? `, ${bookingDate(chosenDate)}` : ""}`} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#a7c5a0] bg-white px-2 py-2 font-semibold text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244] disabled:opacity-50"><CalendarDays aria-hidden="true" className="size-4 shrink-0" /><span>{validDate(chosenDate) ? bookingDate(chosenDate) : "Choose date"}</span></button>
+                <Input ref={dateInput} id={dateId} aria-label="Booking date" aria-describedby={`${dateId}-help`} tabIndex={dateFallback ? 0 : -1} className={dateFallback ? "min-h-11 w-full border-[#a7c5a0] bg-white text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" : "pointer-events-none absolute h-px w-px opacity-0"} type="date" value={chosenDate} min={minDate} max={maxDate} disabled={loading || review} onChange={e => changeDate(e.target.value)} />
+              </div>
+              <Button type="button" variant="outline" aria-label="Next day" className="h-11 w-11 shrink-0 border-[#447244] bg-white p-0 text-[#447244] hover:bg-[#edf3e8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={loading || review || !minDate || !maxDate || !nextDate || nextDate < minDate || nextDate > maxDate} onClick={() => changeDate(nextDate)}><ChevronRight aria-hidden="true" className="size-5" /></Button>
+            </div>
+          </div>}
+          {bookingPage && availability && <Button type="button" variant="outline" className="min-h-11 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={loading || review} onClick={() => changeDate(availability.operatingDate)}>Book for {bookingDate(availability.operatingDate, false)}</Button>}
         </div>
-        {chosenDate && <div className="mt-5 flex flex-col gap-3 border-t border-[#f2d8b4] pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-lg font-bold text-[#447244]">{bookingDate(chosenDate)}</p><Button variant="outline" className="min-h-11 bg-white" disabled={loading || review} onClick={() => void load(chosenDate)}>Refresh availability</Button></div>}
+        {bookingPage && chosenDate && <div className="mt-5 flex flex-col gap-3 border-t border-[#f2d8b4] pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-lg font-bold text-[#447244]">{bookingDate(chosenDate)}</p><Button variant="outline" className="min-h-11 bg-white" disabled={loading || review} onClick={() => void load(chosenDate)}>Refresh availability</Button></div>}
       </div>
       <p role="status" aria-live="polite" className="sr-only">{dateStatus}</p>
       {loading ? <LoadingAnimation label="Loading availability" className="py-6" /> : !availability ? <div className="space-y-3"><p className="text-sm">Availability is unavailable.</p><Button variant="outline" onClick={() => void load(chosenDate || undefined)}>Retry availability</Button></div> : !chosenDate ? <p className="rounded-lg bg-[#edf3f5] p-4 text-sm text-[#405966]">Choose a date to see available times.</p> : <>{!availability.configured && <p className="rounded-lg bg-muted p-4 text-sm">{availability.message || "Booking and payment are not configured yet."}</p>}{(availability.courts.length === 0 || availability.courts.every(c => c.windows.length === 0)) && <p className="py-6 text-sm text-muted-foreground">Courts are closed on this date.</p>}
-      {!review && <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-[#405966]">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"], ["Rate unavailable", "R"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>}
+      {bookingPage && !review && <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-[#405966]">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"], ["Rate unavailable", "R"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>}
       {!review && availability.courts.some(c => c.windows.length > 0) && gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).length === 0 && <p role="status" className="py-4 text-sm text-[#405966] text-center"><EmptyIcon /> No upcoming slots for this date.</p>}
-      {!review && <div role="region" aria-label="Court availability" tabIndex={0} className="max-h-[32rem] overflow-auto rounded-xl border border-[#dce5e8]">
-        <table className="w-full table-fixed border-separate border-spacing-0 text-sm"><caption className="sr-only">Court availability by time</caption><thead className="sticky top-0 z-10 bg-[#447244] text-white"><tr><th scope="col" className="px-1 py-3 text-center text-xs sm:p-3 sm:text-sm"><span className="inline-flex items-center justify-center gap-1"><Clock3 aria-hidden="true" className="size-4 shrink-0" />Time</span></th>{availability.courts.map(c => <th scope="col" key={c.id} className="px-0.5 py-1 text-center text-xs sm:px-2 sm:text-sm"><span className="inline-flex items-center justify-center"><span>{c.name}</span><button type="button" aria-label={`View ${c.name} photo`} onClick={() => { setPreviewCourt(c.name); previewDialog.current?.showModal(); }} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ffad4c]"><ImageIcon aria-hidden="true" className="size-4" /></button></span></th>)}</tr></thead><tbody>
-          {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => <tr key={start}><th scope="row" className="bg-white px-1 py-2 text-center"><span className="inline-flex max-w-full flex-col items-center rounded-full bg-[#edf3f5] px-2 py-2 text-[10px] font-bold leading-4 text-[#447244] sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"><span>{slotDate(start)} · {formatTime(start)} <span aria-hidden="true">–</span></span><span>{slotDate(start + availability.settings.intervalMinutes * 60000)} · {formatTime(start + availability.settings.intervalMinutes * 60000)}</span></span></th>{availability.courts.map(court => {
+      {!review && <div role="region" aria-label="Court availability" tabIndex={0} className={bookingPage ? "max-h-[32rem] overflow-auto rounded-xl border border-[#dce5e8]" : ""}>
+        <table className="w-full table-fixed border-separate border-spacing-0 text-sm"><caption className="sr-only">Court availability by time</caption><thead className={bookingPage ? "sticky top-0 z-10 bg-[#447244] text-white" : "text-[#447244]"}><tr><th scope="col" className="px-1 py-3 text-center text-xs sm:p-3 sm:text-sm"><span className="inline-flex items-center justify-center gap-1"><Clock3 aria-hidden="true" className="size-4 shrink-0" />Time</span></th>{availability.courts.map(c => <th scope="col" key={c.id} className="px-0.5 py-1 text-center text-xs sm:px-2 sm:text-sm"><span className="inline-flex items-center justify-center"><span>{c.name}</span><button type="button" aria-label={`View ${c.name} photo`} onClick={() => { setPreviewCourt(c.name); previewDialog.current?.showModal(); }} className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${bookingPage ? "text-white hover:bg-white/15" : "text-[#447244] hover:bg-[#edf3f5]"} focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ffad4c]`}><ImageIcon aria-hidden="true" className="size-4" /></button></span></th>)}</tr></thead><tbody>
+          {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => {
+            const end = start + availability.settings.intervalMinutes * 60000;
+            const endDate = bookingPage ? slotDate(end) : slotEndDate(start, end);
+            return <tr key={start}><th scope="row" className="bg-white px-1 py-2 text-center"><span className="inline-flex max-w-full flex-col items-center rounded-full bg-[#edf3f5] px-2 py-2 text-[10px] font-bold leading-4 text-[#447244] sm:flex-row sm:gap-1 sm:px-3 sm:text-xs"><span>{bookingPage && `${slotDate(start)} · `}{formatTime(start)} <span aria-hidden="true">–</span></span><span>{endDate && `${endDate} · `}{formatTime(end)}</span></span></th>{availability.courts.map(court => {
             const wi = court.windows.findIndex(w => slots(w, court.occupied, availability.settings.intervalMinutes, now).some(s => s.start === start));
             const window = court.windows[wi]; const grid = window ? slots(window, court.occupied, availability.settings.intervalMinutes, now) : []; const index = grid.findIndex(s => s.start === start); const slot = grid[index]; const selected = ranges.find(r => r.courtId === court.id); const active = !!slot && selected?.window === wi && slot.start >= Date.parse(selected.start) && slot.end <= Date.parse(selected.end);
             const status = !slot ? "Closed" : window.hourlyRate === null ? "Rate unavailable" : !slot.available ? "Unavailable" : "Available";
@@ -380,9 +453,11 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
             const symbol = active ? "✓" : status === "Available" ? "+" : status === "Closed" ? "C" : status === "Rate unavailable" ? "R" : "–";
             const content = <><span aria-hidden="true" className="sm:hidden">{symbol}</span><span className="sr-only sm:not-sr-only">{label}</span></>;
             const style = `inline-flex h-11 w-11 items-center justify-center rounded-full border text-sm font-bold sm:w-full sm:px-2 sm:text-xs ${statusStyles[label]}`;
-            return <td key={court.id} className="border-t border-[#dce5e8] px-1 py-2 text-center">{<button type="button" disabled={status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatTime(start)} - ${slotDate(start + availability.settings.intervalMinutes * 60000)} ${formatTime(start + availability.settings.intervalMinutes * 60000)}, ${label}`} onClick={() => { const next = selectRange(court.id, wi, window, grid, index, selected); setRanges([...ranges.filter(r => r.courtId !== court.id), ...(next ? [next] : [])]); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f28500] enabled:hover:ring-2 enabled:hover:ring-[#f28500] disabled:cursor-not-allowed`}>{content}</button>}</td>;
-          })}</tr>)}
+            return <td key={court.id} className="border-t border-[#dce5e8] px-1 py-2 text-center">{<button type="button" disabled={status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatTime(start)} - ${slotDate(end)} ${formatTime(end)}, ${label}`} onClick={() => { const next = selectRange(court.id, wi, window, grid, index, selected); setRanges([...ranges.filter(r => r.courtId !== court.id), ...(next ? [next] : [])]); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f28500] enabled:hover:ring-2 enabled:hover:ring-[#f28500] disabled:cursor-not-allowed`}>{content}</button>}</td>;
+          })}</tr>;
+          })}
         </tbody></table></div>}
+      {!bookingPage && !review && <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-[#405966]">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"], ["Rate unavailable", "R"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>}
       <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#447244] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <Photo src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} label={court.name} className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-[#405966]">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit">Close</Button></form></dialog>
       {!review && ranges.length > 0 && <div className="flex flex-wrap gap-3">{ranges.map(r => <button key={r.courtId} className="text-sm text-primary underline" onClick={() => setRanges(ranges.filter(item => item.courtId !== r.courtId))}>Clear {availability.courts.find(c => c.id === r.courtId)?.name}</button>)}</div>}
 
@@ -404,23 +479,17 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       </section>}</>}
     </section>}
 
-          {!bookingPage && <>{/* GUIDE GRID */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <section className="flex min-w-0 flex-col rounded-2xl bg-white p-4 text-[#447244] md:col-span-2">
-              <h3 className="font-display text-2xl font-black uppercase">Visit us</h3>
-              <p className="mt-1 text-xs leading-5">Daylor Village, Abucayan, Balamban, Cebu</p>
-              <iframe title="Google map of Daylor Village 1" src={VENUE_MAP_EMBED} className="mt-3 min-h-[300px] w-full flex-1 rounded-xl border-0" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
-            </section>
-            <div className="grid gap-4">
-              <div className="flex flex-col justify-end rounded-2xl bg-[#0f2938] p-4 text-white shadow-xl">
-                <div className="flex items-start justify-between gap-3"><p className="text-base font-semibold leading-tight">How booking<br />works</p><span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#447244]"><Ball className="h-5 w-5" /></span></div>
-                <div className="mt-5 flex items-end justify-between"><p className="font-display text-4xl font-black text-[#ffad4c]">3 steps</p><p className="text-right text-xs leading-4 text-white/70">Reserve, pay,<br />get confirmed</p></div>
-                <div aria-hidden="true" className="mt-3 flex h-12 items-end gap-[3px]">{Array.from({ length: 24 }, (_, i) => <span key={i} className={`flex-1 rounded-full ${i < 16 ? "bg-[#ffad4c]" : "bg-white/15"}`} style={{ height: "100%" }} />)}</div>
+          {!bookingPage && <>
+            <section id="track" className={`min-w-0 scroll-mt-28 text-[#17252e] sm:scroll-mt-32 ${card}`}>
+              <div className="mx-auto max-w-xl text-center">
+                <h2 className="font-display text-2xl font-bold text-[#447244]">Track your reservation</h2>
+                <p className="mt-2 text-sm leading-5 text-[#405966]">Use the tracking code and email from your request to see where your booking stands.</p>
               </div>
-              <div className="rounded-2xl bg-[#cfe3ec] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pay and upload</h3><p className="mt-3 text-xs leading-5">Pay using a listed method, upload your proof, and staff confirm your booking.</p><a href="/track" className={tileBtn}>Track booking <span aria-hidden="true" className="ml-2">→</span></a></div>
-              <div className="rounded-2xl bg-[#ffad4c] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pick your time</h3><p className="mt-3 text-xs leading-5">Choose a continuous range inside one opening window on either court.</p><a href="/book" className={tileBtn}>See open times <span aria-hidden="true" className="ml-2">→</span></a></div>
-            </div>
-          </div></>}
+              <form onSubmit={lookup} className="mx-auto mt-4 grid max-w-3xl gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><label className="block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Tracking code<Input aria-label="Tracking code" className="mt-2 min-h-11 border-[#a7c5a0] bg-white font-semibold normal-case tracking-normal text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" required maxLength={5} value={trackCode} onChange={e => setTrackCode(e.target.value)} /></label><label className="block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Email<Input aria-label="Email" className="mt-2 min-h-11 border-[#a7c5a0] bg-white font-semibold normal-case tracking-normal text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" required type="email" value={trackEmail} onChange={e => setTrackEmail(e.target.value)} /></label><Button className="min-h-11 bg-[#447244] px-6 font-bold text-white hover:bg-[#365e36] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={trackBusy} type="submit">{trackBusy ? "Checking…" : "Track"}</Button></form>
+              {trackError && <p role="alert" className="mt-3 text-sm text-destructive">{trackError}</p>}
+              {tracking && <div role="status" className="mt-5 space-y-2 border-t pt-4 text-sm"><p>Reservation: <strong className="capitalize">{tracking.status}</strong> · {formatDisplayDate(tracking.operatingDate)} · {money(tracking.total)}</p>{tracking.status === "pending" && <p>Pending review; not yet confirmed.</p>}{tracking.items.map((item, i) => <p key={i}>{item.court}: {formatDate(item.startsAt)} – {formatDate(item.endsAt)}</p>)}{tracking.payments.map((p, i) => <p key={i}>Payment: {p.method.toUpperCase()} · {p.status}{p.reviewReason && tracking.status === "rejected" ? ` · Reason: ${p.reviewReason}` : ""}</p>)}</div>}
+            </section>
+          </>}
         </div>
       </section>
 
@@ -438,26 +507,24 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
 
       {!bookingPage && <HowItWorks />}
 
-      {!bookingPage && <>{/* TRACK */}
-      <section id="track" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-[#447244] px-4 py-14 text-center text-white sm:px-6">
+      {!bookingPage && <>{/* VISIT */}
+      <section className="relative isolate scroll-mt-28 bg-[#447244] px-4 py-4 sm:scroll-mt-32 sm:px-6">
         <Guides />
-        <h2 className="font-display mx-auto max-w-2xl text-[clamp(2.5rem,7vw,4.5rem)] font-black uppercase leading-[.85] tracking-tight text-[#ffad4c]">Track your<br />reservation</h2>
-        <p className="mx-auto mt-5 max-w-sm text-xs leading-5 text-white/75">Use the tracking code and email from your request to see where your booking stands.</p>
-        <div className="mx-auto mt-8 max-w-3xl rounded-2xl bg-white p-5 text-left text-[#17252e] sm:p-7">
-          <form onSubmit={lookup} className="flex flex-wrap items-end gap-3"><label className={field}>Tracking code<Input aria-label="Tracking code" required maxLength={5} value={trackCode} onChange={e => setTrackCode(e.target.value)} /></label><label className={field}>Email<Input aria-label="Email" required type="email" value={trackEmail} onChange={e => setTrackEmail(e.target.value)} /></label><Button disabled={trackBusy} type="submit">{trackBusy ? "Checking…" : "Track"}</Button></form>
-          {trackError && <p role="alert" className="mt-3 text-sm text-destructive">{trackError}</p>}
-          {tracking && <div role="status" className="mt-5 space-y-2 border-t pt-4 text-sm"><p>Reservation: <strong className="capitalize">{tracking.status}</strong> · {formatDisplayDate(tracking.operatingDate)} · {money(tracking.total)}</p>{tracking.status === "pending" && <p>Pending review; not yet confirmed.</p>}{tracking.items.map((item, i) => <p key={i}>{item.court}: {formatDate(item.startsAt)} – {formatDate(item.endsAt)}</p>)}{tracking.payments.map((p, i) => <p key={i}>Payment: {p.method.toUpperCase()} · {p.status}{p.reviewReason && tracking.status === "rejected" ? ` · Reason: ${p.reviewReason}` : ""}</p>)}</div>}
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
-          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#447244] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Quick answers<br />before you play</h2></div>
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-[#e7f0f3] p-6"><h3 className="font-bold text-[#447244]">Do I need an account?</h3><p className="mt-2 text-sm leading-6 text-[#405966]">No. Book as a guest and track your request with your private link or tracking details.</p></div>
-            <div className="rounded-2xl bg-[#fff0dc] p-6"><h3 className="font-bold text-[#447244]">When is my booking confirmed?</h3><p className="mt-2 text-sm leading-6 text-[#405966]">Staff review your payment before confirming your reservation.</p></div>
-          </div>
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
+        <section className="flex min-w-0 flex-col rounded-2xl bg-white p-4 text-[#447244] md:col-span-2">
+          <h2 className="font-display text-2xl font-black uppercase">Visit us</h2>
+          <p className="mt-1 text-xs leading-5">Daylor Village, Abucayan, Balamban, Cebu</p>
+          <iframe title="Google map of Daylor Village 1" src={VENUE_MAP_EMBED} className="mt-3 min-h-[300px] w-full flex-1 rounded-xl border-0" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+        </section>
+            <div className="grid gap-4">
+              <div className="flex flex-col justify-end rounded-2xl bg-[#0f2938] p-4 text-white shadow-xl">
+                <div className="flex items-start justify-between gap-3"><p className="text-base font-semibold leading-tight">How booking<br />works</p><span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#447244]"><Ball className="h-5 w-5" /></span></div>
+                <div className="mt-5 flex items-end justify-between"><p className="font-display text-4xl font-black text-[#ffad4c]">3 steps</p><p className="text-right text-xs leading-4 text-white/70">Reserve, pay,<br />get confirmed</p></div>
+                <div aria-hidden="true" className="mt-3 flex h-12 items-end gap-[3px]">{Array.from({ length: 24 }, (_, i) => <span key={i} className={`flex-1 rounded-full ${i < 16 ? "bg-[#ffad4c]" : "bg-white/15"}`} style={{ height: "100%" }} />)}</div>
+              </div>
+              <div className="rounded-2xl bg-[#cfe3ec] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pay and upload</h3><p className="mt-3 text-xs leading-5">Pay using a listed method, upload your proof, and staff confirm your booking.</p><a href="/track" className={tileBtn}>Track booking <span aria-hidden="true" className="ml-2">→</span></a></div>
+              <div className="rounded-2xl bg-[#ffad4c] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pick your time</h3><p className="mt-3 text-xs leading-5">Choose a continuous range inside one opening window on either court.</p><a href="/book" className={tileBtn}>See open times <span aria-hidden="true" className="ml-2">→</span></a></div>
+            </div>
         </div>
       </section>
 
@@ -468,6 +535,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         <p className="mx-auto mt-5 max-w-sm text-xs leading-5 text-white/75">Daylor Village, Abucayan, Balamban, Cebu. Better rallies, right where you live.</p>
         <a href="/book" className="mt-7 inline-flex min-h-10 items-center rounded-md bg-white px-5 text-xs font-bold text-[#447244] transition hover:bg-[#ffad4c]">Book a court</a>
       </section>
+      <Faq />
       <footer className="border-t border-white/10 bg-[#447244] px-5 py-10 text-sm text-white/70 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-8 md:flex-row"><div><div className="flex items-center gap-3"><img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-36" /></div><p className="mt-4 max-w-xs leading-6 text-white/55">Your neighborhood court for better rallies in Balamban.</p></div><div><p className="font-bold text-white">Visit</p><p className="mt-3 text-white/60">Daylor Village<br />Abucayan, Balamban<br />Cebu, Philippines</p></div><div><p className="font-bold text-white">Explore</p><div className="mt-3 flex gap-4"><a href="/contact" className="hover:text-white">Contact</a><a href="/terms" className="hover:text-white">Terms</a><a href="/privacy" className="hover:text-white">Privacy</a></div></div></div></footer>
     </>}
     </main></div>;

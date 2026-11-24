@@ -1,3 +1,4 @@
+import { manilaDateStr } from "@/lib/booking/slots";
 import { shiftDate } from "./date-utils";
 
 export type View = "monthly" | "weekly" | "daily" | "schedule";
@@ -21,7 +22,7 @@ export function stepPeriod(date: string, view: View, direction: number): string 
   if (view !== "monthly") return shiftDate(date, direction * (view === "daily" ? 1 : 7));
   const d = new Date(`${date.slice(0, 7)}-01T12:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() + direction);
-  return d.toISOString().slice(0, 10);
+  return manilaDateStr(d);
 }
 
 export function uniqueScheduleDays(dates: string[], days: Record<string, Calendar | null>): Record<string, Calendar | null> {

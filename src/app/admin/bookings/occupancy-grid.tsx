@@ -4,8 +4,6 @@ import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatBookingDate } from "@/lib/admin/bookings";
 import { formatSlotRangesWithDates } from "@/lib/courts";
@@ -40,7 +38,6 @@ export default function OccupancyGrid({ date, data }: { date: string; data: Awai
           <label className="grid gap-1 text-xs font-medium text-muted-foreground">Schedule date
             <input type="date" value={date} onChange={(e) => changeDate(e.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm text-foreground" />
           </label>
-          <Button type="button" variant="outline" size="lg" disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw className={pending ? "animate-spin" : ""} /> Refresh</Button>
         </div>
       </div>
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label="Occupancy legend">

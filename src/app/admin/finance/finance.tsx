@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { expenseCategories as categories, financeFilters, validFinancePeriod } from "@/lib/admin/finance-filters";
 import { formatDisplayDate } from "@/lib/display-date";
 import { Button } from "@/components/ui/button";
+import { FinanceInfo } from "./finance-info";
 import { addDaysManilaStr, manilaTodayStr } from "@/lib/courts";
 import { buildFinanceSheet, type FinanceExportInput } from "@/lib/admin/finance-export";
 import { ExpenseActions, ExpenseFields, type Expense } from "./expense-actions";
@@ -126,8 +127,11 @@ export default function Finance() {
     setPage(1); setRangeOpen(false);
   }
 
-  return <main className="mx-auto max-w-7xl space-y-8 p-4 text-slate-900 sm:p-8">
-    <header className="space-y-3"><h1 className="text-2xl font-semibold tracking-tight">Finance</h1><p className="max-w-3xl text-sm leading-6 text-slate-600">Booking revenue is counted on the original payment approval date in Manila; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</p></header>
+  return <main className="space-y-5 pb-24">
+    <header className="flex items-center gap-2">
+      <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
+      <FinanceInfo label="How Finance totals are calculated">Booking revenue is counted on the original payment approval date in Manila; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</FinanceInfo>
+    </header>
     <div className="flex flex-wrap items-center gap-3">
       <Sheet open={rangeOpen} onOpenChange={open => { setRangeOpen(open); if (open) { setDraft(filters); setFilterError(""); } }}>
         <SheetTrigger render={<Button variant="outline" />}><SlidersHorizontal aria-hidden="true" /> Filters</SheetTrigger>
@@ -150,18 +154,10 @@ export default function Finance() {
       </Sheet>
       <p className="text-sm text-muted-foreground">{formatDisplayDate(from)} to {formatDisplayDate(to)}{filters.category && ` ? ${filters.category}`}{filters.q && ` ? Title: ${filters.q}`}</p>
       <button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Export to Sheets"}</button>
-      <p className="text-sm text-muted-foreground">XLSX includes customer names and emails. Expense filters change workbook expenses and profit, not the page totals.</p>
-      <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Record an expense already paid.</DialogDescription>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Expenses are recorded on the date paid.</p>
-        <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) { const fields = new FormData(e.currentTarget); const get = (key: string) => String(fields.get(key) ?? ""); void save({ title: get("title"), category: get("category"), amount: get("amount"), paidDate: get("paidDate"), description: get("description"), vendor: get("vendor"), notes: get("notes"), idempotencyKey: crypto.randomUUID() }); } }}>
-          <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} className={input} /><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
-          {saveMessage && <p role="status" className="text-sm text-slate-700">{saveMessage}</p>}
-          {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {formatDisplayDate(pending.paidDate)}</p><p>Retry only while signed in to the same account that recorded this expense.</p><button type="button" disabled={saving} className={button} onClick={() => void save(pending)}>Retry same expense</button><button type="button" disabled={saving} className="block underline" onClick={() => { if (window.confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?")) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</button></div>}
-        </form>
-      </section></DialogContent></Dialog>
-      <span id="finance-sale-action" className="contents" />
       {exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
     </div>
+    <CashActivity key={`${from}:${to}`} from={from} to={to} refresh={refresh} />
+    <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Approval-based reporting</h2><FinanceInfo label="About approval-based reporting">Booking revenue is counted on the original payment approval date. Expenses use their paid date. Extensions and manual sales are excluded.</FinanceInfo></div>
     <section aria-label="Finance summary" aria-busy={loading}>
       {loading ? <LoadingAnimation label="Loading report" className="py-4" /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : report && <div className={STAT_CARD_GRID}>
         <StatCard label="Booking Revenue" value={formatCents(report.revenueCents)} icon={DollarSign} subtitle="Counted on approval date" />
@@ -171,14 +167,23 @@ export default function Finance() {
       </div>}
     </section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Revenue and profit trend" aria-busy={loading}>
-      <div className="mb-5"><h2 className="text-xl font-bold">Revenue and profit trend</h2><p className="mt-1 text-sm text-slate-600">Daily, weekly, or monthly totals based on the selected range.</p></div>
+      <div className="mb-5"><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Revenue and profit trend</h2><FinanceInfo label="About the revenue and profit trend">Daily, weekly, or monthly totals based on the selected range.</FinanceInfo></div></div>
       {loading ? <LoadingAnimation label="Loading trend" className="py-4" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
     </section>
     <Sales from={from} to={to} onSaved={() => setRefresh(n => n + 1)} />
-    <CashActivity key={`${from}:${to}`} from={from} to={to} refresh={refresh} />
     {pending && !expenseOpen && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Expense outcome uncertain. Review or retry the saved request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
     <div>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Recorded expenses</h2><p className="mt-1 text-sm text-slate-600">Paid expenses in the selected period. Edits and deletes are audited.</p>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Recorded expenses</h2><FinanceInfo label="About recorded expenses">Paid expenses in the selected period. Edits and deletes are audited.</FinanceInfo></div></div>
+          <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Record an expense already paid.</DialogDescription>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Expenses are recorded on the date paid.</p>
+        <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) { const fields = new FormData(e.currentTarget); const get = (key: string) => String(fields.get(key) ?? ""); void save({ title: get("title"), category: get("category"), amount: get("amount"), paidDate: get("paidDate"), description: get("description"), vendor: get("vendor"), notes: get("notes"), idempotencyKey: crypto.randomUUID() }); } }}>
+          <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} className={input} /><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
+          {saveMessage && <p role="status" className="text-sm text-slate-700">{saveMessage}</p>}
+          {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {formatDisplayDate(pending.paidDate)}</p><p>Retry only while signed in to the same account that recorded this expense.</p><button type="button" disabled={saving} className={button} onClick={() => void save(pending)}>Retry same expense</button><button type="button" disabled={saving} className="block underline" onClick={() => { if (window.confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?")) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</button></div>}
+        </form>
+      </section></DialogContent></Dialog>
+        </div>
         {listLoading ? <LoadingAnimation label="Loading expenses" className="mt-5" /> : listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : expenses?.rows.length ? <><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody>{expenses.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); setRefresh(n => n + 1); }} /></td></tr>)}</tbody></table></div><div className="mt-4 flex items-center gap-4 text-sm"><button disabled={page <= 1} onClick={() => setPage(page - 1)} className="underline disabled:opacity-40">Previous</button><span>Page {page} · {expenses.total} expenses</span><button disabled={page * expenses.limit >= expenses.total} onClick={() => setPage(page + 1)} className="underline disabled:opacity-40">Next</button></div></> : <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}
       </section>
 

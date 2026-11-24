@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CalendarDays, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, TriangleAlert, UserRound, Users, type LucideIcon } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger } from "@/components/ui/sidebar";
 import Image from "next/image";
 
@@ -22,12 +22,12 @@ const management: NavItem[] = [
   { href: "/admin/courts", label: "Court setup", icon: CalendarDays },
   { href: "/admin/timing", label: "Timing policy", icon: Clock },
   { href: "/admin/finance", label: "Finance", icon: CreditCard },
-  { href: "/admin/payment-instructions", label: "Payment instructions", icon: Settings },
+  { href: "/admin/payment-instructions", label: "Payment Setup", icon: Settings },
   { href: "/admin/activity", label: "Activity history", icon: ScrollText },
   { href: "/admin/staff", label: "Owner access", icon: Users },
 ];
 
-export default function AdminSidebar({ email, name }: { email: string; name: string | null }) {
+export default function AdminSidebar({ email, name, counts }: { email: string; name: string | null; counts: { pendingBookings: number; unreadNotifications: number } | null }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -40,9 +40,16 @@ export default function AdminSidebar({ email, name }: { email: string; name: str
 
   const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`));
 
-  const renderItem = ({ href, label, icon: Icon }: NavItem) => <SidebarMenuItem key={href}>
-    <SidebarMenuButton className={itemClass} isActive={isActive(href)} render={<Link href={href} />} tooltip={label}><Icon /><span>{label}</span></SidebarMenuButton>
-  </SidebarMenuItem>;
+  const renderItem = ({ href, label, icon: Icon }: NavItem) => {
+    const count = href === "/admin/bookings" ? counts?.pendingBookings : href === "/admin/notifications" ? counts?.unreadNotifications : 0;
+    const description = count ? `${count} ${href === "/admin/bookings" ? "pending bookings" : "unread notifications"}` : "";
+    return <SidebarMenuItem key={href}>
+      <SidebarMenuButton className={itemClass} isActive={isActive(href)} render={<Link href={href} aria-label={description ? `${label}, ${description}` : label} />} tooltip={description ? `${label}, ${description}` : label}>
+        <Icon aria-hidden="true" /><span className="min-w-0 truncate group-data-[collapsible=icon]:hidden">{label}</span>
+        {!!count && <div aria-hidden="true" className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:px-0.5 group-data-[collapsible=icon]:text-[8px]">{href === "/admin/bookings" && <TriangleAlert className="!size-3 text-amber-400 group-data-[collapsible=icon]:!size-2" />}{count > 99 ? "99+" : count}</div>}
+      </SidebarMenuButton>
+    </SidebarMenuItem>;
+  };
 
   return <Sidebar collapsible="icon">
     <nav aria-label="Owner navigation" className="flex h-full min-h-0 flex-col">

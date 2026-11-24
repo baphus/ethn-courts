@@ -11,9 +11,9 @@ const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, 
 const cls = { free: "bg-sky-100 dark:bg-sky-950", partial: "bg-primary/40", full: "bg-primary", closed: "bg-muted/50 [background-image:repeating-linear-gradient(135deg,transparent_0_4px,var(--border)_4px_5px)]" } as const;
 
 /** Availability for the next few operating days from the real windows and allocations. Holds count as unavailable. */
-export function BookingWindow({ refreshKey }: { refreshKey: number }) {
+export function BookingWindow() {
   const [date, setDate] = useState<string | null>(null);
-  const state = useAnalytics<WindowData>(`section=window${date ? `&date=${date}` : ""}`, refreshKey);
+  const state = useAnalytics<WindowData>(`section=window${date ? `&date=${date}` : ""}`);
   return <Card title="Booking window" subtitle="Hourly availability includes holds. Checkout verifies availability.">
     <Body state={state} skeleton="h-44">{d => {
       const opens = d.courts.flatMap(c => c.windows.map(w => Date.parse(w.opensAt))), closes = d.courts.flatMap(c => c.windows.map(w => Date.parse(w.closesAt)));

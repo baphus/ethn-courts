@@ -104,7 +104,6 @@ export default function CalendarPage() {
     </header>
     {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
     {notice && <p role="status" className="border border-[#b8d5c6] bg-[#eef8f1] p-4 text-sm">{notice}</p>}
-    {!displayedDate && !loading && <Button variant="outline" onClick={() => setRevision(value => value + 1)}>Refresh</Button>}
-    {displayedDate && <CalendarLayout date={displayedDate} today={today} revision={revision} busy={busy} onDate={setDate} onToday={() => { setDate(""); setRevision(value => value + 1); }} onRefresh={() => setRevision(value => value + 1)} onRelease={(id, court, interval) => void releaseBlock(id, court, interval)} />}
+    {displayedDate && <CalendarLayout date={displayedDate} today={today} revision={revision} busy={busy} onDate={setDate} onToday={() => { setDate(""); setRevision(value => value + 1); }} onRelease={(id, court, interval) => void releaseBlock(id, court, interval)} />}
   </div>;
 }

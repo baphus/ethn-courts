@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { request } from "@/app/admin/bookings/booking-list";
 
-export function useAnalytics<T>(query: string, refreshKey = 0) {
+export function useAnalytics<T>(query: string) {
   const [state, setState] = useState<{query: string; data: T | null; error: string; loading: boolean}>({query, data: null, error: "", loading: true});
   const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useAnalytics<T>(query: string, refreshKey = 0) {
       .then(data => { if (!controller.signal.aborted) setState({query, data, error: "", loading: false}); })
       .catch(e => { if (!controller.signal.aborted) setState(previous => ({query, data: previous.query === query ? previous.data : null, error: e instanceof Error ? e.message : "Unavailable. Please try again.", loading: false})); });
     return () => controller.abort();
-  }, [query, refreshKey, version]);
+  }, [query, version]);
   const retry = useCallback(() => setVersion(v => v + 1), []);
   return { ...(state.query === query ? state : {data: null, error: "", loading: true}), retry };
 }

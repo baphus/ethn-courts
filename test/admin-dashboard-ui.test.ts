@@ -4,17 +4,18 @@ import { readFileSync } from 'node:fs';
 
 const source = (file: string) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 
-test('dashboard retains attention, booking statuses, court view and optional finance', () => {
+test('dashboard leads with booking statuses and retains court view and optional finance', () => {
   const page = source('src/app/admin/page.tsx');
-  const attention = page.match(/<section aria-label="Needs attention"[\s\S]*?<\/section>/)?.[0] ?? '';
-  assert.match(page, /\(data\.counts\.pending > 0 \|\| data\.counts\.pendingReviewOverdue > 0\) && <section aria-label="Needs attention"/);
-  assert.match(attention, /overdue is included in pending/i);
-  assert.match(attention, /data\.counts\.pending\b/);
-  assert.match(attention, /data\.counts\.pendingReviewOverdue\b/);
+  assert.doesNotMatch(page, /aria-label="Needs attention"|Needs payment review/);
   const statuses = page.match(/<section aria-label="Today booking status"[\s\S]*?<\/section>/)?.[0] ?? '';
-  for (const state of ['confirmed', 'completed', 'expired']) assert.match(statuses, new RegExp(`"${state}"`));
+  for (const state of ['confirmed', 'completed', 'pending']) assert.match(statuses, new RegExp(`"${state}"`));
+  assert.doesNotMatch(statuses, /"expired"/);
   assert.match(statuses, /data\.counts\[state\]/);
   assert.match(statuses, /<StatusBadge state=\{state\}/);
+  assert.ok(page.indexOf('Today’s status') < page.indexOf('<HeroStats'));
+  const court = source('src/components/admin/dashboard-court-view.tsx');
+  assert.doesNotMatch(court, /Operating hours|AttentionPanel/);
+  assert.match(court, /type="date"/);
   assert.match(page, /<StatusBadge state=\{row\.status\}/);
   assert.match(page, /courtView \? <DashboardCourtView overview=\{data\}/);
   assert.match(page, /<ViewToggle courtView=\{courtView\} onChange=\{setCourtView\}/);

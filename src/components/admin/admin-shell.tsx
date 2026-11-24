@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import NextTopLoader from "nextjs-toploader";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,17 +14,72 @@ interface Props {
   children: React.ReactNode;
 }
 
+type SidebarCounts = { pendingBookings: number; unreadNotifications: number };
+const SidebarActivity = createContext<{
+  counts: SidebarCounts | null;
+  refreshCounts: () => Promise<void>;
+  syncInbox: () => Promise<void>;
+}>({ counts: null, refreshCounts: async () => {}, syncInbox: async () => {} });
+export const useSidebarActivity = () => useContext(SidebarActivity);
+
 export default function AdminShell({ email, name, children }: Props) {
-  return <TooltipProvider>
+  const [counts, setCounts] = useState<SidebarCounts | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const refreshCounts = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    try {
+      const response = await fetch("/api/ethn/admin/sidebar-counts", { cache: "no-store", signal: controller.signal });
+      if (response.ok) {
+        const nextCounts: SidebarCounts = await response.json();
+        if (!controller.signal.aborted) setCounts(nextCounts);
+      } else if (!controller.signal.aborted && (response.status === 401 || response.status === 403)) {
+        setCounts(null);
+      }
+    } catch { /* Keep last successful counts on transient failure. */ }
+    finally { if (request.current === controller) request.current = null; }
+  }, []);
+
+  const reconciliation = useRef<{ controller: AbortController; done: Promise<void> } | null>(null);
+  const syncInbox = useCallback(() => {
+    if (reconciliation.current) return reconciliation.current.done;
+    // Use existing reconciliation when the inbox cron isn't scheduled.
+    const controller = new AbortController();
+    const done = fetch("/api/ethn/admin/notifications/reconcile", { method: "POST", signal: controller.signal })
+      .catch(() => null)
+      .then(() => { if (!controller.signal.aborted) return refreshCounts(); })
+      .finally(() => { if (reconciliation.current?.controller === controller) reconciliation.current = null; });
+    reconciliation.current = { controller, done };
+    return done;
+  }, [refreshCounts]);
+
+  useEffect(() => {
+    const sync = () => { if (!document.hidden) void syncInbox(); };
+    sync();
+    const interval = window.setInterval(sync, 60_000);
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      reconciliation.current?.controller.abort();
+      reconciliation.current = null;
+      request.current?.abort();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [syncInbox]);
+
+  return <SidebarActivity.Provider value={{ counts, refreshCounts, syncInbox }}><TooltipProvider>
     <NextTopLoader color="var(--primary)" showSpinner={false} />
     <SidebarProvider style={{ "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
       <div data-admin-shell className="contents">
-        <AdminSidebar email={email} name={name} />
+        <AdminSidebar email={email} name={name} counts={counts} />
         <SidebarInset className="min-w-0 overflow-x-clip">
           <AdminTopbar><ProfileDialog email={email} name={name} /></AdminTopbar>
           <div className="admin-workspace flex min-w-0 flex-1 flex-col gap-4 overflow-x-clip p-4 md:p-6">{children}</div>
         </SidebarInset>
       </div>
     </SidebarProvider>
-  </TooltipProvider>;
+  </TooltipProvider></SidebarActivity.Provider>;
 }

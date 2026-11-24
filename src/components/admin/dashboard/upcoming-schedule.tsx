@@ -1,4 +1,6 @@
 "use client";
+
+import { addDaysManilaStr } from "@/lib/courts";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
@@ -23,10 +25,10 @@ function periodOf(item: ScheduleItem): Period {
   const h = manilaHour(start);
   return h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
 }
-function addDay(date: string) { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); }
+function addDay(date: string) { return addDaysManilaStr(date, 1); }
 
-export function UpcomingSchedule({ refreshKey }: { refreshKey: number }) {
-  const state = useAnalytics<ScheduleData>("section=schedule", refreshKey);
+export function UpcomingSchedule() {
+  const state = useAnalytics<ScheduleData>("section=schedule");
   const [tab, setTab] = useState<Tab>("today");
   return <Card title="Upcoming schedule" subtitle="Pending and confirmed reservations that haven’t ended" action={<Link href="/admin/calendar" className="text-xs font-semibold text-primary hover:underline">Open calendar</Link>}>
     <Body state={state} skeleton="h-56">{d => {

@@ -7,7 +7,11 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     for (const key of params.keys()) if (!["from", "to", "basis"].includes(key) || params.getAll(key).length !== 1) throw new Error("INVALID_INPUT");
     const basis = params.get("basis");
-    if (basis !== null && basis !== "approval") throw new Error("INVALID_INPUT");
+    if (basis !== null && basis !== "approval" && basis !== "cash") throw new Error("INVALID_INPUT");
+    if (basis === "cash") {
+      const { overview } = await getFinance(staffPool, verifyStaffIdentity, params.get("from"), params.get("to"), true);
+      return adminResponse(overview);
+    }
     const report = basis === "approval" ? getApprovalFinance : getFinance;
     return adminResponse(await report(staffPool, verifyStaffIdentity, params.get("from"), params.get("to")));
   }

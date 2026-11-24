@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { addDaysManilaStr } from "@/lib/courts";
 import { manilaDateStr } from "@/lib/booking/slots";
 import { getStaff, type StaffVerifier } from "@/lib/admin/ethn-payments";
 import { getFinance } from "@/lib/admin/ethn-finance";
@@ -23,9 +24,7 @@ function date(value: string): boolean {
 }
 
 export function dashboardDateOffset(day: string, offset: number) {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + offset);
-  return d.toISOString().slice(0, 10);
+  return addDaysManilaStr(day, offset);
 }
 
 export async function ethnDashboard(pool: Db, verify: StaffVerifier) {

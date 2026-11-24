@@ -21,7 +21,7 @@ export type OverviewData = {
   heatmap: { hours: number[]; rows: Cell[][] };
   insight: { from: string; to: string; days: number; busiest: HourStat; quietest: HourStat } | { reason: string };
 };
-export type MethodsData = { range: Range; from: string; to: string; totals: { cash: string; gcash: string; collected: string }; components: { bookingAndExtensionCollections: string; manualSalesAfterCorrections: string } };
+export type MethodsData = { range: Range; from: string; to: string; collected: string; paymentMethods: { id: string; name: string; amount: string }[] };
 export type ScheduleItem = { id: string; bookingId: string; guestName: string | null; status: string; operatingDate: string; startsAt: string; endsAt: string; courts: string[] };
 export type ScheduleData = { operatingDate: string; truncated: boolean; items: ScheduleItem[] };
 export type WindowData = {

@@ -1,6 +1,6 @@
 export const statuses = ["pending", "confirmed", "completed", "expired", "rejected", "cancelled", "refunded"] as const;
 export type Filters = { q: string; status: string; from: string; to: string; page: number; archived: boolean };
-const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === `${value}T00:00:00.000Z`;
 export function parseFilters(params: URLSearchParams): Filters {
   const from = params.get("from") || "", to = params.get("to") || "";
   const validRange = (!from || validDate(from)) && (!to || validDate(to)) && (!from || !to || from <= to);

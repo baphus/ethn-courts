@@ -21,6 +21,7 @@ function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false)
     if (sql.includes("SELECT 1 FROM ethn.staff_access")) return { rows: [{ '?column?': 1 }] };
     if (sql.includes("transaction_timestamp() AS now")) return { rows: [{ now }] };
     if (sql.includes("revenue AS")) return { rows: [{ date: "2026-11-01", revenue: "12500", expenses: "1000", bookings: 1 }] };
+    if (sql.includes("WITH entries AS")) return { rows: [{ id: "cash", name: "Cash", amount: "0.00" }, { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" }, { id: "custom", name: "Custom QR", amount: "0.00" }, { id: "gcash", name: "GCash", amount: "-0.25" }] };
     if (sql.includes("WITH days AS")) return { rows: [{ date: "2026-11-01", bookingcash: "0.00", bookinggcash: "0.00", salescash: "0.00", salesgcash: "0.00", cash: "0.00", gcash: "0.00", other:'0.00', refunds:'0.00', collected: "0.00", expenses: "0.00" }] };
     return { rows: [] };
   }, release: () => { released++; } }) } as unknown as Pick<Pool, "connect">;
@@ -50,6 +51,20 @@ test("owner hero uses finance and before-anchor chart remains valid", async () =
   assert.deepEqual(hero.bookingRevenue, { todayCents: 12500, monthCents: 12500 });
   const chart = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=chart&month=2026-11"));
   assert.ok("occupancy" in chart);
+});
+
+test("dashboard returns configured method names, zero balances, and signed collections", async () => {
+  const db = mock("owner", "2026-11-04T02:00:00Z");
+  const result = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=methods&range=week"));
+  assert.deepEqual(result, {
+    range: "week", from: "2026-11-02", to: "2026-11-04", collected: "125.25",
+    paymentMethods: [
+      { id: "cash", name: "Cash", amount: "0.00" },
+      { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" },
+      { id: "custom", name: "Custom QR", amount: "0.00" },
+      { id: "gcash", name: "GCash", amount: "-0.25" },
+    ],
+  });
 });
 
 test("overview separates booking and block utilization over elapsed capacity", async () => {

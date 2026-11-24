@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { manilaDateStr, manilaWallClock } from "../booking/slots";
 import { addDaysManilaStr } from "../courts";
 import type { StaffVerifier } from "./ethn-payments";
+import { cashCents, type CashReport } from "./finance-cash";
 import { expenseCategories as categories, newExpenseCategories } from "./finance-filters";
 
 type Db = Pick<Pool, "connect">;
@@ -22,7 +23,7 @@ async function owner(pool: Db, actor: string) {
   try { if (!(await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN"); }
   finally { c.release(); }
 }
-export async function getFinance(pool: Db, verify: StaffVerifier, from: string | null, to: string | null) {
+export async function getFinance(pool: Db, verify: StaffVerifier, from: string | null, to: string | null, cashOverview = false) {
   const actor = actorId(await verify()); await owner(pool, actor);
   const c = await pool.connect();
   try {
@@ -30,7 +31,9 @@ export async function getFinance(pool: Db, verify: StaffVerifier, from: string |
     if (!(await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
     const now = (await c.query("SELECT transaction_timestamp() AS now")).rows[0].now as Date;
     const today = manilaDateStr(now), [a,b] = range(from,to,today);
-    const { rows } = await c.query(`WITH days AS (SELECT d::date AS day FROM generate_series($1::date,$2::date,interval '1 day') d),
+    const priorEnd = cashOverview ? addDaysManilaStr(a, -1) : a;
+    const start = cashOverview ? addDaysManilaStr(priorEnd, -(Date.parse(b) - Date.parse(a)) / 86400000) : a;
+    const { rows: ledger } = await c.query(`WITH days AS (SELECT d::date AS day FROM generate_series($1::date,$2::date,interval '1 day') d),
       collections AS (SELECT (coalesce(p.received_at,p.verified_at) AT TIME ZONE 'Asia/Manila')::date AS day,
         sum(p.collected_amount) FILTER (WHERE p.method='cash') cash,
         sum(p.collected_amount) FILTER (WHERE p.method='gcash') gcash,
@@ -44,15 +47,68 @@ export async function getFinance(pool: Db, verify: StaffVerifier, from: string |
       SELECT days.day::text date,coalesce(collections.cash,0)::numeric(30,2)::text bookingCash,coalesce(collections.gcash,0)::numeric(30,2)::text bookingGCash,coalesce(sales_totals.cash,0)::numeric(30,2)::text salesCash,coalesce(sales_totals.gcash,0)::numeric(30,2)::text salesGCash,(coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))::numeric(30,2)::text cash,(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0))::numeric(30,2)::text gcash,
         coalesce(collections.other,0)::numeric(30,2)::text other,coalesce(refunds.amount,0)::numeric(30,2)::text refunds,
         ((coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))+(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0))+coalesce(collections.other,0))::numeric(30,2)::text collected,coalesce(costs.expenses,0)::numeric(30,2)::text expenses
-      FROM days LEFT JOIN collections USING(day) LEFT JOIN sales_totals USING(day) LEFT JOIN costs USING(day) LEFT JOIN refunds USING(day) ORDER BY days.day`, [a,b]);
+      FROM days LEFT JOIN collections USING(day) LEFT JOIN sales_totals USING(day) LEFT JOIN costs USING(day) LEFT JOIN refunds USING(day) ORDER BY days.day`, [start,b]);
+    const rows = cashOverview ? ledger.filter(row => row.date >= a) : ledger;
     const sum = (field: string) => rows.reduce<bigint>((n, r) => n + BigInt(String(r[field]).replace(".", "")), BigInt(0));
     const cash=sum("cash"),gcash=sum("gcash"),other=sum('other'),refunds=sum('refunds'),expenses=sum("expenses"),collected=cash+gcash+other;
     const components={bookingAndExtensionCollections:peso(sum('bookingcash')+sum('bookinggcash')+other),manualSalesAfterCorrections:peso(sum('salescash')+sum('salesgcash'))};
+    const overview = cashOverview ? await buildCashOverview(c, a, b, start, priorEnd, rows, ledger.filter(row => row.date < a)) : undefined;
     await c.query("COMMIT");
-    return { from:a,to:b,components,scope:"Gross accepted collections include all payment methods. Reporting uses actual receipt time when recorded, otherwise verification time; fallback is not an actual receipt timestamp. Net subtracts recorded external refunds and expenses. Archive does not change totals.",totals:{cash:peso(cash),gcash:peso(gcash),other:peso(other),refunds:peso(refunds),collected:peso(collected),expenses:peso(expenses),net:peso(collected-refunds-expenses)},daily:rows.map((r: Record<string, unknown>)=>({date:r.date,bookingPayments:peso(BigInt(String(r.bookingcash).replace(".", ""))+BigInt(String(r.bookinggcash).replace(".", ""))+BigInt(String(r.other).replace(".", ""))),otherSales:peso(BigInt(String(r.salescash).replace(".", ""))+BigInt(String(r.salesgcash).replace(".", ""))),cash:r.cash,gcash:r.gcash,other:r.other,refunds:r.refunds,collected:r.collected,expenses:r.expenses,net:peso(BigInt(String(r.collected).replace(".",""))-BigInt(String(r.refunds).replace(".",""))-BigInt(String(r.expenses).replace(".","")))})) };
+    return { overview, from:a,to:b,components,scope:"Gross accepted collections include all payment methods. Reporting uses actual receipt time when recorded, otherwise verification time; fallback is not an actual receipt timestamp. Net subtracts recorded external refunds and expenses. Archive does not change totals.",totals:{cash:peso(cash),gcash:peso(gcash),other:peso(other),refunds:peso(refunds),collected:peso(collected),expenses:peso(expenses),net:peso(collected-refunds-expenses)},daily:rows.map((r: Record<string, unknown>)=>({date:r.date,bookingPayments:peso(BigInt(String(r.bookingcash).replace(".", ""))+BigInt(String(r.bookinggcash).replace(".", ""))+BigInt(String(r.other).replace(".", ""))),otherSales:peso(BigInt(String(r.salescash).replace(".", ""))+BigInt(String(r.salesgcash).replace(".", ""))),cash:r.cash,gcash:r.gcash,other:r.other,refunds:r.refunds,collected:r.collected,expenses:r.expenses,net:peso(BigInt(String(r.collected).replace(".",""))-BigInt(String(r.refunds).replace(".",""))-BigInt(String(r.expenses).replace(".","")))})) };
   } catch(e) { try { await c.query("ROLLBACK"); } catch {} throw e; }
   finally { c.release(); }
 }
+async function buildCashOverview(c: PoolClient, from: string, to: string, priorFrom: string, priorTo: string, current: Record<string, string>[], previous: Record<string, string>[]): Promise<CashReport> {
+  const methods = (rows: Record<string, string>[]) => ({ cash: sum(rows, "bookingcash"), gcash: sum(rows, "bookinggcash"), other: sum(rows, "other") });
+  const totals = (rows: Record<string, string>[]) => {
+    const { cash, gcash, other } = methods(rows);
+    const booking = cash + gcash + other;
+    const sales = sum(rows, "salescash") + sum(rows, "salesgcash");
+    const expenses = sum(rows, "expenses"), refunds = sum(rows, "refunds");
+    return { bookingPayments: peso(booking), otherSales: peso(sales), expenses: peso(expenses), refunds: peso(refunds), net: peso(booking + sales - expenses - refunds) };
+  };
+  const sum = (rows: Record<string, string>[], key: string) => rows.reduce((total, row) => total + cashCents(row[key]), BigInt(0));
+  const { rows } = await c.query<{ category: string; amount: string }>(`WITH ledger AS (
+    SELECT category, amount FROM ethn.expenses WHERE paid_date BETWEEN $1 AND $2
+    UNION ALL
+    SELECT e.category, x.amount_delta FROM ethn.expense_corrections x JOIN ethn.expenses e ON e.id=x.expense_id
+    WHERE e.revision IS NULL AND x.correction_date BETWEEN $1 AND $2
+  ) SELECT category, sum(amount)::numeric(30,2)::text AS amount FROM ledger GROUP BY category ORDER BY sum(amount) DESC, category`, [from,to]);
+  const paymentMethods = await listCollectionMethods(c, from, to);
+  return {
+    from, to, current: totals(current), previous: { from: priorFrom, to: priorTo, ...totals(previous) },
+    paymentMethods, expenseCategories: rows,
+    daily: current.map(row => ({ date: row.date, bookingPayments: peso(cashCents(row.bookingcash) + cashCents(row.bookinggcash) + cashCents(row.other)), otherSales: peso(cashCents(row.salescash) + cashCents(row.salesgcash)), expenses: row.expenses, refunds: row.refunds })),
+  };
+}
+
+export async function listCollectionMethods(c: PoolClient, from: string, to: string, includeSales = false) {
+  const { rows } = await c.query<CashReport["paymentMethods"][number]>(`WITH entries AS (
+    SELECT method AS id, collected_amount AS amount FROM ethn.payments
+    WHERE status='accepted' AND coalesce(received_at,verified_at) >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')
+      AND coalesce(received_at,verified_at) < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+    ${includeSales ? `UNION ALL
+    SELECT method, amount FROM ethn.sales
+    WHERE received_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')
+      AND received_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+    UNION ALL
+    SELECT d.id, d.amount FROM ethn.sale_corrections x
+    CROSS JOIN LATERAL (VALUES ('cash', x.cash_delta), ('gcash', x.gcash_delta)) d(id,amount)
+    WHERE x.created_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')
+      AND x.created_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila') AND d.amount <> 0` : ""}
+  ), receipts AS (
+    SELECT id, sum(amount) AS amount FROM entries GROUP BY id
+  ), methods AS (
+    SELECT id FROM ethn.payment_methods WHERE enabled
+    UNION SELECT id FROM receipts
+    UNION SELECT 'cash'
+  ) SELECT methods.id, coalesce(p.name, CASE WHEN methods.id='cash' THEN 'Cash' ELSE methods.id END) AS name,
+      coalesce(r.amount,0)::numeric(30,2)::text AS amount
+    FROM methods LEFT JOIN receipts r USING(id) LEFT JOIN ethn.payment_methods p USING(id)
+    ORDER BY (methods.id='cash') DESC, name, methods.id`, [from,to]);
+  return rows;
+}
+
 const approvedBookingSource = `FROM ethn.payments p JOIN ethn.bookings b ON b.id=p.booking_id
         WHERE p.status='accepted' AND p.extension_id IS NULL AND b.status IN ('confirmed','completed')
           AND p.verified_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')

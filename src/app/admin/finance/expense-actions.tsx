@@ -38,11 +38,11 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
         body: JSON.stringify({ ...values, revision: expense.revision, lastCorrectionId: expense.lastCorrectionId }),
       });
       if (!response.ok) {
-        setMessage(response.status === 409 || response.status === 404 ? "This expense changed. Reload the list before trying again." : "Expense could not be saved. Check your input or reload before retrying.");
+        setMessage(response.status === 409 || response.status === 404 ? "This expense changed. Reload this page before trying again." : "Expense could not be saved. Check your input or reload this page before retrying.");
         return;
       }
       setEdit(false); onSaved(method === "DELETE");
-    } catch { setMessage("Result uncertain. Reload the list before retrying."); }
+    } catch { setMessage("Result uncertain. Reload this page before retrying."); }
     finally { setBusy(false); }
   }
   return <>
@@ -61,6 +61,6 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
       <Button variant="destructive" size="sm" disabled={busy} onClick={() => { setMessage(""); setConfirm(true); }}>Delete<span className="sr-only"> {expense.title}</span></Button>
     </div>
     <ConfirmDialog open={confirm} onOpenChange={setConfirm} title="Permanently delete expense?" description={`Delete “${expense.title}” and its corrections? This cannot be undone. Audit history is retained.`} onConfirm={() => void save("DELETE")} />
-    {!edit && message && <p role="alert" className="text-sm text-destructive">{message} <Button variant="link" onClick={() => onSaved(false)}>Reload expenses</Button></p>}
+    {!edit && message && <p role="alert" className="text-sm text-destructive">{message}</p>}
   </>;
 }

@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Client, Pool } from "pg";
-import { listInbox, markInboxRead, reconcileInbox } from "../src/lib/admin/ethn-notifications";
+import { getSidebarCounts, listInbox, markAllInboxRead, markInboxRead, reconcileInbox } from "../src/lib/admin/ethn-notifications";
 import { reconcileInboxBackstop } from "../src/lib/admin/ethn-inbox-backstop";
+
+test("sidebar counts and bulk read reject unauthenticated requests without a database connection", async () => {
+  const pool = { connect: async () => assert.fail("must authenticate before accessing the database") };
+  await assert.rejects(getSidebarCounts(pool, async () => null), /UNAUTHENTICATED/);
+  await assert.rejects(markAllInboxRead(pool, async () => null), /UNAUTHENTICATED/);
+});
 
 const url = process.env.ETHN_NOTIFICATIONS_TEST_DATABASE_URL;
 test("persistent notifications isolate recipients, deduplicate reconciliation and persist read state", { skip: !url }, async () => {
@@ -38,11 +44,28 @@ test("persistent notifications isolate recipients, deduplicate reconciliation an
     assert.ok(backstop.created >= 1);
     assert.equal(JSON.stringify(backstop).includes(booking), false);
     const id = rows.find(r => r.title === "Pending payment")!.id;
-    assert.ok(await markInboxRead({ connect }, verify, id));
+    const firstRead = await markInboxRead({ connect }, verify, id);
+    assert.ok(firstRead);
     assert.equal((await markInboxRead({ connect }, verify, id))!.id, id);
     assert.equal((await listInbox({ connect }, verify, true)).length, 1);
     assert.equal(await markInboxRead({ connect }, async () => b, id), null);
+    await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES(gen_random_uuid(),'held',current_date,'held',now()+interval '1 hour',10,1)");
+    await admin.query(`INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link)
+      SELECT gen_random_uuid(),$1,'extra:' || n,'Test','Test',$2 FROM generate_series(1,51) AS n`, [a, `/admin/bookings/${booking}`]);
+    assert.equal((await listInbox({ connect }, verify, true)).length, 50);
+    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, unreadNotifications: 52 });
+    const other = await getSidebarCounts({ connect }, async () => b);
+    assert.ok(other.unreadNotifications > 0);
+    assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 52 });
+    assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 0 });
+    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, unreadNotifications: 0 });
+    assert.deepEqual(await getSidebarCounts({ connect }, async () => b), other);
+    assert.deepEqual(await listInbox({ connect }, verify, true), []);
+    assert.equal((await admin.query("SELECT read_at FROM ethn.notifications WHERE recipient=$1 AND event_key='exception:retired'", [a])).rows[0].read_at, null);
+    assert.deepEqual(await markInboxRead({ connect }, verify, id), firstRead);
     await admin.query("UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1", [a]);
+    await assert.rejects(getSidebarCounts({ connect }, verify), /FORBIDDEN/);
+    await assert.rejects(markAllInboxRead({ connect }, verify), /FORBIDDEN/);
     await assert.rejects(reconcileInbox({ connect }, verify), /FORBIDDEN/);
   } finally { await staff.end(); await admin.end(); }
 });

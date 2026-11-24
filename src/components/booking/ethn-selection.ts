@@ -5,7 +5,7 @@ export type Range = { courtId: string; start: string; end: string; rate: string;
 export function validDate(date: string | null): date is string {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const timestamp = Date.parse(`${date}T00:00:00Z`);
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === date;
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === `${date}T00:00:00.000Z`;
 }
 
 export function acceptedDate(requested: string | undefined, returned: string, fellBack: boolean) {
@@ -18,6 +18,11 @@ export function bookingDate(date: string, full = true) {
 
 export function slotDate(time: number) {
   return new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric" }).format(new Date(time));
+}
+
+export function slotEndDate(start: number, end: number) {
+  const next = slotDate(end);
+  return slotDate(start) === next ? "" : next;
 }
 
 export function addDays(date: string, days: number) {

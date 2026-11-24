@@ -18,10 +18,10 @@ function Tip({ active, payload }: { active?: boolean; payload?: readonly { paylo
   return <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md"><p className="text-muted-foreground">{formatDisplayDate(p.date)}</p><p className="mt-0.5 text-sm font-semibold tabular-nums">{p.label}</p><p className="text-muted-foreground">{p.extra}</p></div>;
 }
 
-export function CollectionsChart({ owner, currentMonth, refreshKey }: { owner: boolean; currentMonth: string; refreshKey: number }) {
+export function CollectionsChart({ owner, currentMonth }: { owner: boolean; currentMonth: string }) {
   const [month, setMonth] = useState(currentMonth);
   const [metric, setMetric] = useState<"collections" | "occupancy">(owner ? "collections" : "occupancy");
-  const state = useAnalytics<ChartData>(`section=chart&month=${month}`, refreshKey);
+  const state = useAnalytics<ChartData>(`section=chart&month=${month}`);
   const reduce = usePrefersReducedMotion();
   const earliest = shiftMonth(currentMonth, -23);
   const data = state.data;
@@ -48,7 +48,7 @@ export function CollectionsChart({ owner, currentMonth, refreshKey }: { owner: b
           <p className="text-xs text-muted-foreground">Average {pesos(data.collections.totals.averagePerDay)} per elapsed day</p>
         </> : <p className="text-2xl font-semibold tabular-nums">{view.occupancy === null ? "—" : `${view.occupancy}%`}<span className="ml-2 text-xs font-normal text-muted-foreground">{view.reserved} of {view.capacity} open hours reserved</span></p>}
       </div>
-      <div role="img" aria-label={`${view.showCollections ? "Daily collections" : "Daily occupancy"} for ${monthName(month)}. A data table follows the chart.`} className="h-64 w-full">
+      <div role="group" aria-label={`${view.showCollections ? "Daily collections" : "Daily occupancy"} for ${monthName(month)}`} className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={view.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" />
@@ -60,10 +60,6 @@ export function CollectionsChart({ owner, currentMonth, refreshKey }: { owner: b
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <details className="mt-2 text-xs"><summary className="cursor-pointer text-muted-foreground">View data table</summary>
-        <div className="mt-2 max-h-56 overflow-auto rounded-lg border"><table className="w-full text-left"><thead className="sticky top-0 bg-muted/60 text-muted-foreground"><tr><th scope="col" className="px-3 py-1.5 font-medium">Date</th><th scope="col" className="px-3 py-1.5 font-medium">{view.showCollections ? "Collections" : "Occupancy"}</th><th scope="col" className="px-3 py-1.5 font-medium">{view.showCollections ? "7-day average" : "Hours reserved"}</th></tr></thead>
-          <tbody className="divide-y">{view.points.map(p => <tr key={p.date}><td className="px-3 py-1.5">{formatDisplayDate(p.date)}</td><td className="px-3 py-1.5 tabular-nums">{p.label}</td><td className="px-3 py-1.5 tabular-nums">{p.extra}</td></tr>)}</tbody></table></div>
-      </details>
     </>}</Body>
   </Card>;
 }

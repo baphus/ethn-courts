@@ -60,7 +60,7 @@ export function CourtTimeline({ day, now, onBooking, onBlock }: { day: Calendar;
   return <div ref={scroller} className="max-h-[650px] overflow-auto rounded-2xl border bg-card shadow-sm">
     <div className="w-full" style={{ minWidth: 80 + day.courts.length * 192 }}>
       <div className="sticky top-0 z-30 flex border-b bg-card/95 backdrop-blur">
-        <div className="sticky left-0 z-40 w-20 shrink-0 border-r bg-card p-3 text-xs text-muted-foreground">Manila</div>
+        <div className="sticky left-0 z-40 w-20 shrink-0 border-r bg-card p-3 text-xs text-muted-foreground">Time</div>
         {day.courts.map(court => {
           const count = bookingCount(court);
           return <div key={court.id} className="min-w-48 flex-1 border-r p-3">

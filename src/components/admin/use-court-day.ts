@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Calendar } from "@/app/admin/calendar/calendar-range";
 import { mergeDay } from "./court-timeline-utils";
 
@@ -11,12 +11,11 @@ export function useNow(interval = 60000) {
   return now;
 }
 
-/** Loads one operating day. Changing the date clears the view; refresh keeps the old day visible while reloading. */
+/** Loads one operating day. Changing the date clears the view. */
 export function useCourtDay(date: string) {
   const [day, setDay] = useState<Calendar | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
   const [updated, setUpdated] = useState<number | null>(null);
   const [key, setKey] = useState(date);
   useEffect(() => {
@@ -24,13 +23,12 @@ export function useCourtDay(date: string) {
     if (key !== date) { setDay(null); setUpdated(null); setKey(date); }
     setError(""); setLoading(true);
     fetch(`/api/ethn/admin/calendar${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store", signal: controller.signal })
-      .then(async response => { if (!response.ok) throw new Error("Calendar unavailable. Refresh to retry."); return response.json() as Promise<Calendar>; })
+      .then(async response => { if (!response.ok) throw new Error("Calendar unavailable. Reload this page to try again."); return response.json() as Promise<Calendar>; })
       .then(result => { if (!controller.signal.aborted) { setDay(mergeDay(result)); setUpdated(Date.now()); setLoading(false); } })
       .catch(e => { if (!controller.signal.aborted) { setError(e.message); setLoading(false); } });
     return () => controller.abort();
-  }, [date, revision]);
-  const refresh = useCallback(() => setRevision(v => v + 1), []);
-  return { day: key === date ? day : null, error: key === date ? error : "", loading: key !== date || loading, updated: key === date ? updated : null, refresh };
+  }, [date]);
+  return { day: key === date ? day : null, error: key === date ? error : "", loading: key !== date || loading, updated: key === date ? updated : null };
 }
 
 export function useBookingDetail(booking: string | null) {

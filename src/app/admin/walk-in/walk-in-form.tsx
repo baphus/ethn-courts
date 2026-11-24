@@ -71,7 +71,7 @@ export default function WalkInForm() {
       const body = (await response.json()) as { error?: string } & Partial<Result>;
       if (response.ok && (typeof body.bookingId !== "string" || typeof body.total !== "string")) throw new Error("Uncertain response");
       if (!response.ok) {
-        if (response.status === 409 && body.error === "PRICE_CHANGED") { setPriceChanged(true); setReceived(false); setCollected(""); setPending(null); setError("Price changed. Reload schedule, review new total, then confirm payment again."); }
+        if (response.status === 409 && body.error === "PRICE_CHANGED") { setPriceChanged(true); setReceived(false); setCollected(""); setPending(null); setError("Price changed. Reload this page, recover the hold, and review the total before confirming payment again."); }
         else { setPending(null); setError(message(response.status, body.error)); }
         return;
       }
@@ -138,10 +138,9 @@ export default function WalkInForm() {
           <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="method" checked={method === "gcash"} onChange={() => setMethod("gcash")} />GCash</label>
           {method === "gcash" && <div className="space-y-2"><label className="block space-y-1 text-sm font-medium">GCash reference<Input value={reference} maxLength={100} onChange={e => setReference(e.target.value)} /></label>{hold?.merchant && <p className="text-xs text-muted-foreground">Reserved payment instructions: {hold.merchant}</p>}</div>}
         </fieldset>
-        <div className="flex flex-wrap items-center gap-3"><Button type="submit" disabled={busy || loading || !court}>{busy ? "Saving…" : hold ? "Confirm full payment and booking" : "Reserve slot"}</Button>{hold && <Button type="button" variant="outline" disabled={busy} onClick={() => { setHold(null); setReceived(false); setCollected(""); }}>Discard hold (slot expires automatically)</Button>}<Button type="button" variant="outline" disabled={busy || loading || !!hold} onClick={() => void load()}>Reload schedule</Button></div>
+        <div className="flex flex-wrap items-center gap-3"><Button type="submit" disabled={busy || loading || !court}>{busy ? "Saving…" : hold ? "Confirm full payment and booking" : "Reserve slot"}</Button>{hold && <Button type="button" variant="outline" disabled={busy} onClick={() => { setHold(null); setReceived(false); setCollected(""); }}>Discard hold (slot expires automatically)</Button>}</div>
       </fieldset>
       {pending && <div role="alert" className="mt-3 space-y-2 rounded-lg border border-warning/40 p-3 text-sm"><p>Save result unknown. Retry sends identical details and key; do not change staff account.</p><div className="flex gap-2"><Button type="button" disabled={busy} onClick={() => void send(pending.payload, pending.idempotencyKey)}>Retry same request</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { if (window.confirm("Discard retry details? Booking may already exist; check calendar before creating another.")) setPending(null); }}>Discard retry</Button></div></div>}
-      {priceChanged && <Button type="button" variant="outline" className="mt-3" onClick={() => { setReceived(false); setCollected(""); void load(); }}>Reload fresh price</Button>}
     </form>
   </div>;
 }
