@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -19,8 +20,8 @@ export default function CalendarPage() {
   const [calendar, setCalendar] = useState<Calendar | null>(null);
   const [today, setToday] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [error, setError] = useState<{ message: string; inlineOnly?: boolean } | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
@@ -40,12 +41,12 @@ export default function CalendarPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setCalendar(null);
+    setLoading(true); setCalendar(null); setLoadError("");
     const query = date ? `?date=${encodeURIComponent(date)}` : "";
     fetch(`/api/ethn/admin/calendar${query}`, { cache: "no-store", signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error(errorMessage(response.status)); return response.json() as Promise<Calendar>; })
       .then(data => { setCalendar(data); if (!date) setToday(data.date); setCourtIds(current => current.filter(id => data.courts.some(court => court.active && court.id === id))); })
-      .catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Calendar unavailable. Try again."); })
+      .catch(err => { if (!controller.signal.aborted) setLoadError(err instanceof Error ? err.message : "Calendar unavailable. Try again."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [date, revision]);
@@ -54,26 +55,44 @@ export default function CalendarPage() {
     event.preventDefault();
     if (busy || loading || !calendar || uncertain) return;
     const startsAt = toIso(startDate, startTime), endsAt = toIso(endDate, endTime);
-    if (!startsAt || !endsAt || endsAt <= startsAt || (eventType === "closure" ? !reason.trim() : !title.trim())) { setError("Enter valid event details. End must be after start."); return; }
-    if (!courtIds.length || courtIds.some(id => !calendar.courts.some(court => court.active && court.id === id))) { setError("Select at least one active court."); return; }
-    setBusy(true); setError(""); setNotice("");
+    if (!startsAt || !endsAt || endsAt <= startsAt || (eventType === "closure" ? !reason.trim() : !title.trim())) { setError({ message: "Enter valid event details. End must be after start.", inlineOnly: true }); return; }
+    if (!courtIds.length || courtIds.some(id => !calendar.courts.some(court => court.active && court.id === id))) { setError({ message: "Select at least one active court.", inlineOnly: true }); return; }
+    setBusy(true); setError(null);
     try {
       const body = eventType === "closure" ? { courtIds, startsAt, endsAt, reason: reason.trim(), kind } : { courtIds, startsAt, endsAt, title: title.trim(), description: description.trim(), fee };
       const response = await fetch(eventType === "closure" ? "/api/ethn/admin/blocks" : "/api/ethn/admin/open-plays", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!response.ok) { if (response.status >= 500) setUncertain(true); setError(response.status >= 500 ? "Could not confirm whether the event was created. Refresh the calendar before retrying." : errorMessage(response.status)); return; }
-      setReason(""); setTitle(""); setDescription(""); setFee("0"); setCourtIds([]); setKind("maintenance"); setEventType("closure"); setStartDate(""); setEndDate(""); setStartTime(""); setEndTime(""); setDiscard(false); setBlockOpen(false); setNotice("Event created. Calendar refreshed.");
-    } catch { setUncertain(true); setError("Could not confirm whether the event was created. Refresh the calendar before retrying."); }
+      if (response.status >= 500) throw new Error();
+      if (!response.ok) {
+        setError({ message: errorMessage(response.status), inlineOnly: response.status === 400 });
+        if (response.status !== 400) toast.error(eventType === "closure" ? "Court closure not created." : "Open Play not created.");
+        return;
+      }
+      setReason(""); setTitle(""); setDescription(""); setFee("0"); setCourtIds([]); setKind("maintenance"); setEventType("closure"); setStartDate(""); setEndDate(""); setStartTime(""); setEndTime(""); setDiscard(false); setBlockOpen(false);
+      toast.success(eventType === "closure" ? "Court closure created." : "Open Play created.");
+    } catch {
+      setUncertain(true);
+      setError({ message: "Could not confirm whether the event was created. Refresh the calendar before retrying." });
+      toast.warning("Event creation unconfirmed. Check the calendar before retrying.");
+    }
     finally { setBusy(false); setRevision(value => value + 1); }
   }
 
   async function releaseBlock(blockId: string, courtName: string, interval: Interval) {
     if (busy || loading || !window.confirm(`Release this ${interval.kind} block on ${courtName}?\n${formatDateTime(interval.startsAt)} – ${formatDateTime(interval.endsAt)}`)) return;
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setError(null);
     try {
       const response = await fetch(`/api/ethn/admin/blocks/${encodeURIComponent(blockId)}`, { method: "DELETE" });
-      if (!response.ok) { setError(response.status >= 500 ? "Could not confirm whether the block was released. Refresh the calendar." : errorMessage(response.status)); return; }
-      setNotice("Block released. Calendar refreshed.");
-    } catch { setError("Could not confirm whether the block was released. Refresh the calendar."); }
+      if (response.status >= 500) throw new Error();
+      if (!response.ok) {
+        setError({ message: errorMessage(response.status) });
+        toast.error("Court block not released.");
+        return;
+      }
+      toast.success("Court block released.");
+    } catch {
+      setError({ message: "Could not confirm whether the block was released. Refresh the calendar before retrying." });
+      toast.warning("Block release unconfirmed. Check the calendar before retrying.");
+    }
     finally { setBusy(false); setRevision(value => value + 1); }
   }
 
@@ -81,12 +100,13 @@ export default function CalendarPage() {
   return <div className="mx-auto w-full max-w-7xl space-y-6 pb-12">
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-2xl font-semibold tracking-tight">Court calendar</h1><p className="mt-1 text-sm text-muted-foreground">View occupancy and create closures or Open Plays.</p></div>
-      <Dialog open={blockOpen} onOpenChange={open => { if (open) { setError(""); if (!reason && !title && !description && !startTime && !endTime && !courtIds.length && fee === "0" && !uncertain) { setStartDate(calendar?.date ?? date); setEndDate(calendar?.date ?? date); } setBlockOpen(true); } else if (!busy) { if (reason || title || description || startTime || endTime || courtIds.length || fee !== "0") setDiscard(true); else setBlockOpen(false); } }}>
+      <Dialog open={blockOpen} onOpenChange={open => { if (open) { if (!uncertain) setError(null); if (!reason && !title && !description && !startTime && !endTime && !courtIds.length && fee === "0" && !uncertain) { setStartDate(calendar?.date ?? date); setEndDate(calendar?.date ?? date); } setBlockOpen(true); } else if (!busy) { if (reason || title || description || startTime || endTime || courtIds.length || fee !== "0") setDiscard(true); else setBlockOpen(false); } }}>
         <DialogTrigger render={<Button disabled={loading || busy || !calendar} />}>+ Create event</DialogTrigger>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogTitle>Create event</DialogTitle><DialogDescription>Reserve courts for a closure or an Open Play.</DialogDescription>
-          {error && <div role="alert" className="text-sm text-destructive">{error} {error.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
-          {uncertain && <div className="space-y-2 rounded-md border p-3 text-sm"><p>Close this form and check the refreshed calendar before deciding whether to try again. Your entries will remain on this page.</p><Button type="button" variant="outline" disabled={loading || !calendar} onClick={() => setUncertain(false)}>I checked the calendar</Button></div>}
+          {loadError && <div role="alert" className="text-sm text-destructive">{loadError} {loadError.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
+          {error && <div role={error.inlineOnly ? "alert" : undefined} className="text-sm text-destructive">{error.message} {error.message.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
+          {uncertain && <div className="space-y-2 rounded-md border p-3 text-sm"><p>Close this form and check the calendar once it loads before deciding whether to try again. Your entries will remain on this page.</p><Button type="button" variant="outline" disabled={loading || !calendar} onClick={() => setUncertain(false)}>I checked the calendar</Button></div>}
           {discard && <div role="alert" className="space-y-2 rounded-md border p-3"><p>Close this form? Your entries will remain available until you leave this page.</p><div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setDiscard(false)}>Keep editing</Button><Button type="button" onClick={() => { setDiscard(false); setBlockOpen(false); }}>Close form</Button></div></div>}
           <form onSubmit={createBlock} className="space-y-4">
             <fieldset disabled={busy || loading || !calendar || uncertain} className="space-y-4">
@@ -102,8 +122,8 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
     </header>
-    {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
-    {notice && <p role="status" className="border border-[#b8d5c6] bg-[#eef8f1] p-4 text-sm">{notice}</p>}
+    {!blockOpen && loadError && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{loadError} {loadError.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
+    {!blockOpen && error && <div role={error.inlineOnly ? "alert" : undefined} className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error.message} {error.message.includes("Sign in") && <Link className="underline" href="/login?next=/admin/calendar">Sign in</Link>}</div>}
     {displayedDate && <CalendarLayout date={displayedDate} today={today} revision={revision} busy={busy} onDate={setDate} onToday={() => { setDate(""); setRevision(value => value + 1); }} onRelease={(id, court, interval) => void releaseBlock(id, court, interval)} />}
   </div>;
 }

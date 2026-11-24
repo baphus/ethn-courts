@@ -1,5 +1,8 @@
 "use client";
 
+import { LoadingRows } from "@/components/admin/loading-slots";
+import { toast } from "sonner";
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,7 +21,6 @@ export default function OwnerPayment() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dialogError, setDialogError] = useState("");
-  const [notice, setNotice] = useState("");
   const [qrRetryId, setQrRetryId] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState(false);
 
@@ -36,12 +38,12 @@ export default function OwnerPayment() {
   function showForm(method?: Method) {
     setMode(method ? "edit" : "add");
     setForm(method ? { id: method.id, name: method.name, instructions: method.instructions, enabled: method.enabled } : blank);
-    setFile(null); setDialogError(""); setNotice(""); setQrRetryId(null); setUncertain(false); setOpen(true);
+    setFile(null); setDialogError(""); setQrRetryId(null); setUncertain(false); setOpen(true);
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (saving || uncertain || !form.name.trim()) return;
+    if (saving || uncertain || !form.name.trim() || (qrRetryId && !file)) return;
     if (file && (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 1048576 || file.size === 0)) {
       setDialogError("Choose a JPG, PNG or WebP QR image up to 1 MiB."); return;
     }
@@ -50,10 +52,16 @@ export default function OwnerPayment() {
     if (!id) {
       try {
         const r = await fetch("/api/ethn/admin/payment-methods", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-        if (!r.ok) throw new Error();
+        if (r.status >= 500) throw new Error();
+        if (!r.ok) {
+          if (r.status !== 400) toast.error("Payment method was not saved.");
+          setDialogError("Payment method was not saved. Check details and access before retrying.");
+          setSaving(false); return;
+        }
         id = (await r.json()).id;
         if (!id) throw new Error();
       } catch {
+        toast.warning("Payment method save could not be confirmed.");
         setDialogError("Save could not be confirmed. Close this dialog and reload this page before retrying; the method may already have been saved.");
         setUncertain(true); setSaving(false); return;
       }
@@ -62,14 +70,20 @@ export default function OwnerPayment() {
       try {
         const body = new FormData(); body.set("file", file);
         const qr = await fetch(`/api/ethn/admin/payment-methods/${encodeURIComponent(id!)}/qr`, { method: "POST", body });
-        if (!qr.ok) throw new Error();
+        if (qr.status >= 500) throw new Error();
+        if (!qr.ok) {
+          setQrRetryId(id); toast.warning("Payment method saved; QR image was not saved.");
+          setDialogError("Method saved, but the QR image was not accepted. Check the image and retry the QR upload only.");
+          setSaving(false); return;
+        }
       } catch {
+        toast.warning("Payment method saved; QR upload could not be confirmed.");
         setQrRetryId(id);
         setDialogError("Method saved, but the QR upload could not be confirmed. Retry the QR upload for this method, or close and reload this page to check it.");
         setSaving(false); return;
       }
     }
-    setOpen(false); setSaving(false); setNotice("Payment method saved.");
+    setOpen(false); setSaving(false); toast.success(qrRetryId ? "Payment QR image saved." : file ? "Payment method and QR image saved." : "Payment method saved.");
     await load();
   }
 
@@ -78,11 +92,10 @@ export default function OwnerPayment() {
       <div><h1 className="text-2xl font-semibold">Payment Setup</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage payment methods and QR codes shown to customers. Verify recipient details before enabling a method.</p></div>
       <Button disabled={loading} onClick={() => showForm()}>Add method</Button>
     </header>
-    {notice && <p role="status" className="text-sm">{notice}</p>}
     {error && <p role="alert" className="rounded-lg border border-destructive/40 p-4 text-sm text-destructive">{error}</p>}
     <section aria-labelledby="payment-methods-heading" className="space-y-4">
       <h2 id="payment-methods-heading" className="font-semibold">Payment methods</h2>
-      {loading ? <p role="status" className="text-sm text-muted-foreground">Loading payment methods…</p> : !error && methods.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">No payment methods yet. Add a method to get started.</p> : null}
+      {loading ? <LoadingRows label="Loading payment methods" /> : !error && methods.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">No payment methods yet. Add a method to get started.</p> : null}
       {!loading && methods.length > 0 && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{methods.map(m => <article key={m.id} className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-5">
         <header className="flex flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 break-words font-semibold">{m.name}</h3><span className={m.enabled ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400" : "rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"}>{m.enabled ? "Enabled" : "Disabled"}</span></header>
         <div className="flex-1 space-y-2">

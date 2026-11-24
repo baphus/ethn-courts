@@ -3,7 +3,7 @@ import type { OverviewData } from "@/app/admin/dashboard-analytics-types";
 import { Body, Card, type AnalyticsState } from "./section-card";
 
 export function CourtOccupancy({ state }: { state: AnalyticsState<OverviewData> }) {
-  return <Card title="Court occupancy" subtitle="Customer-reserved share of each court’s open hours" delay={60}>
+  return <Card title="Court occupancy" subtitle="Customer-reserved share of each court’s open hours">
     <Body state={state} skeleton="h-32">{d => d.courts.length === 0 ? <p className="text-sm text-muted-foreground">No active courts.</p> : <ul className="space-y-4">
       {d.courts.map(c => {
         const reserved = c.percent ?? 0, blocked = c.capacityHours > 0 ? Math.min(100 - reserved, Math.round((c.blockedHours / c.capacityHours) * 1000) / 10) : 0;

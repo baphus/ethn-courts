@@ -20,7 +20,15 @@ test('dashboard leads with booking statuses and retains court view and optional 
   assert.match(page, /courtView \? <DashboardCourtView overview=\{data\}/);
   assert.match(page, /<ViewToggle courtView=\{courtView\} onChange=\{setCourtView\}/);
   assert.match(source("src/components/admin/view-toggle.tsx"), /aria-pressed/);
-  assert.match(page, /\{data\.finance && <section[^>]*>[\s\S]*?Finance this month/);
+  assert.match(page, /const owner = useDashboardOwner\(\)/);
+  assert.match(page, /\{!owner && !data \?[^\n]+LoadingAnimation/);
+  assert.match(statuses, /<Skeleton /);
+  assert.match(page, /\{\(owner \|\| data\?\.finance\) && <section[^>]*>[\s\S]*?Finance this month/);
+  assert.match(page, /Finance this month[^\n]*Total collections[^\n]*Recorded expenses[^\n]*Net after recorded expenses[^\n]*amount !== undefined[^\n]*<Skeleton/);
+  for (const file of ['dashboard/section-card.tsx', 'dashboard/glance-kpis.tsx', 'kpi-row.tsx']) {
+    assert.doesNotMatch(source(`src/components/admin/${file}`), /cv-rise|animationDelay/);
+  }
+  assert.match(source('src/app/admin/layout.tsx'), /staff\.role === "owner" \? <DashboardCacheProvider key=\{staff\.userId\}/);
   assert.ok(page.indexOf('Recent bookings') < page.indexOf('Finance this month'));
 });
 

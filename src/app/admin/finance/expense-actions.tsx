@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -29,21 +30,31 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [invalid, setInvalid] = useState(false);
   async function save(method: "PATCH" | "DELETE", values = {}) {
     if (busy) return;
-    setConfirm(false); setBusy(true); setMessage("");
+    const deleted = method === "DELETE";
+    setConfirm(false); setBusy(true); setMessage(""); setInvalid(false);
     try {
       const response = await fetch(`/api/ethn/admin/expenses/${expense.id}`, {
         method, headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...values, revision: expense.revision, lastCorrectionId: expense.lastCorrectionId }),
       });
-      if (!response.ok) {
-        setMessage(response.status === 409 || response.status === 404 ? "This expense changed. Reload this page before trying again." : "Expense could not be saved. Check your input or reload this page before retrying.");
+      if ([400, 401, 403, 404, 409].includes(response.status)) {
+        const invalid = response.status === 400;
+        setInvalid(invalid);
+        setMessage(response.status === 409 || response.status === 404 ? "This expense changed. Reload this page before trying again." : invalid ? "Check the expense details and try again." : "Check your access before trying again.");
+        if (!invalid) toast.error(deleted ? "Expense deletion was not accepted." : "Expense edit was not accepted.");
         return;
       }
-      setEdit(false); onSaved(method === "DELETE");
-    } catch { setMessage("Result uncertain. Reload this page before retrying."); }
-    finally { setBusy(false); }
+      if (!response.ok || (await response.json())?.id !== expense.id) throw new Error();
+    } catch {
+      setMessage("Reload this page to check the expense before retrying.");
+      toast.warning(deleted ? "Could not confirm expense deletion." : "Could not confirm expense edit.");
+      return;
+    } finally { setBusy(false); }
+    toast.success(deleted ? "Expense deleted." : "Expense updated.");
+    setEdit(false); onSaved(deleted);
   }
   return <>
     <div className="flex flex-wrap gap-2">
@@ -53,7 +64,7 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
           <DialogTitle>Edit expense</DialogTitle><DialogDescription>Save new details and amount. Prior corrections stay in history but no longer affect totals.</DialogDescription>
           <form className="space-y-3" onSubmit={event => { event.preventDefault(); void save("PATCH", Object.fromEntries(new FormData(event.currentTarget))); }}>
             <fieldset disabled={busy} className="space-y-3"><ExpenseFields expense={expense} today={today} className={inputClass} /></fieldset>
-            {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
+            {message && <p role={invalid ? "alert" : undefined} className="text-sm text-destructive">{message}</p>}
             <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(false)}>Cancel</Button><Button disabled={busy} type="submit">Save expense</Button></div>
           </form>
         </DialogContent>
@@ -61,6 +72,6 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
       <Button variant="destructive" size="sm" disabled={busy} onClick={() => { setMessage(""); setConfirm(true); }}>Delete<span className="sr-only"> {expense.title}</span></Button>
     </div>
     <ConfirmDialog open={confirm} onOpenChange={setConfirm} title="Permanently delete expense?" description={`Delete “${expense.title}” and its corrections? This cannot be undone. Audit history is retained.`} onConfirm={() => void save("DELETE")} />
-    {!edit && message && <p role="alert" className="text-sm text-destructive">{message}</p>}
+    {!edit && message && <p role={invalid ? "alert" : undefined} className="text-sm text-destructive">{message}</p>}
   </>;
 }

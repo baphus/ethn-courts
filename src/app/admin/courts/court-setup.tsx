@@ -1,8 +1,10 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
-import { LoadingAnimation } from "@/components/ui/loading-animation";
+import { LoadingRows } from "@/components/admin/loading-slots";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -105,8 +107,15 @@ export default function CourtSetup() {
       return "";
     } catch {
       setStale(true);
-      return "Could not confirm whether hours or status saved. Copy unsaved edits and refresh this page before retrying.";
+      return { uncertain: true, message: "Could not confirm whether hours or status saved. Copy unsaved edits and refresh this page before retrying." };
     }
+  }
+
+  function reportScheduleFailure(failure: string | { uncertain: boolean; message: string }, partial = false) {
+    if (partial) toast.warning(typeof failure === "string" ? "Court details saved; weekly hours were not saved." : "Court details saved; weekly hours could not be confirmed.");
+    else if (typeof failure === "string") toast.error("Court schedule change was not saved.");
+    else toast.warning("Court schedule change could not be confirmed.");
+    return typeof failure === "string" ? failure : failure.message;
   }
 
   async function saveCourt(event: React.FormEvent<HTMLFormElement>) {
@@ -125,6 +134,7 @@ export default function CourtSetup() {
         const response = await fetch(`${courtsEndpoint}/${encodeURIComponent(editing.id)}`, { method: "PATCH", body: form });
         if (response.status >= 500) throw new Error();
         if (!response.ok) {
+          if (response.status !== 400) toast.error("Court details were not saved.");
           if (response.status === 409) {
             const result = await response.json().catch(() => ({}));
             if (result.error === "NAME_COLLISION") setDialogError("A court with this name already exists.");
@@ -140,17 +150,18 @@ export default function CourtSetup() {
         setData(snapshot);
         if (hoursDirty) setEditNotice("Court details saved. Weekly hours have not been saved yet.");
         if (!version) {
-          if (hoursDirty) { setStale(true); setDialogError("The schedule changed elsewhere. Copy your unsaved hours and refresh this page before saving again."); return; }
+          if (hoursDirty) { toast.warning("Court details saved; weekly hours were not saved."); setStale(true); setDialogError("The schedule changed elsewhere. Copy your unsaved hours and refresh this page before saving again."); return; }
           setStale(true);
           await load();
         }
       }
       if (hoursDirty) {
         const failure = await putSchedule(withCourtSchedule(snapshot, editing.id, { hours: editHours }));
-        if (failure) { setDialogError(failure); return; }
+        if (failure) { setDialogError(reportScheduleFailure(failure, detailsDirty)); return; }
       }
-      setEditing(null); setNotice("Court saved.");
+      setEditing(null); toast.success("Court saved.");
     } catch {
+      toast.warning("Court details save could not be confirmed.");
       setDetailsStale(true);
       setDialogError("Could not confirm whether court details saved. Weekly hours were not submitted. Copy unsaved edits before closing and check the saved details.");
     } finally { setBusy(false); }
@@ -160,8 +171,8 @@ export default function CourtSetup() {
     if (!data || busy || stale || !window.confirm(`${active ? "Activate" : "Deactivate"} ${court.name}?`)) return;
     setBusy(true); setError(""); setNotice("");
     const failure = await putSchedule(withCourtSchedule(data, court.id, { active }));
-    if (failure) setError(failure);
-    else setNotice(active ? "Court activated." : "Court deactivated.");
+    if (failure) setError(reportScheduleFailure(failure));
+    else toast.success(active ? "Court activated." : "Court deactivated.");
     setBusy(false);
   }
 
@@ -174,8 +185,8 @@ export default function CourtSetup() {
     ].sort((a, b) => a.weekday - b.weekday || a.opens.localeCompare(b.opens));
     setBusy(true); setDialogError(""); setNotice("");
     const failure = await putSchedule(withCourtSchedule(data, quickCourt.id, { hours }));
-    if (failure) setDialogError(failure);
-    else { setQuickCourt(null); setNotice("Weekly hours saved."); }
+    if (failure) setDialogError(reportScheduleFailure(failure));
+    else { setQuickCourt(null); toast.success("Weekly hours saved."); }
     setBusy(false);
   }
 
@@ -188,6 +199,7 @@ export default function CourtSetup() {
       const response = await fetch(courtsEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (response.status >= 500) throw new Error();
       if (!response.ok) {
+        if (response.status !== 400) toast.error("Court was not created.");
         const result: unknown = await response.json().catch(() => null);
         const code = result && typeof result === "object" && "error" in result ? (result as { error: unknown }).error : null;
         if (response.status === 409 && code === "NAME_COLLISION") { setPendingCourt(null); setDialogError("A court with this name already exists. Choose another name."); }
@@ -199,8 +211,10 @@ export default function CourtSetup() {
       const created = await response.json().catch(() => null) as { name?: unknown } | null;
       setPendingCourt(null); setNewCourt({ name: "", description: "" }); setAddOpen(false);
       setNotice(`${typeof created?.name === "string" ? created.name : "Court"} created inactive. Add hours and rates in Edit court before activating it.`);
+      toast.success("Court created inactive.");
       await Promise.all([load(), loadDetails()]);
     } catch {
+      toast.warning("Court creation could not be confirmed.");
       setPendingCourt(payload);
       setDialogError("Could not confirm whether the court was created. Retry this exact request with the same owner account; do not create another.");
     } finally { setBusy(false); }
@@ -228,9 +242,9 @@ export default function CourtSetup() {
     </header>
 
     {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <Link className="underline" href="/login?next=/admin/courts">Sign in</Link>}</div>}
-    {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
+    {notice && <p className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
     {detailsError && <div role="alert" className="rounded-lg border p-4 text-sm">{detailsError}</div>}
-    {!data && <Button variant="outline" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Try again"}</Button>}
+    {!data && (busy ? <LoadingRows label="Loading courts" /> : <Button variant="outline" onClick={() => void load()}>Try again</Button>)}
 
     {data && <>
       <section aria-labelledby="courts-heading" className="space-y-4">
@@ -260,9 +274,9 @@ export default function CourtSetup() {
       <section className="rounded-xl border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="font-semibold">Closures</h2><p className="text-sm text-muted-foreground">Maintenance and private use, including ongoing closures. Times are in Manila.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/calendar" />}>Open calendar</Button><Button size="sm" disabled={closures.busy || !details} onClick={() => { setClosure(current => ({ ...current, courtIds: current.courtIds.filter(id => closures.courts.some(court => court.id === id && court.active)) })); setClosureOpen(true); }}>Add closure</Button></div></div>
         <div className="space-y-3 p-5 text-sm">
-          {closures.error && <p role="alert" className="text-destructive">{closures.error}</p>}{closures.notice && <p role="status">{closures.notice}</p>}
+          {closures.error && <p role="alert" className="text-destructive">{closures.error}</p>}
           {closures.uncertain && <Button variant="outline" size="sm" onClick={closures.acknowledge}>I checked the list or calendar</Button>}
-          {closures.blocks === null ? <LoadingAnimation label="Loading closures" className="py-4" /> : closures.loadError ? <p role="alert">{closures.loadError} <button type="button" className="underline" onClick={() => void closures.refresh()}>Try again</button></p> : (() => {
+          {closures.blocks === null ? <LoadingRows label="Loading closures" /> : closures.loadError ? <p role="alert">{closures.loadError} <button type="button" className="underline" onClick={() => void closures.refresh()}>Try again</button></p> : (() => {
             const upcoming = closures.blocks.filter(block => new Date(block.endsAt).getTime() > Date.now()).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
             const groups = upcoming.reduce<Record<string, typeof upcoming>>((result, block) => { const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(block.startsAt)); (result[day] ??= []).push(block); return result; }, {});
             return upcoming.length === 0 ? <p className="text-center text-muted-foreground"><EmptyIcon /> No upcoming closures.</p> : <div className="space-y-4">{Object.entries(groups).map(([day, blocks]) => <div key={day}><h3 className="mb-2 font-semibold">{day}</h3><ul className="divide-y rounded-lg border">{blocks?.map(block => <li key={block.id} className="flex flex-wrap items-center justify-between gap-3 p-3"><div><p className="font-medium">{block.courtName} · {kindLabel(block.kind)}</p><p className="text-muted-foreground">{stamp(block.startsAt)} to {stamp(block.endsAt)}</p><p className="break-words text-muted-foreground">{block.reason}</p></div><Button variant="outline" size="sm" disabled={closures.busy || closures.uncertain} onClick={() => setReleaseId(block.id)}>Release<span className="sr-only"> {block.courtName}, {stamp(block.startsAt)}</span></Button></li>)}</ul></div>)}</div>;

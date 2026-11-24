@@ -1,7 +1,9 @@
 "use client";
+import { LoadingRows } from "@/components/admin/loading-slots";
 import "./court-view.css";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Skeleton as LoadingSkeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { Interval } from "@/app/admin/calendar/calendar-range";
 import type { DashboardOverview } from "@/app/admin/dashboard-overview-types";
@@ -19,13 +21,12 @@ const dateTime = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone:
 const navBtn = "grid h-9 place-items-center rounded-lg border bg-background px-3 text-sm transition-colors hover:bg-muted disabled:opacity-50";
 
 function Skeleton() {
-  return <div role="status" aria-busy="true" className="space-y-4"><span className="sr-only">Loading calendar…</span>
-    <div className="grid gap-3 sm:grid-cols-2">{[0, 1].map(i => <div key={i} className="h-52 animate-pulse motion-reduce:animate-none rounded-2xl border bg-muted/40" />)}</div>
-    <div className="h-96 animate-pulse motion-reduce:animate-none rounded-2xl border bg-muted/40" />
+  return <div role="status" className="rounded-2xl border bg-card p-4 shadow-sm"><span className="sr-only">Loading court timeline</span>
+    <LoadingSkeleton className="h-96 motion-reduce:animate-none" />
   </div>;
 }
 
-export function DashboardCourtView({ overview }: { overview: DashboardOverview | null }) {
+export function DashboardCourtView({ overview, owner, overviewError, retryOverview }: { overview: DashboardOverview | null; owner: boolean; overviewError: string; retryOverview: () => void }) {
   const [date, setDate] = useState("");
   const { day, error, loading, updated } = useCourtDay(date);
   const selectedDate = date || day?.date || overview?.operatingDate || "";
@@ -37,14 +38,13 @@ export function DashboardCourtView({ overview }: { overview: DashboardOverview |
   const live = !!day && currentPosition(day.window, now) !== null;
   const statuses = useMemo(() => (day ? day.courts.map(court => ({ court, status: courtStatus(court, live, now) })) : []), [day, live, now]);
 
-  const kpis: Kpi[] = [
-    ...(overview ? [
-      { label: "Bookings", Icon: CalendarDays, value: Number(overview.periods.today) || 0 },
-      { label: "Pending", Icon: Clock, value: Number(overview.counts.pending) || 0 },
-      { label: "Confirmed", Icon: CheckCircle2, value: Number(overview.counts.confirmed) || 0 },
-      { label: "Overdue review", Icon: AlertTriangle, value: Number(overview.counts.pendingReviewOverdue) || 0, warn: overview.counts.pendingReviewOverdue > 0 },
-    ] : []),
-  ];
+  const placeholder = overviewError ? "Unavailable" : <LoadingSkeleton className="h-7 w-16 motion-reduce:animate-none" />;
+  const kpis: Kpi[] = overview || owner ? [
+    { label: "Bookings", Icon: CalendarDays, value: overview ? Number(overview.periods.today) || 0 : placeholder },
+    { label: "Pending", Icon: Clock, value: overview ? Number(overview.counts.pending) || 0 : placeholder },
+    { label: "Confirmed", Icon: CheckCircle2, value: overview ? Number(overview.counts.confirmed) || 0 : placeholder },
+    { label: "Overdue review", Icon: AlertTriangle, value: overview ? Number(overview.counts.pendingReviewOverdue) || 0 : placeholder, warn: !!overview && overview.counts.pendingReviewOverdue > 0 },
+  ] : [];
 
   return <div className="space-y-5 pb-24">
     <header className="flex flex-wrap items-end justify-between gap-4">
@@ -57,12 +57,14 @@ export function DashboardCourtView({ overview }: { overview: DashboardOverview |
     {kpis.length > 0 && <section>
       <div className="mb-3"><h2 className="font-semibold">Today</h2></div>
       <KpiRow items={kpis} />
+      {overviewError && <p role="alert" className="mt-2 text-sm">{overviewError} <button type="button" onClick={retryOverview} className="underline">Retry</button></p>}
     </section>}
 
     {updated && <p className="text-xs text-muted-foreground" role="status">{loading ? "Refreshing schedule…" : `Last updated ${timelineTime(updated)}`}</p>}
 
+    {!day && !error && <div aria-label="Loading court summaries" className="grid gap-3 sm:grid-cols-2">{[0, 1].map(i => <div key={i} className="min-h-52 space-y-3 rounded-2xl border bg-card p-4 shadow-sm"><LoadingSkeleton className="h-4 w-24 motion-reduce:animate-none" /><LoadingSkeleton className="h-7 w-36 motion-reduce:animate-none" /><LoadingSkeleton className="h-16 w-full motion-reduce:animate-none" /></div>)}</div>}
     {day && <section aria-label="Court summaries" className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
-      {statuses.map(({ court, status }, i) => <CourtCard key={court.id} court={court} status={status} now={now} live={live} index={i} onOpen={setBooking} />)}
+      {statuses.map(({ court, status }) => <CourtCard key={court.id} court={court} status={status} now={now} live={live} onOpen={setBooking} />)}
     </section>}
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-semibold">Court timeline</h2>
@@ -80,7 +82,7 @@ export function DashboardCourtView({ overview }: { overview: DashboardOverview |
     </Dialog>
     <Dialog open={booking !== null} onOpenChange={open => { if (!open) setBooking(null); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto"><DialogTitle>Booking summary</DialogTitle><DialogDescription>Read-only booking details.</DialogDescription>
-        {detailError ? <p role="alert">{detailError}</p> : !detail || detail.id !== booking ? <p className="animate-pulse motion-reduce:animate-none text-sm text-muted-foreground">Loading booking…</p> : <div className="cv-rise space-y-3 text-sm">
+        {detailError ? <p role="alert">{detailError}</p> : !detail || detail.id !== booking ? <LoadingRows label="Loading booking" /> : <div className="space-y-3 text-sm">
           <div className="flex items-center gap-3"><Avatar name={detail.data.guestName || "Guest"} /><div><p className="font-semibold">{detail.data.guestName || "Guest"}</p><StatusBadge state={detail.data.status} /></div></div>
           <p>Original booking total: ₱{Number(detail.data.total).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <h3 className="font-semibold">Court schedule</h3>

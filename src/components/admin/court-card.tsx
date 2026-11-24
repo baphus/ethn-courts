@@ -30,12 +30,12 @@ function Person({ item, prefix, sub, onOpen }: { item: Interval; prefix?: string
     : <div className={cls}>{body}</div>;
 }
 
-export function CourtCard({ court, status, now, live, index, onOpen }: {
-  court: Calendar["courts"][number]; status: CourtStatus; now: number; live: boolean; index: number; onOpen: (id: string) => void;
+export function CourtCard({ court, status, now, live, onOpen }: {
+  court: Calendar["courts"][number]; status: CourtStatus; now: number; live: boolean; onOpen: (id: string) => void;
 }) {
   const t = tones[status.tone];
   const { current, next, freeAt } = status;
-  return <div className="cv-rise flex min-h-52 flex-col rounded-2xl border bg-card p-4 shadow-sm transition duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-md" style={{ animationDelay: `${index * 60}ms` }}>
+  return <div className="flex min-h-52 flex-col rounded-2xl border bg-card p-4 shadow-sm transition duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-md">
     <p className="truncate text-xs text-muted-foreground">{court.name}</p>
     <div className="mt-1 flex items-center gap-2">
       <span className="relative flex size-2.5" aria-hidden="true">

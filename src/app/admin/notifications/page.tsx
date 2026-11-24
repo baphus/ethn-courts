@@ -1,8 +1,10 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
-import { LoadingAnimation } from "@/components/ui/loading-animation";
+import { LoadingRows } from "@/components/admin/loading-slots";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -42,11 +44,13 @@ export default function NotificationsPage() {
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/ethn/admin/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" });
-      if (!response.ok) throw new Error(message(response.status));
+      if (response.status >= 500) throw new Error();
+      if (!response.ok) { toast.error("Notification was not marked as read."); setError(message(response.status)); return; }
       const result: { id: string; readAt: string } = await response.json();
       setItems(current => current && (unreadOnly ? current.filter(item => item.id !== result.id) : current.map(item => item.id === result.id ? { ...item, readAt: result.readAt } : item)));
-      await refreshCounts();
-    } catch (e) { setError(e instanceof Error ? e.message : "Service unavailable. Please try again."); }
+      toast.success("Notification marked as read.");
+      void refreshCounts().catch(() => setError("Notification marked as read, but counts could not refresh."));
+    } catch { toast.warning("Read status could not be confirmed."); setError("Reload the inbox to check the current read status."); }
     finally { setBusy(false); }
   }
 
@@ -54,9 +58,11 @@ export default function NotificationsPage() {
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/ethn/admin/notifications/read-all", { method: "PATCH" });
-      if (!response.ok) throw new Error(message(response.status));
-      await Promise.all([refreshCounts(), load(unreadOnly, false)]);
-    } catch (e) { setError(e instanceof Error ? e.message : "Service unavailable. Please try again."); }
+      if (response.status >= 500) throw new Error();
+      if (!response.ok) { toast.error("Notifications were not marked as read."); setError(message(response.status)); return; }
+      toast.success("All notifications marked as read.");
+      void Promise.all([refreshCounts(), load(unreadOnly, false)]).catch(() => setError("Notifications were marked as read, but the inbox could not refresh."));
+    } catch { toast.warning("Read status could not be confirmed."); setError("Reload the inbox to check the current read status."); }
     finally { setBusy(false); }
   }
 
@@ -66,7 +72,7 @@ export default function NotificationsPage() {
     <section aria-label="Notifications" className="overflow-hidden rounded-xl border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="text-lg font-semibold">Your inbox</h2><p className="text-sm text-muted-foreground">Most recent 50 notifications</p></div><div className="flex flex-wrap items-center gap-3"><label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={unreadOnly} disabled={busy} onChange={event => setUnreadOnly(event.target.checked)} className="h-4 w-4 accent-primary" /> Unread only</label><Button type="button" variant="outline" disabled={busy || !unreadCount} onClick={() => void markAllRead()}>Mark all as read</Button></div></div>
       {error && <p role="alert" className="m-5 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</p>}
-      {!items && !error && <LoadingAnimation label="Loading notifications" className="p-5" />}
+      {!items && !error && <LoadingRows label="Loading notifications" />}
       {items?.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground"><EmptyIcon /> {unreadOnly ? "No unread notifications." : "No notifications yet."}</p>}
       {items && items.length > 0 && <ul className="divide-y">{items.map(item => <li key={item.id} className="flex flex-wrap items-start justify-between gap-4 p-5"><div className="min-w-0 flex-1 space-y-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3>{!item.readAt && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">Unread</span>}</div><p className="text-sm text-muted-foreground">{item.body}</p><p className="text-xs text-muted-foreground"><time dateTime={item.createdAt}>{dateTime(item.createdAt)}</time> · {item.readAt ? "Read" : "Unread"}</p>{safeLink(item.link) && <Link href={item.link} className="inline-block pt-1 text-sm font-medium underline underline-offset-4">View details<span className="sr-only"> for {item.title}</span></Link>}</div>{!item.readAt && <Button type="button" variant="outline" disabled={busy} onClick={() => void markRead(item.id)}>Mark as read<span className="sr-only">: {item.title}</span></Button>}</li>)}</ul>}
     </section>

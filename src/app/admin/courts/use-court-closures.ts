@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 import { toIso } from "../calendar/date-utils";
 
@@ -33,7 +34,6 @@ export function useCourtClosures(courts: Court[]) {
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState(false);
   const refresh = useCallback(async () => {
     try {
@@ -51,7 +51,7 @@ export function useCourtClosures(courts: Court[]) {
 
   async function create(input: ClosureInput) {
     if (busy || uncertain) return false;
-    setError(""); setNotice("");
+    setError("");
     let payload;
     try { payload = closurePayload(input, courts); }
     catch (err) { setError((err as Error).message); return false; }
@@ -59,11 +59,12 @@ export function useCourtClosures(courts: Court[]) {
     try {
       const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (response.status >= 500) throw new Error();
-      if (!response.ok) { setError(closureError(response.status)); return false; }
-      setNotice("Closure created.");
+      if (!response.ok) { if (response.status !== 400) toast.error("Closure was not created."); setError(closureError(response.status)); return false; }
+      toast.success("Closure created.");
       await refresh();
       return true;
     } catch {
+      toast.warning("Closure creation could not be confirmed.");
       setUncertain(true);
       setError("Could not confirm whether the closure was created. Check the refreshed list or Calendar before retrying.");
       await refresh();
@@ -73,20 +74,21 @@ export function useCourtClosures(courts: Court[]) {
 
   async function release(id: string) {
     if (busy || !blocks?.some(block => block.id === id)) return false;
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setError("");
     try {
       const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (response.status >= 500) throw new Error();
-      if (!response.ok) { await refresh(); setError(closureError(response.status)); return false; }
+      if (!response.ok) { toast.error("Closure was not released."); await refresh(); setError(closureError(response.status)); return false; }
+      toast.success("Closure released.");
       await refresh();
-      setNotice("Closure released.");
       return true;
     } catch {
+      toast.warning("Closure release could not be confirmed.");
       await refresh();
       setError("Could not confirm whether the closure was released. Check the refreshed list or Calendar.");
       return false;
     } finally { setBusy(false); }
   }
 
-  return { blocks, loadError, refresh, busy, error, notice, uncertain, acknowledge: () => { setUncertain(false); setError(""); }, courts, create, release };
+  return { blocks, loadError, refresh, busy, error, uncertain, acknowledge: () => { setUncertain(false); setError(""); }, courts, create, release };
 }

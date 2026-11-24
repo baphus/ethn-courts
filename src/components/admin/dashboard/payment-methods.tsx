@@ -11,7 +11,7 @@ const colors = ["#0ea5e9", "#8b5cf6", "var(--chart-1)", "var(--chart-3)", "var(-
 export function PaymentMethods({ range }: { range: Range }) {
   const state = useAnalytics<MethodsData>(`section=methods&range=${range}`);
   const reduce = usePrefersReducedMotion();
-  return <Card title="Payment methods" subtitle="Accepted collections, not booking totals or claimed amounts" delay={30}>
+  return <Card title="Payment methods" subtitle="Accepted collections, not booking totals or claimed amounts">
     <Body state={state} skeleton="h-56">{d => {
       const rows = d.paymentMethods.map((method, index) => ({ ...method, color: colors[index % colors.length] }));
       const total = cents(d.collected);

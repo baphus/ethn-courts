@@ -43,28 +43,30 @@ export default function ProfileDialog({ email, name }: Props) {
     setBusy(true);
     setFormError(null);
 
+    if (!value.trim()) { setFormError("Enter a display name."); setBusy(false); return; }
     try {
       const response = await fetch("/api/auth/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: value }),
       });
-      const body = (await response.json()) as {
-        error?: { message?: string };
-      };
+      if (response.status >= 500) throw new Error();
       if (!response.ok) {
-        setFormError(body.error?.message ?? "Could not update your display name.");
+        if (response.status !== 400) toast.error("Display name was not updated.");
+        setFormError(response.status === 400 ? "Check your display name and try again." : "Check your session and access before trying again.");
         return;
       }
 
-      toast.success("Display name updated.");
       setOpen(false);
-      router.refresh();
+      toast.success("Display name updated.");
     } catch {
-      setFormError("Could not update your display name. Check your connection and try again.");
+      toast.warning("Display name update could not be confirmed.");
+      setFormError("Reload your profile to check your display name before retrying.");
+      return;
     } finally {
       setBusy(false);
     }
+    router.refresh();
   }
 
   return (

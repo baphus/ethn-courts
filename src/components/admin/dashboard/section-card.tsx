@@ -1,22 +1,11 @@
 "use client";
 import "../court-view.css";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import { request } from "@/app/admin/bookings/booking-list";
+import { useDashboardResource } from "./dashboard-resource";
 
 export function useAnalytics<T>(query: string) {
-  const [state, setState] = useState<{query: string; data: T | null; error: string; loading: boolean}>({query, data: null, error: "", loading: true});
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    setState(previous => ({query, data: previous.query === query ? previous.data : null, error: "", loading: true}));
-    request<T>(`/api/ethn/admin/dashboard/analytics?${query}`, controller.signal)
-      .then(data => { if (!controller.signal.aborted) setState({query, data, error: "", loading: false}); })
-      .catch(e => { if (!controller.signal.aborted) setState(previous => ({query, data: previous.query === query ? previous.data : null, error: e instanceof Error ? e.message : "Unavailable. Please try again.", loading: false})); });
-    return () => controller.abort();
-  }, [query, version]);
-  const retry = useCallback(() => setVersion(v => v + 1), []);
-  return { ...(state.query === query ? state : {data: null, error: "", loading: true}), retry };
+  return useDashboardResource<T>(`/api/ethn/admin/dashboard/analytics?${query}`);
 }
 export type AnalyticsState<T> = ReturnType<typeof useAnalytics<T>>;
 
@@ -27,8 +16,8 @@ export function Body<T>({ state, skeleton = "h-48", children }: { state: { data:
   return <div aria-busy={state.loading} className={`transition-opacity duration-200 ${state.loading ? "opacity-60" : ""}`}>{children(state.data)}</div>;
 }
 
-export function Card({ title, subtitle, action, children, className = "", delay = 0 }: { title: string; subtitle?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; delay?: number }) {
-  return <section aria-label={title} className={`cv-rise rounded-xl border bg-card p-4 shadow-sm ${className}`} style={{ animationDelay: `${delay}ms` }}>
+export function Card({ title, subtitle, action, children, className = "" }: { title: string; subtitle?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
+  return <section aria-label={title} className={`rounded-xl border bg-card p-4 shadow-sm ${className}`}>
     <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
       <div><h2 className="text-sm font-semibold">{title}</h2>{subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}</div>
       {action}

@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import {
 
 export interface StatCardProps {
   label: string;
-  value: string;
+  value: ReactNode;
   icon: ComponentType<{ className?: string }>;
   subtitle: string;
   /** Makes the whole card a link when set. */

@@ -2,11 +2,14 @@
 
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
-import { LoadingAnimation } from "@/components/ui/loading-animation";
+import { useDashboardResource, useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
+import { LoadingRows } from "@/components/admin/loading-slots";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, DollarSign, ReceiptText, SlidersHorizontal, TrendingUp } from "lucide-react";
-import { StatCard, STAT_CARD_GRID } from "@/components/admin/stat-card";
+import { toast } from "sonner";
+import { SlidersHorizontal } from "lucide-react";
+import { ReportStats } from "./report-stats";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FinanceChart } from "@/components/admin/finance-chart";
 import { CashActivity } from "./cash-activity";
 import Sales from "./sales";
@@ -26,10 +29,6 @@ type Payload = { title: string; category: string; amount: string; paidDate: stri
 const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
 const button = "rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
 const money = (value: string) => `₱${value}`;
-const formatCents = (value: number) => {
-  const cents = BigInt(Math.abs(value));
-  return `₱${value < 0 ? "-" : ""}${(cents / BigInt(100)).toLocaleString("en-PH")}.${String(cents % BigInt(100)).padStart(2, "0")}`;
-};
 
 export default function Finance() {
   const [today] = useState(() => manilaTodayStr());
@@ -41,21 +40,18 @@ export default function Finance() {
   const [pagination, setPagination] = useState({ key: filterKey, page: 1 });
   const page = pagination.key === filterKey ? pagination.page : 1;
   const setPage = (page: number) => setPagination({ key: filterKey, page });
-  const [report, setReport] = useState<(FinanceReport & { from: string; to: string }) | null>(null);
+  const { data: report, loading, error, retry: retryReport } = useDashboardResource<FinanceReport & { from: string; to: string }>(`/api/ethn/admin/finance?${new URLSearchParams({ from, to, basis: "approval" })}`);
   const currentRange = useRef(filters);
   currentRange.current = filters;
-  const [expenses, setExpenses] = useState<Expenses | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [listLoading, setListLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [listError, setListError] = useState("");
+  const { data: expenses, loading: listLoading, error: listError, retry: retryExpenses } = useDashboardResource<Expenses>(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`);
   const [filterError, setFilterError] = useState("");
   const [rangeOpen, setRangeOpen] = useState(false);
-  const [refresh, setRefresh] = useState(0);
+  const invalidate = useInvalidateOwnerResources();
   const [pending, setPending] = useState<Payload | null>(null);
   const [saving, setSaving] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [announceSaveMessage, setAnnounceSaveMessage] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
 
@@ -79,41 +75,45 @@ export default function Finance() {
     try { const saved = sessionStorage.getItem("ethn-finance-pending"); if (saved) setPending(JSON.parse(saved)); } catch { setSaveMessage("Could not restore pending expense. Check the expense list before recording another."); }
   }, []);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true); setReport(null); setError("");
-    fetch(`/api/ethn/admin/finance?${new URLSearchParams({ from, to, basis: "approval" })}`, { cache: "no-store", signal: controller.signal })
-      .then(async response => { if (!response.ok) throw new Error(); return response.json(); })
-      .then(data => { if (!controller.signal.aborted) setReport(data); })
-      .catch(() => { if (!controller.signal.aborted) setError("Report unavailable. Please try again."); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [from, to, refresh]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setListLoading(true); setExpenses(null); setListError("");
-    fetch(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`, { cache: "no-store", signal: controller.signal })
-      .then(async response => { if (!response.ok) throw new Error(); return response.json(); })
-      .then(data => { if (!controller.signal.aborted) setExpenses(data); })
-      .catch(() => { if (!controller.signal.aborted) setListError("Expenses unavailable. Please try again."); })
-      .finally(() => { if (!controller.signal.aborted) setListLoading(false); });
-    return () => controller.abort();
-  }, [filters, page, refresh]);
 
   async function save(payload: Payload) {
+    setAnnounceSaveMessage(true);
     try { sessionStorage.setItem("ethn-finance-pending", JSON.stringify(payload)); } catch { setSaveMessage("Cannot safely save retry details in this browser. Expense was not sent."); return; }
-    setPending(payload); setSaving(true); setSaveMessage("");
+    const retry = pending !== null;
+    setPending(payload); setSaving(true); setSaveMessage(""); setAnnounceSaveMessage(false);
     try {
       const response = await fetch("/api/ethn/admin/expenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (response.status >= 500 || response.status === 409) throw new Error();
-      if (!response.ok) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Expense was not accepted. Check the details and try again."); return; }
+      if ([400, 401, 403, 409].includes(response.status)) {
+        if (response.status === 409) {
+          if ((await response.json().catch(() => null))?.error !== "IDEMPOTENCY_MISMATCH") throw new Error();
+          setSaveMessage("Retry key conflicts with another request. Check the expense list before taking further action.");
+          toast.error("Expense request conflicts with a previous request.");
+          return;
+        }
+        const invalid = response.status === 400;
+        let guidance = invalid ? "Check the expense details and try again." : "Check your owner access before trying again.";
+        if (invalid || !retry) {
+          try { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); }
+          catch { guidance += " Saved retry details could not be cleared. Check expenses before retrying."; }
+        }
+        setSaveMessage(guidance);
+        setAnnounceSaveMessage(invalid);
+        if (!invalid) toast.error("Expense was not accepted.");
+        return;
+      }
+      if (!response.ok) throw new Error();
       const record = await response.json();
       if (!record || typeof record.id !== "string" || record.title !== payload.title.trim() || record.category !== payload.category || typeof record.amount !== "string" || record.paidDate !== payload.paidDate) throw new Error();
-      sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Expense recorded."); setExpenseOpen(false); setPage(1); setRefresh(n => n + 1);
     } catch {
-      setSaveMessage("Result uncertain. Retry the same expense, or check the expense list before discarding it.");
+      setSaveMessage("Retry the same expense, or check the expense list before discarding it.");
+      toast.warning("Could not confirm the expense was recorded.");
+      return;
     } finally { setSaving(false); }
+
+    toast.success("Expense recorded.");
+    setPending(null); setExpenseOpen(false); setPage(1); invalidate?.();
+    try { sessionStorage.removeItem("ethn-finance-pending"); }
+    catch { setSaveMessage("Saved retry details could not be cleared. If they reappear after reload, do not enter the expense again."); setAnnounceSaveMessage(true); }
   }
 
   function applyFilters(next: typeof filters | null) {
@@ -156,22 +156,18 @@ export default function Finance() {
       <button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Export to Sheets"}</button>
       {exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
     </div>
-    <CashActivity key={`${from}:${to}`} from={from} to={to} refresh={refresh} />
+    <CashActivity from={from} to={to} />
     <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Approval-based reporting</h2><FinanceInfo label="About approval-based reporting">Booking revenue is counted on the original payment approval date. Expenses use their paid date. Extensions and manual sales are excluded.</FinanceInfo></div>
     <section aria-label="Finance summary" aria-busy={loading}>
-      {loading ? <LoadingAnimation label="Loading report" className="py-4" /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : report && <div className={STAT_CARD_GRID}>
-        <StatCard label="Booking Revenue" value={formatCents(report.revenueCents)} icon={DollarSign} subtitle="Counted on approval date" />
-        <StatCard label="Expenses" value={formatCents(report.expenseCents)} icon={ReceiptText} subtitle="Effective amounts by paid date" />
-        <StatCard label="Net Profit" value={formatCents(report.profitCents)} icon={TrendingUp} subtitle="Booking revenue less expenses" />
-        <StatCard label="Booking Count" value={String(report.bookings)} icon={CalendarDays} subtitle="Eligible bookings approved in range" />
-      </div>}
+      {loading ? <ReportStats /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={retryReport}>Retry</button></p> : report && <ReportStats report={report} />}
     </section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Revenue and profit trend" aria-busy={loading}>
       <div className="mb-5"><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Revenue and profit trend</h2><FinanceInfo label="About the revenue and profit trend">Daily, weekly, or monthly totals based on the selected range.</FinanceInfo></div></div>
-      {loading ? <LoadingAnimation label="Loading trend" className="py-4" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
+      {loading ? <Skeleton role="status" aria-label="Loading revenue and profit trend" className="h-64 w-full motion-reduce:animate-none" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
     </section>
-    <Sales from={from} to={to} onSaved={() => setRefresh(n => n + 1)} />
-    {pending && !expenseOpen && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Expense outcome uncertain. Review or retry the saved request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
+    <Sales from={from} to={to} onSaved={invalidate} />
+    {!expenseOpen && saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
+    {pending && !expenseOpen && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Review or retry the saved expense request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
     <div>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Recorded expenses</h2><FinanceInfo label="About recorded expenses">Paid expenses in the selected period. Edits and deletes are audited.</FinanceInfo></div></div>
@@ -179,12 +175,12 @@ export default function Finance() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Expenses are recorded on the date paid.</p>
         <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) { const fields = new FormData(e.currentTarget); const get = (key: string) => String(fields.get(key) ?? ""); void save({ title: get("title"), category: get("category"), amount: get("amount"), paidDate: get("paidDate"), description: get("description"), vendor: get("vendor"), notes: get("notes"), idempotencyKey: crypto.randomUUID() }); } }}>
           <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} className={input} /><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
-          {saveMessage && <p role="status" className="text-sm text-slate-700">{saveMessage}</p>}
+          {saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
           {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {formatDisplayDate(pending.paidDate)}</p><p>Retry only while signed in to the same account that recorded this expense.</p><button type="button" disabled={saving} className={button} onClick={() => void save(pending)}>Retry same expense</button><button type="button" disabled={saving} className="block underline" onClick={() => { if (window.confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?")) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</button></div>}
         </form>
       </section></DialogContent></Dialog>
         </div>
-        {listLoading ? <LoadingAnimation label="Loading expenses" className="mt-5" /> : listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={() => setRefresh(n => n + 1)}>Retry</button></p> : expenses?.rows.length ? <><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody>{expenses.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); setRefresh(n => n + 1); }} /></td></tr>)}</tbody></table></div><div className="mt-4 flex items-center gap-4 text-sm"><button disabled={page <= 1} onClick={() => setPage(page - 1)} className="underline disabled:opacity-40">Previous</button><span>Page {page} · {expenses.total} expenses</span><button disabled={page * expenses.limit >= expenses.total} onClick={() => setPage(page + 1)} className="underline disabled:opacity-40">Next</button></div></> : <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}
+        {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && expenses.rows.length > 0 && <div className="mt-4 flex items-center gap-4 text-sm"><button disabled={page <= 1} onClick={() => setPage(page - 1)} className="underline disabled:opacity-40">Previous</button><span>Page {page} · {expenses.total} expenses</span><button disabled={page * expenses.limit >= expenses.total} onClick={() => setPage(page + 1)} className="underline disabled:opacity-40">Next</button></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
       </section>
 
     </div>

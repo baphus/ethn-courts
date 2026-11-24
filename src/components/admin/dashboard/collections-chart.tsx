@@ -18,13 +18,16 @@ function Tip({ active, payload }: { active?: boolean; payload?: readonly { paylo
   return <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md"><p className="text-muted-foreground">{formatDisplayDate(p.date)}</p><p className="mt-0.5 text-sm font-semibold tabular-nums">{p.label}</p><p className="text-muted-foreground">{p.extra}</p></div>;
 }
 
-export function CollectionsChart({ owner, currentMonth }: { owner: boolean; currentMonth: string }) {
-  const [month, setMonth] = useState(currentMonth);
+export function CollectionsChart({ owner, currentMonth }: { owner: boolean; currentMonth?: string }) {
+  const [month, setMonth] = useState("");
   const [metric, setMetric] = useState<"collections" | "occupancy">(owner ? "collections" : "occupancy");
-  const state = useAnalytics<ChartData>(`section=chart&month=${month}`);
+  const requestedMonth = month || (!owner ? currentMonth : undefined);
+  const state = useAnalytics<ChartData>(requestedMonth ? `section=chart&month=${requestedMonth}` : "section=chart");
   const reduce = usePrefersReducedMotion();
-  const earliest = shiftMonth(currentMonth, -23);
   const data = state.data;
+  const activeMonth = month || data?.month || currentMonth || "";
+  const latestMonth = data?.today.slice(0, 7) || currentMonth || "";
+  const earliest = latestMonth ? shiftMonth(latestMonth, -23) : "";
   const view = useMemo(() => {
     if (!data || (metric === "collections" && !data.collections)) return null;
     const showCollections = metric === "collections" && data.collections;
@@ -35,9 +38,9 @@ export function CollectionsChart({ owner, currentMonth }: { owner: boolean; curr
     return { showCollections: !!showCollections, points, occupancy: capacity > 0 ? Math.round((reserved / capacity) * 1000) / 10 : null, reserved, capacity };
   }, [data, metric]);
   const nav = <div className="flex items-center gap-1">
-    <button type="button" aria-label="Previous month" disabled={month <= earliest} onClick={() => setMonth(shiftMonth(month, -1))} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronLeft className="size-4" /></button>
-    <span className="min-w-28 text-center text-xs font-medium">{monthName(month)}</span>
-    <button type="button" aria-label="Next month" disabled={month >= currentMonth} onClick={() => setMonth(shiftMonth(month, 1))} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronRight className="size-4" /></button>
+    <button type="button" aria-label="Previous month" disabled={!activeMonth || !earliest || activeMonth <= earliest} onClick={() => setMonth(shiftMonth(activeMonth, -1))} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronLeft className="size-4" /></button>
+    <span className="min-w-28 text-center text-xs font-medium">{activeMonth ? monthName(activeMonth) : "—"}</span>
+    <button type="button" aria-label="Next month" disabled={!activeMonth || !latestMonth || activeMonth >= latestMonth} onClick={() => { const next = shiftMonth(activeMonth, 1); setMonth(owner && next === latestMonth ? "" : next); }} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronRight className="size-4" /></button>
   </div>;
   return <Card title={owner && metric === "collections" ? "Collections" : "Occupancy"} subtitle={view?.showCollections ? `Daily collections · ${data?.collections?.included}` : "Daily share of open hours reserved by customers (held bookings, blocks and Open Play excluded)"}
     action={<div className="flex flex-wrap items-center gap-2">{owner && <Segmented label="Chart metric" value={metric} onChange={setMetric} options={[{ value: "collections", label: "Collections" }, { value: "occupancy", label: "Occupancy" }]} />}{nav}</div>}>
@@ -48,7 +51,7 @@ export function CollectionsChart({ owner, currentMonth }: { owner: boolean; curr
           <p className="text-xs text-muted-foreground">Average {pesos(data.collections.totals.averagePerDay)} per elapsed day</p>
         </> : <p className="text-2xl font-semibold tabular-nums">{view.occupancy === null ? "—" : `${view.occupancy}%`}<span className="ml-2 text-xs font-normal text-muted-foreground">{view.reserved} of {view.capacity} open hours reserved</span></p>}
       </div>
-      <div role="group" aria-label={`${view.showCollections ? "Daily collections" : "Daily occupancy"} for ${monthName(month)}`} className="h-64 w-full">
+      <div role="group" aria-label={`${view.showCollections ? "Daily collections" : "Daily occupancy"} for ${monthName(activeMonth)}`} className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={view.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" />
