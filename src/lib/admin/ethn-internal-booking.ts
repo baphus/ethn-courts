@@ -5,20 +5,36 @@ import { resolveSchedule } from '../booking/schedule';
 import { expireExtensionHolds } from '../booking/extension-expiry';
 import type { StaffVerifier } from './ethn-payments';
 const money=(v:bigint)=>`${v/BigInt(100)}.${(v%BigInt(100)).toString().padStart(2,'0')}`;
+const hourMs = 3_600_000;
+const positiveBigint = (value: unknown): value is string => typeof value === 'string' && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= BigInt('9223372036854775807');
+
+function parseRanges(value: unknown) {
+ if (!Array.isArray(value) || !value.length || value.length > 100) throw new Error('INVALID_INPUT');
+ const ranges = value.map((range: unknown) => {
+  if (!range || typeof range !== 'object' || Array.isArray(range)) throw new Error('INVALID_INPUT');
+  const {courtId, start, end, ...extra} = range as Record<string, unknown>;
+  if (Object.keys(extra).length || !positiveBigint(courtId) || typeof start !== 'string' || typeof end !== 'string') throw new Error('INVALID_INPUT');
+  const from = new Date(start), to = new Date(end);
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from.toISOString() !== start || to.toISOString() !== end || from.getTime() % hourMs || to.getTime() % hourMs || to <= from) throw new Error('INVALID_INPUT');
+  return {courtId, start, end};
+ }).sort((a,b) => a.courtId.length - b.courtId.length || a.courtId.localeCompare(b.courtId));
+ if (new Set(ranges.map(range => range.courtId)).size !== ranges.length) throw new Error('INVALID_INPUT');
+ return ranges;
+}
+
 export function validateInternalBooking(body:unknown) {
  if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('INVALID_INPUT');
  const b=body as Record<string,unknown>;
- if(Object.keys(b).some(k=>!['courtId','date','start','end','guestName','guestPhone','method','reference','receivedAt','displayedTotal','settingsVersion','paymentReceived','idempotencyKey','collectedAmount'].includes(k)))throw new Error('INVALID_INPUT');
- for(const k of ['courtId','date','start','end','guestName','method','displayedTotal','settingsVersion','idempotencyKey'])if(typeof b[k]!=='string')throw new Error('INVALID_INPUT');
- if(!/^[1-9]\d{0,18}$/.test(b.courtId as string)||!/^[1-9]\d{0,18}$/.test(b.settingsVersion as string)||!/^\d{4}-\d\d-\d\d$/.test(b.date as string)||!b.guestName||String(b.guestName).trim().length>100||!String(b.guestName).trim()||!/^[a-z][a-z0-9_-]{0,63}$/.test(b.method as string)||!/^[\x21-\x7e]{1,200}$/.test(b.idempotencyKey as string)||b.paymentReceived!==true)throw new Error('INVALID_INPUT');
- for(const k of ['start','end']){const d=new Date(b[k] as string);if(!Number.isFinite(d.getTime())||d.toISOString()!==b[k])throw new Error('INVALID_INPUT');}
- if(new Date(b.end as string)<=new Date(b.start as string))throw new Error('INVALID_INPUT');
+ if(Object.keys(b).some(k=>!['ranges','date','guestName','guestPhone','method','reference','receivedAt','displayedTotal','settingsVersion','paymentReceived','idempotencyKey'].includes(k)))throw new Error('INVALID_INPUT');
+ for(const k of ['date','guestName','method','displayedTotal','settingsVersion','idempotencyKey'])if(typeof b[k]!=='string')throw new Error('INVALID_INPUT');
+ if(!positiveBigint(b.settingsVersion)||!/^\d{4}-\d\d-\d\d$/.test(b.date as string)||!b.guestName||String(b.guestName).trim().length>100||!String(b.guestName).trim()||!/^[a-z][a-z0-9_-]{0,63}$/.test(b.method as string)||!/^[\x21-\x7e]{1,200}$/.test(b.idempotencyKey as string)||b.paymentReceived!==true)throw new Error('INVALID_INPUT');
+ const ranges = parseRanges(b.ranges);
  if(b.guestPhone!=null&&(typeof b.guestPhone!=='string'||b.guestPhone.length>30||!/^[0-9+()\-\s]*$/.test(b.guestPhone)))throw new Error('INVALID_INPUT');
  if(b.reference!=null&&(typeof b.reference!=='string'||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
  const receivedAt=b.receivedAt?new Date(b.receivedAt as string):null;
  if(receivedAt&&(!Number.isFinite(receivedAt.getTime())||typeof b.receivedAt!=='string'||!/(?:Z|[+-]\d\d:\d\d)$/.test(b.receivedAt)))throw new Error('INVALID_INPUT');
  let displayedTotal:string;try{displayedTotal=money(parsePesos(b.displayedTotal as string));}catch{throw new Error('INVALID_INPUT');}
- return {courtId:b.courtId as string,date:b.date as string,start:b.start as string,end:b.end as string,guestName:(b.guestName as string).trim(),guestPhone:(b.guestPhone as string)?.trim()||null,method:b.method as string,reference:b.method==='cash'?null:(b.reference as string)?.trim()||null,receivedAt:receivedAt?.toISOString()??null,displayedTotal,settingsVersion:b.settingsVersion as string,idempotencyKey:b.idempotencyKey as string};
+ return {ranges,date:b.date as string,guestName:(b.guestName as string).trim(),guestPhone:(b.guestPhone as string)?.trim()||null,method:b.method as string,reference:b.method==='cash'?null:(b.reference as string)?.trim()||null,receivedAt:receivedAt?.toISOString()??null,displayedTotal,settingsVersion:b.settingsVersion as string,idempotencyKey:b.idempotencyKey as string};
 }
 export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:StaffVerifier,body:unknown){
  const input=validateInternalBooking(body),actor=await verify();if(!actor||!/^[0-9a-f-]{36}$/i.test(actor))throw new Error('UNAUTHENTICATED');
@@ -40,13 +56,19 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   const now=(await c.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
   if(input.receivedAt&&new Date(input.receivedAt)>now)throw new Error('INVALID_INPUT');
   const method=input.method==='cash'?{name:'Cash',instructions:''}:(await c.query('SELECT name,instructions FROM ethn.payment_methods WHERE id=$1 AND enabled FOR SHARE',[input.method])).rows[0];if(!method)throw new Error('INVALID_INPUT');
-  const resolved=resolveSchedule({date:input.date,now,anchorMinutes:settings.anchor_minutes,interval:settings.interval_minutes,minimum:settings.minimum_minutes,horizonDays:settings.horizon_days,courts,hours,requests:[{courtId:input.courtId,start:new Date(input.start),end:new Date(input.end)}]});
-  if('error'in resolved)throw new Error(resolved.error);
-  const range=resolved.ranges[0],total=money(priceItems([range]));if(total!==input.displayedTotal||settings.version!==input.settingsVersion)throw new Error('PRICE_CHANGED');
-  const id=randomUUID(),item=randomUUID(),merchant=JSON.stringify({name:method.name,instructions:method.instructions});
+  const resolved=resolveSchedule({date:input.date,now,anchorMinutes:settings.anchor_minutes,interval:settings.interval_minutes,minimum:settings.minimum_minutes,horizonDays:settings.horizon_days,courts,hours,requests:input.ranges.map(({courtId,start,end})=>({courtId,start:new Date(start),end:new Date(end)}))});
+  if('error'in resolved)throw new Error('SCHEDULE_CHANGED');
+  let cents: bigint;
+  try { cents = priceItems(resolved.ranges); } catch { throw new Error('PRICE_CHANGED'); }
+  if (cents <= BigInt(0)) throw new Error('PRICE_CHANGED');
+  const total=money(cents);if(total!==input.displayedTotal||settings.version!==input.settingsVersion)throw new Error('PRICE_CHANGED');
+  const id=randomUUID(),merchant=JSON.stringify({name:method.name,instructions:method.instructions});
   await c.query("INSERT INTO ethn.bookings(id,owner_hash,walk_in_actor,operating_date,status,expires_at,total,guest_name,guest_phone,price_acknowledged,merchant_snapshot,settings_version) VALUES($1,$2,$3,$4,'confirmed',$5,$6,$7,$8,true,$9,$10)",[id,owner,actor,input.date,now,total,input.guestName,input.guestPhone,merchant,settings.version]);
-  await c.query('INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[item,id,input.courtId,input.start,input.end,money(parsePesos(range.rate)),range.minutes,total,settings.interval_minutes,settings.minimum_minutes]);
-  await c.query("INSERT INTO ethn.court_allocations(id,item_id,court_id,starts_at,ends_at,state) VALUES($1,$2,$3,$4,$5,'confirmed')",[randomUUID(),item,input.courtId,input.start,input.end]);
+  for (const range of resolved.ranges) {
+   const item=randomUUID(),start=range.start.toISOString(),end=range.end.toISOString();
+   await c.query('INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[item,id,range.courtId,start,end,money(parsePesos(range.rate)),range.minutes,money(priceItems([range])),settings.interval_minutes,settings.minimum_minutes]);
+   await c.query("INSERT INTO ethn.court_allocations(id,item_id,court_id,starts_at,ends_at,state) VALUES($1,$2,$3,$4,$5,'confirmed')",[randomUUID(),item,range.courtId,start,end]);
+  }
   await c.query("INSERT INTO ethn.payments(id,booking_id,method,merchant_snapshot,status,accepted_reference,collected_amount,received_at,verified_at,verified_by) VALUES($1,$2,$3,$4,'accepted',$5,$6,$7,$8,$9)",[randomUUID(),id,input.method,merchant,input.reference,total,input.receivedAt,now,actor]);
   await c.query("INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,'internal.create',$3::jsonb)",[id,actor,JSON.stringify({method:input.method,total,paymentReceived:true})]);
   const result={bookingId:id,status:'confirmed',total,method:input.method};

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CalendarDays, CalendarPlus, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, UserRound, Users, type LucideIcon } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger } from "@/components/ui/sidebar";
 import Image from "next/image";
 
@@ -14,8 +14,6 @@ const operations: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
-  { href: "/admin/bookings/new", label: "New booking", icon: CalendarPlus },
-  { href: "/admin/payment-instructions", label: "Payment instructions", icon: Settings },
   { href: "/admin/open-plays", label: "Open Plays", icon: CalendarDays },
   { href: "/admin/sales", label: "Paid sales", icon: CreditCard },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
@@ -25,6 +23,7 @@ const management: NavItem[] = [
   { href: "/admin/courts", label: "Court setup", icon: CalendarDays },
   { href: "/admin/timing", label: "Timing policy", icon: Clock },
   { href: "/admin/finance", label: "Finance", icon: CreditCard },
+  { href: "/admin/payment-instructions", label: "Payment instructions", icon: Settings },
   { href: "/admin/activity", label: "Activity history", icon: ScrollText },
   { href: "/admin/staff", label: "Staff access", icon: Users },
 ];
@@ -54,10 +53,10 @@ export default function AdminSidebar({ email, name, isOwner }: { email: string; 
         <SidebarGroupLabel>Operations</SidebarGroupLabel>
         <SidebarGroupContent><SidebarMenu className="gap-0.5">{operations.map(renderItem)}</SidebarMenu></SidebarGroupContent>
       </SidebarGroup>
-      {isOwner && <SidebarGroup className="pt-0">
+      <SidebarGroup className="pt-0">
         <SidebarGroupLabel>Management &amp; finance</SidebarGroupLabel>
-        <SidebarGroupContent><SidebarMenu className="gap-0.5">{management.map(renderItem)}</SidebarMenu></SidebarGroupContent>
-      </SidebarGroup>}
+        <SidebarGroupContent><SidebarMenu className="gap-0.5">{management.filter(item => isOwner || item.href === "/admin/payment-instructions").map(renderItem)}</SidebarMenu></SidebarGroupContent>
+      </SidebarGroup>
       <SidebarGroup className="pt-0">
         <SidebarGroupContent><SidebarMenu className="gap-0.5">
           <SidebarMenuItem><SidebarMenuButton className={itemClass} render={<Link href="/" />} tooltip="Public booking"><ExternalLink /><span>Public booking</span></SidebarMenuButton></SidebarMenuItem>
@@ -68,7 +67,7 @@ export default function AdminSidebar({ email, name, isOwner }: { email: string; 
       <div className="flex items-center gap-2 border-t border-sidebar-border px-2 pt-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground"><UserRound className="size-4" aria-hidden="true" /></span>
         <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-          {name && name.trim().toLowerCase() !== (isOwner ? "owner" : "staff") && <p className="truncate text-xs font-semibold">{name}</p>}
+          {name && <p className="truncate text-xs font-semibold">{name}</p>}
           <p className="truncate text-xs text-sidebar-foreground/70">{email}</p>
           <p className="text-xs text-sidebar-foreground/70">{isOwner ? "Owner" : "Staff"}</p>
         </div>

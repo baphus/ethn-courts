@@ -8,7 +8,7 @@ import ThemeToggle from "./theme-toggle";
 
 const stamp = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
 
-export default function AdminTopbar() {
+export default function AdminTopbar({ children }: { children: React.ReactNode }) {
   const [now, setNow] = useState("");
   useEffect(() => {
     const tick = () => setNow(stamp.format(new Date()).replace(" at ", ", "));
@@ -22,6 +22,7 @@ export default function AdminTopbar() {
     <div className="ml-auto flex items-center gap-2">
       {now && <span className="hidden rounded-lg border bg-card px-3 py-1.5 text-xs text-muted-foreground tabular-nums md:inline-block">{now}</span>}
       <ThemeToggle />
+      {children}
       <Link href="/admin/notifications" aria-label="Notifications" className="relative inline-flex size-9 items-center justify-center rounded-lg border bg-card hover:bg-muted"><Bell className="size-4" /></Link>
     </div>
   </header>;

@@ -50,6 +50,6 @@ export const createAdminBodySchema = z.object({
     .max(256),
 });
 
-export const profilePatchSchema = z.object({
+export const profilePatchSchema = z.strictObject({
   name: z.string().trim().min(1).max(100),
 });

@@ -53,15 +53,15 @@ export default function ProfileDialog({ email, name }: Props) {
         error?: { message?: string };
       };
       if (!response.ok) {
-        setFormError(body.error?.message ?? "Could not update your name.");
+        setFormError(body.error?.message ?? "Could not update your display name.");
         return;
       }
 
-      toast.success("Name updated.");
+      toast.success("Display name updated.");
       setOpen(false);
       router.refresh();
     } catch {
-      setFormError("Could not update your name. Check your connection and try again.");
+      setFormError("Could not update your display name. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -79,16 +79,21 @@ export default function ProfileDialog({ email, name }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit profile</DialogTitle>
-          <DialogDescription>Update the name shown to other administrators.</DialogDescription>
+          <DialogDescription>Change the name shown in your staff portal. Your sign-in email stays the same.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={submit}>
           <div className="grid gap-2">
-            <Label htmlFor="profile-name">Full name</Label>
+            <Label htmlFor="profile-name">Display name</Label>
             <Input
               id="profile-name"
-              autoComplete="name"
+              name="name"
+              autoComplete="nickname"
               value={value}
-              onChange={(event) => setValue(event.target.value)}
+              onChange={(event) => {
+                setValue(event.target.value);
+                setFormError(null);
+              }}
+              disabled={busy}
               required
               maxLength={100}
               autoFocus
@@ -96,8 +101,7 @@ export default function ProfileDialog({ email, name }: Props) {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="profile-email">Email address</Label>
-            <Input id="profile-email" type="email" value={email} readOnly disabled />
-            <p className="text-xs text-muted-foreground">Email address cannot be changed.</p>
+            <Input id="profile-email" type="email" value={email} readOnly />
           </div>
           {formError ? (
             <p className="text-sm text-destructive" role="alert">

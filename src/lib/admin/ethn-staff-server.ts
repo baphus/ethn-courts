@@ -1,11 +1,11 @@
 import "server-only";
 import { createClient as createAuthClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { isDeactivated } from "@/lib/admin/session";
+import { isDeactivated, nameOf } from "@/lib/admin/session";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { getStaff } from "@/lib/admin/ethn-payments";
 
-export async function verifyStaffIdentity(): Promise<string | null> {
+async function getVerifiedStaffUser() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error("NOT_CONFIGURED");
   try {
     const client = await createClient();
@@ -14,8 +14,12 @@ export async function verifyStaffIdentity(): Promise<string | null> {
     if (typeof sub !== "string") return null;
     const result = await client.auth.getUser();
     const user = result.data.user;
-    return !result.error && user && user.id === sub && !isDeactivated(user) ? user.id : null;
+    return !result.error && user && user.id === sub && !isDeactivated(user) ? user : null;
   } catch { return null; }
+}
+
+export async function verifyStaffIdentity(): Promise<string | null> {
+  return (await getVerifiedStaffUser())?.id ?? null;
 }
 
 // Auth admin uses the same ETHN project as private Storage; no separate config.
@@ -31,7 +35,10 @@ export async function authUserExists(userId: string): Promise<boolean> {
 export const staffPool = { connect: () => getCheckoutPool().connect() };
 
 export async function getCurrentStaff() {
-  return getStaff(staffPool, verifyStaffIdentity);
+  const user = await getVerifiedStaffUser();
+  if (!user) throw new Error("UNAUTHENTICATED");
+  const staff = await getStaff(staffPool, async () => user.id);
+  return { ...staff, email: user.email ?? "", name: nameOf(user) };
 }
 
 export function adminResponse(data: unknown, status = 200) {

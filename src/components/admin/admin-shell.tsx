@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AdminSidebar from "./admin-sidebar";
 import AdminTopbar from "./admin-topbar";
+import ProfileDialog from "./profile-dialog";
 
 interface Props {
   email: string;
@@ -20,7 +21,7 @@ export default function AdminShell({ email, name, isOwner, children }: Props) {
       <div data-admin-shell className="contents">
         <AdminSidebar email={email} name={name} isOwner={isOwner} />
         <SidebarInset className="min-w-0 overflow-x-clip">
-          <AdminTopbar />
+          <AdminTopbar><ProfileDialog email={email} name={name} /></AdminTopbar>
           <div className="admin-workspace flex min-w-0 flex-1 flex-col gap-4 overflow-x-clip p-4 md:p-6">{children}</div>
         </SidebarInset>
       </div>

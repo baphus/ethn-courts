@@ -8,6 +8,10 @@
 
 Rates are decimal strings or null, never legacy fallback prices. IDs and settings version are strings. Instants are UTC ISO strings; windows and occupancy are half-open. Each booking range must fit one window. `configured=false` disables checkout when merchant or a displayed window rate is unset. Merchant is configured text, not a verified QR or GCash number; official payment instructions remain a launch gate. Invalid date returns 400 `INVALID_INPUT`; invalid configuration/schedule returns 503 `NOT_CONFIGURED`.
 
+## Staff profile
+
+Enabled staff and owners can edit their own display name from **Edit profile** in the staff portal header. `GET /api/auth/profile` returns the current `{userId, role, email, name}`. `PATCH /api/auth/profile` accepts only `{name}` (trimmed, 1–100 characters); a successful update returns `{ok: true, name}`. The sign-in email, account ID and staff role are unchanged. Both responses are private and uncached.
+
 ## Staff calendar and court blocks
 
 Staff endpoints use enabled ETHN owner/staff identity and private `no-store` responses. `GET /api/ethn/admin/calendar?date=YYYY-MM-DD` accepts historical dates; response is `{date,serverNow,window,courts}` with booking/block interval DTO documented in `docs/ethn-calendar-block-contract.md`. It omits contact and payment data.

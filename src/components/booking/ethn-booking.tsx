@@ -315,7 +315,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         <Sticker kind="paddle" className="right-[16%] top-[66%] hidden md:block md:w-14 lg:w-20" speed={0.4} rot={-28} delay={2} />
 
         <h1 className="relative z-10 mx-auto mt-4 w-[min(80%,38rem)]">
-          <img src="/ethn-courts-logo.svg?v=e8591a" alt="ETHN Courts" className="h-auto w-full" />
+          <img src="/ethn-courts-logo-hero.svg" alt="ETHN Courts" className="h-auto w-full" />
         </h1>
 
         <div className="ethn-fade relative z-20 mx-auto mt-4 flex items-center justify-center gap-2 sm:gap-3">
