@@ -6,8 +6,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
-    if (new URL(request.url).search) throw new Error("INVALID_INPUT");
-    return adminResponse(await listSales(staffPool, verifyStaffIdentity));
+    const params = new URL(request.url).searchParams;
+    for (const key of params.keys()) if (!["from", "to"].includes(key) || params.getAll(key).length !== 1) throw new Error("INVALID_INPUT");
+    return adminResponse(await listSales(staffPool, verifyStaffIdentity, params.get("from"), params.get("to")));
   } catch (error) { return adminError(error); }
 }
 export async function POST(request: Request) {

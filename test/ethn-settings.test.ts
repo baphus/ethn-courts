@@ -8,7 +8,7 @@ const owner = "00000000-0000-4000-8000-000000000001", staff = "00000000-0000-400
 test("owner pricing on disposable restricted database", { skip: !url || !adminUrl }, async () => {
   const pool = new Pool({ connectionString: url }), admin = new Pool({ connectionString: adminUrl });
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'owner',true),($2,'staff',true),($3,'owner',false)", [owner, staff, disabled]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'owner',true),($2,'staff',false),($3,'owner',false)", [owner, staff, disabled]);
     await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,merchant_snapshot,settings_version) VALUES ('00000000-0000-4000-8000-000000000010','test',current_date,'held',now()+interval '1 hour',100,'old merchant',1)");
     await admin.query("INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES ('00000000-0000-4000-8000-000000000011','00000000-0000-4000-8000-000000000010',1,now(),now()+interval '1 hour',100,60,100,30,30)");
     const before = await getSettings(pool, async () => owner);

@@ -22,6 +22,20 @@
       "when": 1795499574654,
       "tag": "0002_sloppy_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795517448345,
+      "tag": "0003_owner_only_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795517464047,
+      "tag": "0004_finance_expense_actions",
+      "breakpoints": true
     }
   ]
 }

@@ -16,7 +16,7 @@ test("ETHN due completion and correctable no-show use staff transactions",{skip:
     await admin.query("INSERT INTO ethn.court_allocations(id,item_id,court_id,starts_at,ends_at,state) SELECT $1,id,court_id,starts_at,ends_at,$3::text FROM ethn.booking_items WHERE id=$2",[randomUUID(),item,status==='confirmed'?'confirmed':'pending']);
   }
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true)",[owner,staff]);
     const past='2020-01-01T00:00:00Z',future='2027-01-01T00:00:00Z';
     await booking(ids.due,'confirmed','2020-01-01T00:00:00Z','2020-01-01T01:00:00Z'); await booking(ids.future,'confirmed','2026-12-31T00:00:00Z',future);
     await booking(ids.pending,'pending','2020-01-03T00:00:00Z','2020-01-03T01:00:00Z'); await booking(ids.notlast,'confirmed','2020-01-04T00:00:00Z','2020-01-04T01:00:00Z');

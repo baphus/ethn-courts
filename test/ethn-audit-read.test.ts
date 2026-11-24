@@ -28,7 +28,7 @@ test("audit owner read contract and restricted DB grants",{skip:!url||!adminUrl}
   const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:adminUrl});
   const owner=randomUUID(),staff=randomUUID(),disabled=randomUUID(),booking=randomUUID();let inserted=false;
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true),($3,'owner',false)",[owner,staff,disabled]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',false),($3,'owner',false)",[owner,staff,disabled]);
     const privileges=(await admin.query("SELECT has_column_privilege('ethn_checkout','ethn.audit','detail','SELECT') AS detail,has_table_privilege('ethn_checkout','ethn.audit','UPDATE') AS upd,has_table_privilege('ethn_checkout','ethn.audit','DELETE') AS del,rolsuper,rolbypassrls FROM pg_roles WHERE rolname='ethn_checkout'")).rows[0];assert.deepEqual(privileges,{detail:true,upd:false,del:false,rolsuper:false,rolbypassrls:false});
     await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'audit-test','2026-11-21','held',clock_timestamp()+interval '10 minutes',10,1)",[booking]);
     await admin.query("INSERT INTO ethn.audit(booking_id,actor,action,detail,created_at) VALUES($1,$2,'checkout',$3::jsonb,'2026-11-20T16:00:00Z'),($1,'customerhash','future.secret','{\"secret\":\"hidden\"}','2026-11-21T15:59:59Z')",[booking,owner,JSON.stringify({total:"10.00",settingsVersion:"1",hash:"no"})]);inserted=true;

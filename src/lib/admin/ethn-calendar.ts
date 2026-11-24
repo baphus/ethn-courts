@@ -27,7 +27,7 @@ export async function getEthnCalendar(pool: Pick<Pool,"connect">, verify: StaffV
   let transaction=false, committing=false, discard=false;
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); transaction=true;
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff')", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
     const settings = (await client.query("SELECT anchor_minutes, transaction_timestamp() AS now FROM ethn.settings WHERE singleton")).rows[0];
     if (!settings || !Number.isInteger(settings.anchor_minutes)) throw new Error("CALENDAR_UNAVAILABLE");
     const now = settings.now as Date, date = requestedDate ?? manilaDateStr(new Date(now.getTime() - settings.anchor_minutes * 60000));
@@ -47,7 +47,7 @@ export async function listUpcomingBlocks(pool: Pick<Pool,"connect">, verify: Sta
   let transaction=false, committing=false, discard=false;
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); transaction=true;
-    if(!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff')",[actor])).rows.length) throw new Error("FORBIDDEN");
+    if(!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'",[actor])).rows.length) throw new Error("FORBIDDEN");
     const rows=(await client.query(`SELECT b.id::text,c.name AS court_name,b.starts_at,b.ends_at,b.kind,b.reason FROM ethn.court_blocks b JOIN ethn.courts c ON c.id=b.court_id WHERE b.removed_at IS NULL AND b.ends_at > transaction_timestamp() ORDER BY b.starts_at,b.id LIMIT 50`)).rows;
     committing=true; await client.query("COMMIT");
     return rows.map(r=>({id:r.id as string,courtName:r.court_name as string,startsAt:(r.starts_at as Date).toISOString(),endsAt:(r.ends_at as Date).toISOString(),kind:r.kind as string,reason:r.reason as string}));
@@ -69,7 +69,7 @@ async function createBlocks(pool: Pick<Pool,"connect">,verify:StaffVerifier,inpu
   const actor=await actorId(verify),client=await pool.connect(); let transaction=false, committing=false, discard=false;
   try {
     await client.query("BEGIN"); transaction=true;
-    if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
     const settings=(await client.query("SELECT anchor_minutes,horizon_days,clock_timestamp() AS now FROM ethn.settings WHERE singleton FOR UPDATE")).rows[0]; if(!settings) throw new Error("CALENDAR_UNAVAILABLE");
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
     await expireExtensionHolds(client);
@@ -97,7 +97,7 @@ export async function releaseEthnBlock(pool:Pick<Pool,"connect">,verify:StaffVer
   if(!uuid.test(blockId)) throw new Error("INVALID_INPUT"); const actor=await actorId(verify),client=await pool.connect(); let transaction=false, committing=false, discard=false;
   try {
     await client.query("BEGIN");transaction=true;
-    if(!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
+    if(!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
     await client.query("SELECT singleton FROM ethn.settings WHERE singleton FOR UPDATE"); await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
     const target=(await client.query("SELECT kind FROM ethn.court_blocks WHERE id=$1",[blockId])).rows[0];
     if(!target || !['maintenance','private'].includes(target.kind)) throw new Error('BLOCK_NOT_FOUND');

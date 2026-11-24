@@ -13,7 +13,7 @@ test("extension hold, full confirmation, expiry and original immutability",{skip
  try{
   await admin.query("UPDATE ethn.settings SET merchant='ETHN GCash',hold_minutes=10,anchor_minutes=$1",[anchor]);
   await admin.query("UPDATE ethn.court_hours SET opens=$1,closes=$1,hourly_rate=100",[anchorText]);
-  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]);
+  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true)",[owner,staff]);
   const bookingId=randomUUID(),itemId=randomUUID(),ownerHash="extensiontest",originalPaymentId=randomUUID();
   await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,merchant_snapshot,settings_version) VALUES($1,$2,$3,'confirmed',clock_timestamp(),100,'ETHN GCash',1)",[bookingId,ownerHash,businessDate]);
   await admin.query("INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,1,$3,$4,100,60,100,30,30)",[itemId,bookingId,originalStart,originalEnd]);

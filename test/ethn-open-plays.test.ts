@@ -11,7 +11,7 @@ test("open plays atomically allocate multiple courts and expose only public even
   const start=new Date(Date.now()+2*86400000);start.setUTCHours(10,0,0,0);const end=new Date(start.getTime()+3600000);
   const input={courtIds:["1","2"],title:"Open play",description:"Community play",fee:"0.00",startsAt:start.toISOString(),endsAt:end.toISOString()};
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true)",[owner,staff]);
     await admin.query("UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1",[staff]);
     await assert.rejects(createOpenPlay(pool,async()=>staff,input),/FORBIDDEN/);
     await admin.query("UPDATE ethn.staff_access SET enabled=true WHERE user_id=$1",[staff]);

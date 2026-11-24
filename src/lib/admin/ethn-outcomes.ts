@@ -9,7 +9,7 @@ async function actorId(verify: StaffVerifier): Promise<string> {
   return actor.toLowerCase();
 }
 async function lockStaff(client: PoolClient, actor: string) {
-  const result = await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor]);
+  const result = await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor]);
   if (!result.rowCount) fail("FORBIDDEN");
 }
 function dbError(error: unknown): never {

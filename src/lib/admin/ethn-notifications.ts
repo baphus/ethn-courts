@@ -16,7 +16,7 @@ export async function reconcileInboxForRecipient(pool: Db, userId: string) {
   let discarded = false, committing = false;
   try {
     await client.query("BEGIN");
-    const staff = await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [userId]);
+    const staff = await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [userId]);
     if (!staff.rows[0]) throw new Error("FORBIDDEN");
     let created = 0;
     const pending = await client.query(`SELECT b.id, bool_or(i.starts_at <= clock_timestamp()) AS overdue,

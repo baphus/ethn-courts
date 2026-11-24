@@ -20,7 +20,7 @@ test("reservation idempotency persists actor operation request and replay shape"
   const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:adminUrl});
   const actor="00000000-0000-4000-8000-000000000032",key="reserve-replay-test";
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'staff',true) ON CONFLICT(user_id) DO UPDATE SET enabled=true",[actor]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true) ON CONFLICT(user_id) DO UPDATE SET enabled=true",[actor]);
     await admin.query("UPDATE ethn.settings SET anchor_minutes=420,hold_minutes=10,merchant='Test merchant'");
     const start=new Date(Math.floor(Date.now()/1800000)*1800000),end=new Date(start.getTime()+3600000),operatingDate=slotSelectionDateStr([start])!;
     await admin.query("DELETE FROM ethn.court_hours"); await admin.query("INSERT INTO ethn.court_hours(court_id,weekday,opens,closes,hourly_rate) SELECT c.id,d,'07:00','07:00',100 FROM ethn.courts c CROSS JOIN generate_series(0,6) d");

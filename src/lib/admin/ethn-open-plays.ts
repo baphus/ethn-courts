@@ -83,7 +83,7 @@ export async function createOpenPlay(pool: Db, verify: StaffVerifier, body: unkn
   const input = validate(body), actor = await actorId(verify), client = await pool.connect(); let committing=false,discard=false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
     const settings = (await client.query("SELECT anchor_minutes,horizon_days FROM ethn.settings WHERE singleton FOR UPDATE")).rows[0];
     if (!settings) throw new Error("OPEN_PLAYS_UNAVAILABLE");
     const courts = (await client.query("SELECT id::text,name,active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
@@ -103,7 +103,7 @@ export async function editOpenPlay(pool: Db, verify: StaffVerifier, playId: stri
   const input=validate(inputBody),actor=await actorId(verify),client=await pool.connect();let committing=false,discard=false;
   try{
     await client.query("BEGIN");
-    if(!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rows.length)throw new Error("FORBIDDEN");
+    if(!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rows.length)throw new Error("FORBIDDEN");
     const settings=(await client.query("SELECT anchor_minutes,horizon_days FROM ethn.settings WHERE singleton FOR UPDATE")).rows[0];if(!settings)throw new Error("OPEN_PLAYS_UNAVAILABLE");
     const courts=(await client.query("SELECT id::text,name,active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
     const event=(await client.query("SELECT version FROM ethn.open_plays WHERE id=$1 AND removed_at IS NULL FOR UPDATE",[playId])).rows[0];
@@ -123,7 +123,7 @@ export async function removeOpenPlay(pool: Db, verify: StaffVerifier, playId: st
   if (!uuid.test(playId)) throw new Error("INVALID_INPUT"); const actor=await actorId(verify),client=await pool.connect();let committing=false,discard=false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
     await client.query("SELECT singleton FROM ethn.settings WHERE singleton FOR UPDATE"); await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
     const removed=await client.query("UPDATE ethn.open_plays SET removed_by=$2,removed_at=clock_timestamp() WHERE id=$1 AND removed_at IS NULL RETURNING id", [playId,actor]);
     if (!removed.rows.length) { if (!(await client.query("SELECT 1 FROM ethn.open_plays WHERE id=$1", [playId])).rows.length) throw new Error("OPEN_PLAY_NOT_FOUND"); }

@@ -17,7 +17,7 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
  const c=await pool.connect();let discard=false,committing=false;
  try{
   await c.query('BEGIN');
-  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
+  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
   const operation=`booking.${action}`;
   const inserted=await c.query('INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,$2,$3,$4,NULL) ON CONFLICT DO NOTHING RETURNING key',[actor,operation,input.key,fingerprint]);
   const prior=(await c.query('SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation=$2 AND key=$3 FOR UPDATE',[actor,operation,input.key])).rows[0];

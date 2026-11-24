@@ -13,5 +13,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     if (error instanceof Error && error.message === "FORBIDDEN") return <main className="p-8">Staff access is not enabled for this account.</main>;
     return <main role="alert" className="p-8">Staff services are unavailable. Please try again later.</main>;
   }
-  return <AdminShell email={staff.email} name={staff.name} isOwner={staff.role === "owner"}>{children}</AdminShell>;
+  return <AdminShell email={staff.email} name={staff.name}>{children}</AdminShell>;
 }

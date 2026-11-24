@@ -36,7 +36,7 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     return id;
   };
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true),($3,'staff',false)", [owner, staff, disabled]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true),($3,'staff',false)", [owner, staff, disabled]);
     const futurePending = await booking("pending", { start: future });
     const overduePending = await booking("pending");
     await booking("confirmed"); await booking("completed"); await booking("expired");

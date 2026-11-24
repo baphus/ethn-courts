@@ -34,7 +34,7 @@ export async function correctExpense(pool: Db, verify: StaffVerifier, expenseId:
     const saved=(await c.query("SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='expense.correct' AND key=$2 FOR UPDATE",[oh,b.idempotencyKey])).rows[0];
     if(!saved||saved.fingerprint!==fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
     if(saved.result){const result=saved.result;finishing=true;await c.query("COMMIT");committed=true;return result;}
-    const expense=(await c.query("SELECT amount::text FROM ethn.expenses WHERE id=$1 FOR UPDATE",[expenseId])).rows[0]; if(!expense) throw new Error("EXPENSE_NOT_FOUND");
+    const expense=(await c.query("SELECT amount::text FROM ethn.expenses WHERE id=$1 AND revision IS NULL FOR UPDATE",[expenseId])).rows[0]; if(!expense) throw new Error("EXPENSE_NOT_FOUND");
     const now=(await c.query("SELECT clock_timestamp() now")).rows[0].now as Date; if(b.correctionDate!==manilaDateStr(now)) throw new Error("INVALID_INPUT");
     const prior=(await c.query("SELECT id FROM ethn.expense_corrections WHERE expense_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1",[expenseId])).rows[0]?.id??null;
     if(prior!==(b.expectedPreviousCorrectionId as string|null)) throw new Error("STALE_CORRECTION");

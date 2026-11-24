@@ -40,7 +40,7 @@ export async function addPushSubscription(pool: Db, verify: StaffVerifier, sub: 
   let committing = false;
   try {
     await c.query("BEGIN");
-    const staff = await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [userId]);
+    const staff = await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [userId]);
     if (!staff.rows[0]) throw new Error("FORBIDDEN");
     const r = await c.query(`INSERT INTO ethn.push_subscriptions(user_id,endpoint,p256dh,auth) VALUES($1,$2,$3,$4)
       ON CONFLICT(endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh,auth=EXCLUDED.auth,disabled_at=NULL
@@ -83,7 +83,7 @@ export async function drainPush(pool: Db, config: Keys, sender: Sender = send) {
     await c.query("BEGIN");
     await c.query(`INSERT INTO ethn.push_deliveries(notification_id,subscription_id)
       SELECT n.id,s.id FROM ethn.notifications n JOIN ethn.push_subscriptions s ON s.user_id=n.recipient AND s.disabled_at IS NULL
-      JOIN ethn.staff_access a ON a.user_id=s.user_id AND a.enabled AND a.role IN ('owner','staff')
+      JOIN ethn.staff_access a ON a.user_id=s.user_id AND a.enabled AND a.role='owner'
       WHERE n.read_at IS NULL AND n.link <> '/admin/exceptions' AND n.created_at >= clock_timestamp()-interval '24 hours' AND n.created_at >= s.created_at
       ON CONFLICT DO NOTHING`);
     const r = await c.query(`WITH due AS (SELECT d.notification_id,d.subscription_id FROM ethn.push_deliveries d
@@ -94,7 +94,7 @@ export async function drainPush(pool: Db, config: Keys, sender: Sender = send) {
     for (const row of r.rows) {
       const item = await c.query(`SELECT d.notification_id,d.subscription_id,s.endpoint,s.p256dh,s.auth,n.title,n.body,n.link
         FROM ethn.push_deliveries d JOIN ethn.push_subscriptions s ON s.id=d.subscription_id JOIN ethn.notifications n ON n.id=d.notification_id
-        JOIN ethn.staff_access a ON a.user_id=s.user_id AND a.enabled AND a.role IN ('owner','staff')
+        JOIN ethn.staff_access a ON a.user_id=s.user_id AND a.enabled AND a.role='owner'
         WHERE d.notification_id=$1 AND d.subscription_id=$2 AND s.disabled_at IS NULL AND n.read_at IS NULL`, [row.notification_id,row.subscription_id]);
       if (item.rows[0]) claimed.push(item.rows[0]);
     }
@@ -113,7 +113,7 @@ export async function drainPush(pool: Db, config: Keys, sender: Sender = send) {
       try { eligible = (await check.query(`SELECT 1 FROM ethn.push_deliveries d JOIN ethn.push_subscriptions s ON s.id=d.subscription_id
         JOIN ethn.notifications n ON n.id=d.notification_id JOIN ethn.staff_access a ON a.user_id=s.user_id
         WHERE d.notification_id=$1 AND d.subscription_id=$2 AND d.status='pending' AND s.disabled_at IS NULL
-          AND n.read_at IS NULL AND n.link <> '/admin/exceptions' AND a.enabled AND a.role IN ('owner','staff')`, [x.notification_id,x.subscription_id])).rows.length > 0; }
+          AND n.read_at IS NULL AND n.link <> '/admin/exceptions' AND a.enabled AND a.role='owner'`, [x.notification_id,x.subscription_id])).rows.length > 0; }
       finally { check.release(); }
       if (!eligible) continue;
       try { await sender({ endpoint: x.endpoint, keys: { p256dh: x.p256dh, auth: x.auth } }, JSON.stringify({ id: x.notification_id, link: x.link }), { TTL: 300, timeout: 5000, vapidDetails: config, topic: x.notification_id.replaceAll("-", "").slice(0, 32) }); }

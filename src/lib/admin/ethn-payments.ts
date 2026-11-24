@@ -10,7 +10,7 @@ export async function getStaff(pool: Db, verify: StaffVerifier) {
   if (!id || !uuid.test(id)) throw new Error("UNAUTHENTICATED");
   const client = await pool.connect();
   try {
-    const { rows } = await client.query("SELECT role FROM ethn.staff_access WHERE user_id = $1 AND enabled = true AND role IN ('owner','staff')", [id]);
+    const { rows } = await client.query("SELECT role FROM ethn.staff_access WHERE user_id = $1 AND enabled = true AND role='owner'", [id]);
     if (!rows[0]) throw new Error("FORBIDDEN");
     return { userId: id, role: rows[0].role as "owner" | "staff" };
   } finally { client.release(); }

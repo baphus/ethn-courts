@@ -8,7 +8,7 @@ const url=process.env.ETHN_VENUE_TEST_DATABASE_URL;
 test("owner court creation is inactive, idempotent and least-privileged",{skip:!url},async()=>{
  const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:process.env.ETHN_VENUE_TEST_ADMIN_URL}),owner="00000000-0000-4000-8000-000000000041",staff="00000000-0000-4000-8000-000000000042",verify=async()=>owner;
  try {
-  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]);
+  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',false)",[owner,staff]);
   await assert.rejects(createCourt(pool,async()=>staff,{name:"Unauthorized",idempotencyKey:"denied"}),/FORBIDDEN/);
   await assert.rejects(listCourts(pool,async()=>staff),/FORBIDDEN/);
   for(const input of [{name:" "},{name:"x".repeat(101)},{name:"Good",description:"x".repeat(1001)},{name:"Good",extra:true},{name:"Good",idempotencyKey:"bad\nkey"}]) await assert.rejects(createCourt(pool,verify,{idempotencyKey:"invalid",...input}),/INVALID_INPUT/);

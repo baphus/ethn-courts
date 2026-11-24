@@ -17,7 +17,7 @@ test("walk-in hold reserves slot before full payment, binds staff and confirms a
   try {
     await admin.query("UPDATE ethn.court_hours SET hourly_rate=200");
     await admin.query("UPDATE ethn.settings SET merchant='ETHN GCash 0917-000-0000'");
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'owner',true),($2,'staff',true),($3,'staff',true),($4,'staff',false)",[owner,staff,other,disabled]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'owner',true),($2,'owner',true),($3,'owner',true),($4,'staff',false)",[owner,staff,other,disabled]);
 
     await assert.rejects(reserve(10,null as unknown as string),/UNAUTHENTICATED/);
     await assert.rejects(reserve(10,disabled),/FORBIDDEN/);

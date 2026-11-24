@@ -10,7 +10,7 @@ test("append-only owner expense corrections, optimistic concurrency and idempote
  const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:process.env.ETHN_FINANCE_TEST_ADMIN_URL}); const owner="00000000-0000-4000-8000-000000000041",staff="00000000-0000-4000-8000-000000000042",verify=async()=>owner;
  let expenseId="";
  try {
-  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]); expenseId=randomUUID();
+  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',false)",[owner,staff]); expenseId=randomUUID();
   await admin.query("INSERT INTO ethn.expenses(id,title,category,amount,paid_date,created_by) VALUES($1,'Correction test','Other',10,(now() at time zone 'Asia/Manila')::date,$2)",[expenseId,owner]);
   const base={amountDelta:"-0.05",reason:"Receipt total typo",correctionDate:manilaDateStr(new Date()),expectedPreviousCorrectionId:null,idempotencyKey:"correction-1"};
   await assert.rejects(correctExpense(pool,async()=>staff,expenseId,{...base,idempotencyKey:"staff"}),/FORBIDDEN/);

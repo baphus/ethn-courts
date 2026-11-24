@@ -18,7 +18,6 @@ export default function StaffManager() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [userId, setUserId] = useState("");
-  const [role, setRole] = useState<Role>("staff");
   const [editing, setEditing] = useState<Access | null>(null);
   const [open, setOpen] = useState(false);
   const [discard, setDiscard] = useState(false);
@@ -49,27 +48,26 @@ export default function StaffManager() {
   }
 
   return <div className="mx-auto w-full max-w-4xl space-y-6 pb-12">
-    <header className="space-y-2"><h1 className="text-3xl font-semibold tracking-tight">Staff access</h1><p className="max-w-2xl text-muted-foreground">Grant or revoke staff access for accounts that already exist in Auth. This page does not create logins or send invitations. At least one enabled owner must always remain.</p></header>
+    <header className="space-y-2"><h1 className="text-3xl font-semibold tracking-tight">Owner access</h1><p className="max-w-2xl text-muted-foreground">Grant or revoke Owner access for accounts that already exist in Auth. This page does not create logins or send invitations. At least one enabled owner must always remain.</p></header>
     {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/staff">Sign in</a>}</div>}
     {notice && <p role="status" className="rounded-lg border bg-muted p-4 text-sm">{notice}</p>}
     {!staff && <Button variant="outline" disabled={busy} onClick={() => void load()}>{busy ? "Loading…" : "Try again"}</Button>}
     {staff && <>
-      <Dialog open={open} onOpenChange={next => { if (next) { setError(""); setOpen(true); } else if (!busy) { if (editing ? (role !== editing.role || enabled !== editing.enabled) : !!userId || role !== "staff") setDiscard(true); else { setOpen(false); returnFocus?.focus(); } } }}>
-        <DialogTrigger render={<Button onClick={() => { setReturnFocus(null); setEditing(null); setUserId(""); setRole("staff"); setEnabled(true); setDiscard(false); }} />}>+ Grant access</DialogTrigger>
+      <Dialog open={open} onOpenChange={next => { if (next) { setError(""); setOpen(true); } else if (!busy) { if (editing ? (enabled !== editing.enabled) : !!userId) setDiscard(true); else { setOpen(false); returnFocus?.focus(); } } }}>
+        <DialogTrigger render={<Button onClick={() => { setReturnFocus(null); setEditing(null); setUserId(""); setEnabled(true); setDiscard(false); }} />}>+ Grant access</DialogTrigger>
         <DialogContent className="sm:max-w-lg"><DialogTitle>{editing ? "Edit access" : "Grant access"}</DialogTitle><DialogDescription>Access applies to existing Auth accounts only. At least one enabled owner must remain.</DialogDescription>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           {discard && <div role="alert" className="space-y-2 rounded-md border p-3"><p>Close without saving? Your entries remain until you leave this page.</p><div className="flex gap-2"><Button variant="outline" onClick={() => setDiscard(false)}>Keep editing</Button><Button onClick={() => { setDiscard(false); setOpen(false); returnFocus?.focus(); }}>Close form</Button></div></div>}
           <label className="space-y-1 text-sm font-medium" htmlFor="new-user">Auth user ID<Input id="new-user" value={userId} onChange={e => setUserId(e.target.value)} disabled={busy || !!editing} placeholder="00000000-0000-4000-8000-000000000000" autoComplete="off" spellCheck={false} /></label>
-          <label className="space-y-1 text-sm font-medium" htmlFor="new-role">Role<select id="new-role" disabled={busy} className="block w-full rounded-md border bg-background px-2 py-2 text-sm" value={role} onChange={e => setRole(e.target.value as Role)}><option value="staff">Staff</option><option value="owner">Owner</option></select></label>
           {editing && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} disabled={busy} onChange={e => setEnabled(e.target.checked)} /> Enabled</label>}
-          <Button type="button" disabled={busy || !userId.trim()} onClick={() => void save({ userId: userId.trim().toLowerCase(), role, enabled })}>{busy ? "Saving…" : editing ? "Save access" : "Grant access"}</Button>
+          <Button type="button" disabled={busy || !userId.trim()} onClick={() => void save({ userId: userId.trim().toLowerCase(), role: "owner", enabled })}>{busy ? "Saving…" : editing ? "Save access" : "Grant access"}</Button>
         </DialogContent>
       </Dialog>
       <section className="rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Current access</h2>
-        {staff.length === 0 ? <p className="mt-2 text-sm text-muted-foreground text-center"><EmptyIcon /> No staff records.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
+        {staff.length === 0 ? <p className="mt-2 text-sm text-muted-foreground text-center"><EmptyIcon /> No access records.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
           <thead><tr className="text-muted-foreground"><th className="pb-2 pr-3 font-medium">Auth user ID</th><th className="pb-2 pr-3 font-medium">Role</th><th className="pb-2 pr-3 font-medium">State</th><th className="pb-2 text-right font-medium"><span className="sr-only">Actions</span></th></tr></thead>
-          <tbody>{staff.map(row => <tr key={row.userId} className="border-t"><td className="break-all py-3 pr-3 font-mono text-xs">{row.userId}</td><td className="py-3 pr-3 capitalize">{row.role}</td><td className="py-3 pr-3">{row.enabled ? "Enabled" : "Disabled"}</td><td className="py-3 text-right"><Button variant="outline" disabled={busy} onClick={event => { setReturnFocus(event.currentTarget); setDiscard(false); setEditing(row); setUserId(row.userId); setRole(row.role); setEnabled(row.enabled); setError(""); setOpen(true); }}>Edit<span className="sr-only"> access for {row.userId}</span></Button></td></tr>)}</tbody>
+          <tbody>{staff.map(row => <tr key={row.userId} className="border-t"><td className="break-all py-3 pr-3 font-mono text-xs">{row.userId}</td><td className="py-3 pr-3 capitalize">{row.role === "owner" ? "Owner" : "Retired"}</td><td className="py-3 pr-3">{row.enabled ? "Enabled" : "Disabled"}</td><td className="py-3 text-right"><Button variant="outline" disabled={busy} onClick={event => { setReturnFocus(event.currentTarget); setDiscard(false); setEditing(row); setUserId(row.userId); setEnabled(row.enabled); setError(""); setOpen(true); }}>Edit<span className="sr-only"> access for {row.userId}</span></Button></td></tr>)}</tbody>
         </table></div>}
       </section>
 

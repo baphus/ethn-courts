@@ -15,7 +15,7 @@ test("payment decisions on fresh restricted local database", { skip: !url || !ad
   try {
     await admin.query("UPDATE ethn.settings SET merchant='merchant'");
     await admin.query("UPDATE ethn.court_hours SET hourly_rate=200");
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'owner',true),($2,'staff',true),($3,'staff',false)", [owner, staff, disabled]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'owner',true),($2,'owner',true),($3,'staff',false)", [owner, staff, disabled]);
     let slot = 0;
     async function submitted(reference: string, late = false) {
       const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);

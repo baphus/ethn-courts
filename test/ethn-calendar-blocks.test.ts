@@ -10,7 +10,7 @@ const overlap=(start:Date,end:Date,kind="maintenance")=>({courtId:"1",startsAt:s
 test("block database contract and staff calendar on restricted disposable ETHN role",{skip:!url||!adminUrl},async()=>{
  const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:adminUrl});
  try{
-  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true),($3,'staff',false)",[owner,staff,disabled]);
+  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true),($3,'staff',false)",[owner,staff,disabled]);
   const roles=(await admin.query("SELECT has_table_privilege('ethn_checkout','ethn.court_blocks','DELETE') AS del,has_column_privilege('ethn_checkout','ethn.court_blocks','created_at','UPDATE') AS upd")).rows[0];assert.deepEqual(roles,{del:false,upd:false});
   const now=(await admin.query("SELECT clock_timestamp() AS now")).rows[0].now as Date,start=new Date(now.getTime()+3600000),end=new Date(now.getTime()+7200000);
   await assert.rejects(createEthnBlock(pool,async()=>owner,overlap(new Date(now.getTime()-60000),new Date(now.getTime()+60000))),/INVALID_INPUT/);

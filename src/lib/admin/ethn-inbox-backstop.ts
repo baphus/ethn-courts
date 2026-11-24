@@ -6,7 +6,7 @@ type Db = Pick<Pool, "connect">;
 async function inboxRecipients(pool: Db) {
   const client = await pool.connect();
   try {
-    const { rows } = await client.query("SELECT user_id FROM ethn.staff_access WHERE enabled AND role IN ('owner','staff') ORDER BY user_id LIMIT 100");
+    const { rows } = await client.query("SELECT user_id FROM ethn.staff_access WHERE enabled AND role='owner' ORDER BY user_id LIMIT 100");
     return rows.map(row=>row.user_id as string);
   } finally { client.release(); }
 }

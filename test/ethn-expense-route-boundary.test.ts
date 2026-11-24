@@ -1,12 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readAdminJson } from "../src/lib/admin/ethn-json";
 
-test("expense mutation checks origin and bounds streamed JSON before service", () => {
-  const source = readFileSync(new URL("../src/app/api/ethn/admin/expenses/route.ts", import.meta.url), "utf8");
-  assert.ok(source.indexOf("hasValidOrigin(request)") < source.indexOf("await addExpense("));
-  assert.match(source, /request\.body\?\.getReader\(\)/);
-  assert.match(source, /size>4096/);
-  assert.match(source, /await reader\.cancel\(\)/);
-  assert.doesNotMatch(source, /request\.text\(\)/);
+test("expense JSON permits metadata within the limit and rejects oversized input", async () => {
+  const request = (body: string) => new Request("http://localhost", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+  const values = { description: "a".repeat(2000), notes: "b".repeat(2000), vendor: "c".repeat(160) };
+  assert.deepEqual(await readAdminJson(request(JSON.stringify(values)), 32768), values);
+  await assert.rejects(readAdminJson(request(JSON.stringify({ notes: "x".repeat(32768) })), 32768), /INVALID_INPUT/);
 });

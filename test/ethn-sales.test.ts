@@ -7,11 +7,11 @@ const url=process.env.ETHN_SALES_TEST_DATABASE_URL;
 test("paid sales and immutable dated owner corrections on restricted database",{skip:!url},async()=>{
  const pool=new Pool({connectionString:url}), admin=new Pool({connectionString:process.env.ETHN_SALES_TEST_ADMIN_URL});const owner="00000000-0000-4000-8000-000000000041",staff="00000000-0000-4000-8000-000000000042",now=new Date().toISOString();
  try{
-  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]);
-  const sale=await createSale(pool,async()=>staff,{description:" Court snacks ",note:null,amount:"100.05",method:"cash",receivedAt:now,idempotencyKey:"sale-create-1"});assert.equal(sale.amount,"100.05");assert.deepEqual(await createSale(pool,async()=>staff,{description:"Court snacks",note:null,amount:"100.05",method:"cash",receivedAt:now,idempotencyKey:"sale-create-1"}),sale);
-  await assert.rejects(createSale(pool,async()=>staff,{description:"x",note:null,amount:"0.00",method:"cash",receivedAt:now,idempotencyKey:"bad"}),/INVALID_INPUT/);
-  await assert.rejects(createSale(pool,async()=>staff,{description:"x",note:null,amount:"1.001",method:"cash",receivedAt:now,idempotencyKey:"bad"}),/INVALID_INPUT/);
-  const staffRows=await listSales(pool,async()=>staff);assert.equal(staffRows?.length,1);assert.equal("createdBy" in staffRows![0],false);
+  await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',false)",[owner,staff]);
+  const sale=await createSale(pool,async()=>owner,{description:" Court snacks ",note:null,amount:"100.05",method:"cash",receivedAt:now,idempotencyKey:"sale-create-1"});assert.equal(sale.amount,"100.05");assert.deepEqual(await createSale(pool,async()=>owner,{description:"Court snacks",note:null,amount:"100.05",method:"cash",receivedAt:now,idempotencyKey:"sale-create-1"}),sale);
+  await assert.rejects(createSale(pool,async()=>owner,{description:"x",note:null,amount:"0.00",method:"cash",receivedAt:now,idempotencyKey:"bad"}),/INVALID_INPUT/);
+  await assert.rejects(createSale(pool,async()=>owner,{description:"x",note:null,amount:"1.001",method:"cash",receivedAt:now,idempotencyKey:"bad"}),/INVALID_INPUT/);
+  await assert.rejects(listSales(pool,async()=>staff), /FORBIDDEN/);
   const c1=await correctSale(pool,async()=>owner,sale.id,{amount:"95.00",method:"gcash",reason:"Entered method and amount wrong",expectedCorrectionId:null,idempotencyKey:"correction-1"});assert.equal(c1.amountDelta,"-5.05");assert.equal(c1.cashDelta,"-100.05");assert.equal(c1.gcashDelta,"95.00");assert.match(c1.createdAt,/Z$/);
   await assert.rejects(correctSale(pool,async()=>staff,sale.id,{amount:null,method:null,reason:"void",expectedCorrectionId:c1.id,idempotencyKey:"staff-correction"}),/FORBIDDEN/);
   await assert.rejects(correctSale(pool,async()=>owner,sale.id,{amount:null,method:null,reason:"stale",expectedCorrectionId:null,idempotencyKey:"correction-stale"}),/CORRECTION_CONFLICT/);

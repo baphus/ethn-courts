@@ -35,7 +35,7 @@ async function rollback(client: PoolClient, uncertain: boolean) {
   try { await client.query("ROLLBACK"); return false; } catch { return true; }
 }
 async function locks(client: PoolClient, staff: string) {
-  if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [staff])).rows.length) throw new Error("FORBIDDEN");
+  if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [staff])).rows.length) throw new Error("FORBIDDEN");
   await client.query("SELECT singleton FROM ethn.settings WHERE singleton=true FOR UPDATE");
   await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
 }
@@ -79,7 +79,7 @@ export async function signExtensionProof(pool: Db, verify: StaffVerifier, x: { e
   try { signed = await storage.sign(row.object_path); } catch { throw new Error("STORAGE_UNAVAILABLE"); }
   if (!signed?.signedUrl || !signed.token || signed.path !== row.object_path) throw new Error("STORAGE_UNAVAILABLE");
   const check=await pool.connect();
-  try { const stillValid=await check.query("SELECT 1 FROM ethn.staff_access s JOIN ethn.extension_proofs p ON p.created_by=s.user_id JOIN ethn.extensions e ON e.id=p.extension_id WHERE s.user_id=$1 AND s.enabled AND s.role IN ('owner','staff') AND p.id=$2 AND p.extension_id=$3 AND p.state='reserved' AND e.status='held' AND e.expires_at>clock_timestamp()",[staff,x.proofId,x.extensionId]); if(!stillValid.rows.length) throw new Error("EXTENSION_EXPIRED"); }
+  try { const stillValid=await check.query("SELECT 1 FROM ethn.staff_access s JOIN ethn.extension_proofs p ON p.created_by=s.user_id JOIN ethn.extensions e ON e.id=p.extension_id WHERE s.user_id=$1 AND s.enabled AND s.role='owner' AND p.id=$2 AND p.extension_id=$3 AND p.state='reserved' AND e.status='held' AND e.expires_at>clock_timestamp()",[staff,x.proofId,x.extensionId]); if(!stillValid.rows.length) throw new Error("EXTENSION_EXPIRED"); }
   finally { check.release(); }
   return { ...signed, expiresAt: new Date(row.expires_at).toISOString() };
 }

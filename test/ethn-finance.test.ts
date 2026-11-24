@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
-import { addExpense, getApprovalFinance, getFinance, listExpenses } from "../src/lib/admin/ethn-finance";
+import { addExpense, changeExpense, getFinanceExport, getApprovalFinance, getFinance, listExpenses } from "../src/lib/admin/ethn-finance";
 
 const url=process.env.ETHN_FINANCE_TEST_DATABASE_URL;
 test("finance reads and immutable expense entries on fresh restricted database",{skip:!url},async()=>{
   const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:process.env.ETHN_FINANCE_TEST_ADMIN_URL}); const owner="00000000-0000-4000-8000-000000000031",staff="00000000-0000-4000-8000-000000000032",verify=async()=>owner;
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)",[owner,staff]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',false)",[owner,staff]);
     await assert.rejects(addExpense(pool,async()=>staff,{title:"x",category:"Other",amount:"1.00",paidDate:"2026-11-20",idempotencyKey:"no"}),/FORBIDDEN/);
     for(const input of [{amount:"0.00"},{amount:"1.001"},{amount:"10000000000.00"},{paidDate:"2026-02-30"},{paidDate:"2099-01-01"},{extra:true}]) await assert.rejects(addExpense(pool,verify,{title:"Test",category:"Other",amount:"1.00",paidDate:"2026-11-20",idempotencyKey:"bad",...input}),/INVALID_INPUT/);
     const input={title:"  Utilities  ",category:"Utilities",amount:"100.25",paidDate:"2026-11-20",idempotencyKey:"finance-test-key"}; const saved=await addExpense(pool,verify,input); assert.equal(saved.amount,"100.25"); assert.deepEqual(await addExpense(pool,verify,input),saved); await assert.rejects(addExpense(pool,verify,{...input,amount:"100.26"}),/IDEMPOTENCY_MISMATCH/);
@@ -47,6 +47,26 @@ test("finance reads and immutable expense entries on fresh restricted database",
     const retries=await Promise.all([addExpense(pool,verify,retryInput),addExpense(pool,verify,retryInput)]);
     assert.equal(retries[0].id,retries[1].id);
     assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.audit WHERE action='expense.create' AND detail->>'expenseId'=$1",[retries[0].id])).rows[0].n,1);
-    const grants=await pool.query("SELECT has_column_privilege(current_user,'ethn.expenses','amount','UPDATE') AS u,has_table_privilege(current_user,'ethn.expenses','DELETE') AS d"); assert.deepEqual(grants.rows[0],{u:false,d:false});
+    assert.equal(reconciled.daily[0].bookingPayments, "0.30");
+    assert.equal(reconciled.daily[0].otherSales, "0.00");
+    const filtered = await listExpenses(pool, verify, "2026-11-20", "2026-11-20", 1, 20, "Utilities", "UTIL");
+    const entry = filtered.rows.find(row => row.id === saved.id)!;
+    assert.equal(entry.effectiveAmount, "100.25");
+    const correction = randomUUID();
+    await admin.query("INSERT INTO ethn.expense_corrections(id,expense_id,amount_delta,correction_date,reason,created_by) VALUES($1,$2,-0.25,'2026-11-21','fixture',$3)", [correction,saved.id,owner]);
+    const workbook = await getFinanceExport(pool, verify, "2026-11-20", "2026-11-21", "Utilities", "UTIL");
+    assert.equal(workbook.bookings.length, 1);
+    assert.equal(workbook.expenses[0].amountCentavos, 10000);
+    await assert.rejects(getFinanceExport(pool, async () => staff, "2026-11-20", "2026-11-21", "", ""), /FORBIDDEN/);
+    const original = { revision: entry.revision, lastCorrectionId: correction };
+    await changeExpense(pool, verify, saved.id, "edit", { ...original, title: "Utilities", category: "Utilities", amount: "12.30", paidDate: "2026-11-20", vendor: "Vendor" });
+    await assert.rejects(changeExpense(pool, verify, saved.id, "delete", original), /STALE_CORRECTION/);
+    const edited = (await listExpenses(pool, verify, "2026-11-20", "2026-11-20", 1, 20, "Utilities", "UTIL")).rows[0];
+    assert.equal(edited.effectiveAmount, "12.30");
+    assert.equal(edited.vendor, "Vendor");
+    assert.equal(edited.lastCorrectionId, correction);
+    assert.equal((await getFinance(pool, verify, "2026-11-21", "2026-11-21")).totals.expenses, "0.00");
+    await changeExpense(pool, verify, saved.id, "delete", { revision: edited.revision, lastCorrectionId: edited.lastCorrectionId });
+    assert.equal((await listExpenses(pool, verify, "2026-11-20", "2026-11-20", 1, 20, "Utilities", "UTIL")).total, 0);
   } finally { await admin.query("DELETE FROM ethn.payments WHERE booking_id IN (SELECT id FROM ethn.bookings WHERE owner_hash='finance-fixture')"); await admin.query("DELETE FROM ethn.bookings WHERE owner_hash='finance-fixture'"); await admin.query("DELETE FROM ethn.audit WHERE actor=$1",[owner]); await admin.query("DELETE FROM ethn.expenses WHERE created_by=$1",[owner]); await admin.query("DELETE FROM ethn.idempotency WHERE owner_hash=$1 AND operation='expense.create'",[createHash("sha256").update(owner).digest("hex")]).catch(()=>{}); await admin.query("DELETE FROM ethn.staff_access WHERE user_id=ANY($1::uuid[])",[[owner,staff]]); await pool.end(); await admin.end(); }
 });

@@ -36,7 +36,7 @@ export async function createExtensionHold(pool: Db, verify: StaffVerifier, body:
   let discard = false, committing = false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
     const settings = (await client.query("SELECT version::text,interval_minutes,minimum_minutes,anchor_minutes,horizon_days,hold_minutes,merchant FROM ethn.settings WHERE singleton=true FOR UPDATE")).rows[0];
     if (!settings) throw new Error("EXTENSION_UNAVAILABLE");
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
@@ -94,7 +94,7 @@ export async function confirmExtension(pool: Db, verify: StaffVerifier, input: {
   const client = await pool.connect(); let discard = false, committing = false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
     const settings = (await client.query("SELECT singleton,merchant FROM ethn.settings WHERE singleton=true FOR UPDATE")).rows[0];
     if (!settings) throw new Error("EXTENSION_UNAVAILABLE");
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
@@ -138,7 +138,7 @@ export async function expireExtension(pool: Db, verify: StaffVerifier, extension
   const actor = await staffActor(pool, verify), client = await pool.connect(); let discard=false, committing=false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
     await client.query("SELECT singleton FROM ethn.settings WHERE singleton=true FOR UPDATE");
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
     const ext = (await client.query("SELECT id,booking_id,status,expires_at FROM ethn.extensions WHERE id=$1 FOR UPDATE",[extensionId])).rows[0];

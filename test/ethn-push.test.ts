@@ -51,7 +51,7 @@ test("push ownership, recipient isolation, dedupe, concurrent claims, retry and 
   const env = { NODE_ENV: "test", ETHN_WEB_PUSH_ENABLED: "1", VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey, VAPID_SUBJECT: vapid.subject } as NodeJS.ProcessEnv;
   const subIds: string[] = [];
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)", [a,b]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true)", [a,b]);
     const created = await addPushSubscription(db, verifyA, subscription("a"));
     subIds.push(created.subscriptionId);
     const same = await addPushSubscription(db, verifyA, subscription("a"));

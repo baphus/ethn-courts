@@ -33,7 +33,7 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
     await client.query("BEGIN"); transaction = true;
     const inserted = await client.query("INSERT INTO ethn.idempotency (owner_hash, operation, key, fingerprint, result) VALUES ($1,'payment_decision',$2,$3,NULL) ON CONFLICT DO NOTHING RETURNING key", [actor, input.key, fingerprint]);
     const prior = (await client.query("SELECT fingerprint, result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='payment_decision' AND key=$2 FOR UPDATE", [actor, input.key])).rows[0];
-    const staff = (await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows[0];
+    const staff = (await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows[0];
     if (!staff) throw new Error("FORBIDDEN");
     if (!prior || prior.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
     if (!inserted.rows.length) {

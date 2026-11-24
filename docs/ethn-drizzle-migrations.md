@@ -10,6 +10,9 @@ Drizzle manages SQL-first custom migrations in `db/ethn-migrations/`:
 2. `0001_court_details.sql`: court descriptions/photo/version upgrade (old 0029).
 3. `0002_sloppy_machine_man.sql`: configurable payment instructions/versioned QR images, optional actual payment evidence, direct internal booking compatibility, refund/cancellation outcomes and archive metadata (reference `db/ethn/0030_unified_bookings.sql`). Generated filename retained from installed CLI.
 
+4. `0003_owner_only_admin.sql`: promotes enabled Staff to Owner, records each promotion in audit history, and prohibits enabled non-Owner memberships.
+5. `0004_finance_expense_actions.sql`: adds expense metadata and revisions, and permits audited Owner edits/deletes through the active service.
+
 Separate history: `ethn_migrations.__drizzle_migrations`. Legacy `drizzle/`, `drizzle.config.ts`, `src/db/schema.ts` and `supabase/` are not used. Never run default drizzle-kit push/migrate against ETHN. ETHN custom schema is deliberately empty; never use push with it. Runtime remains server-side SQL, not ORM queries. Old db/ethn files remain reference/fresh-test fixtures; do not run both chains on the same database.
 
 ## Prerequisites
@@ -30,7 +33,7 @@ npm run db:migrate
 npm run db:status
 ```
 
-Fresh expected result: applied=3, pending=0. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
+Fresh expected result: applied=5, pending=0. For an existing target, review the exact enabled Staff roster before cutover: every promoted account gains full Owner privileges, including exports, refund recording and membership management. Confirm a restorable backup and review the `owner.cutover` audit roster after execution. If rolling back, stop admin writes and restore the reviewed backup or authorize a compensating migration scoped to the recorded promotions; do not silently demote previously existing Owners. Do not deploy the new Finance code ahead of its schema migration. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
 
 Verify effective grants/RLS with restricted login and test owner access, booking availability and picture replacement. Fresh SQL seeds courts/settings but does not provision actual Auth users or owner access, proof Storage, GCash instructions, live rates, mail or scheduler. Configure separately. Browser Auth and private Storage must target same ETHN Supabase project. Moving to another Supabase project requires updating Auth/Storage environment and provisioning private proof bucket/policies; SQL migrations do not move identities, proofs or old bookings.
 

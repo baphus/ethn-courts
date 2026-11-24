@@ -12,7 +12,7 @@ test("persistent notifications isolate recipients, deduplicate reconciliation an
   await admin.connect();
   const a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", booking = "cccccccc-cccc-4ccc-8ccc-cccccccccccc", payment = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   try {
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'staff',true)", [a,b]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true)", [a,b]);
     await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'h',current_date,'pending',now()+interval '1 hour',10,1)", [booking]);
     await admin.query("INSERT INTO ethn.payments(id,booking_id,method,status) VALUES($1,$2,'gcash','unverified')", [payment,booking]);
     await admin.query("INSERT INTO ethn.courts(name) VALUES('Test court')");

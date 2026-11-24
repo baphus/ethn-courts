@@ -14,7 +14,7 @@ test("owner authorization, hold expiry, and checkout serialization", { skip: !ur
   const pool = new Pool({ connectionString: url }), admin = new Pool({ connectionString: adminUrl });
   try {
     const staff = randomUUID(), disabled = randomUUID();
-    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'staff',true),($2,'owner',false)", [staff, disabled]);
+    await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES ($1,'staff',false),($2,'owner',false)", [staff, disabled]);
     for (const actor of [staff, disabled]) {
       await assert.rejects(getSettings(pool, async () => actor), /FORBIDDEN/);
       await assert.rejects(putEthnHours(pool, async () => actor, proposal("2")), /FORBIDDEN/);

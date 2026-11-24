@@ -42,7 +42,7 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
  const c=await pool.connect();let discard=false,committing=false;
  try{
   await c.query('BEGIN');
-  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
+  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
   const inserted=await c.query("INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,'internal.create',$2,$3,NULL) ON CONFLICT DO NOTHING RETURNING key",[owner,idempotencyKey,fingerprint]);
   const prior=(await c.query("SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='internal.create' AND key=$2 FOR UPDATE",[owner,idempotencyKey])).rows[0];
   if(!prior||prior.fingerprint!==fingerprint)throw new Error('IDEMPOTENCY_MISMATCH');

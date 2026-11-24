@@ -11,7 +11,7 @@ export type TargetLookup = (userId: string) => Promise<boolean>;
 const current = (row: Access) => ({ userId: row.user_id, role: row.role, enabled: row.enabled });
 
 function validate(body: unknown) {
-  if (!keys(body, ["userId", "role", "enabled"]) || typeof body.userId !== "string" || !uuid.test(body.userId) || (body.role !== "owner" && body.role !== "staff") || typeof body.enabled !== "boolean") throw new Error("INVALID_INPUT");
+  if (!keys(body, ["userId", "role", "enabled"]) || typeof body.userId !== "string" || !uuid.test(body.userId) || body.role !== "owner" || typeof body.enabled !== "boolean") throw new Error("INVALID_INPUT");
   return { userId: body.userId.toLowerCase(), role: body.role as Role, enabled: body.enabled };
 }
 

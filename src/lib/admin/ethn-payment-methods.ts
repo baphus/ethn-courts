@@ -22,7 +22,7 @@ export async function savePaymentMethod(pool: Db, verify: StaffVerifier, body: u
   let committing = false, discard = false;
   try {
     await c.query('BEGIN');
-    if (!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor.userId])).rowCount) throw new Error('FORBIDDEN');
+    if (!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor.userId])).rowCount) throw new Error('FORBIDDEN');
     await c.query(`INSERT INTO ethn.payment_methods(id,name,instructions,enabled,qr) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(id) DO UPDATE SET name=excluded.name,instructions=excluded.instructions,enabled=excluded.enabled,qr=coalesce(excluded.qr,ethn.payment_methods.qr),version=ethn.payment_methods.version+1,updated_at=clock_timestamp()`, [id,b.name.trim(),b.instructions.trim(),b.enabled,qr ?? null]);
     await c.query('INSERT INTO ethn.payment_method_qr_versions(method_id,version,qr) SELECT id,version,qr FROM ethn.payment_methods WHERE id=$1 AND qr IS NOT NULL ON CONFLICT DO NOTHING',[id]);

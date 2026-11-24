@@ -59,7 +59,7 @@ export async function reserveWalkIn(pool: Db, verify: StaffVerifier, body: unkno
   let committing=false,discard=false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
     const settings = (await client.query("SELECT version::text, interval_minutes, minimum_minutes, anchor_minutes, horizon_days, hold_minutes, merchant FROM ethn.settings WHERE singleton=true FOR UPDATE")).rows[0];
     if (!settings) throw new Error("WALK_IN_UNAVAILABLE");
     const courts = (await client.query("SELECT id::text,name,active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
@@ -101,7 +101,7 @@ export async function createWalkIn(pool: Db, verify: StaffVerifier, body: unknow
   let committing = false, discard = false;
   try {
     await client.query("BEGIN");
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role IN ('owner','staff') FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
+    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows.length) throw new Error("FORBIDDEN");
     const inserted = await client.query("INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES ($1,'walkin',$2,$3,NULL) ON CONFLICT DO NOTHING RETURNING key", [ownerHash, idempotencyKey, fingerprint]);
     const existing = await client.query("SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='walkin' AND key=$2 FOR UPDATE", [ownerHash, idempotencyKey]);
     const idem = existing.rows[0];

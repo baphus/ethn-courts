@@ -15,7 +15,6 @@ const operations: NavItem[] = [
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
   { href: "/admin/open-plays", label: "Open Plays", icon: CalendarDays },
-  { href: "/admin/sales", label: "Paid sales", icon: CreditCard },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -25,10 +24,10 @@ const management: NavItem[] = [
   { href: "/admin/finance", label: "Finance", icon: CreditCard },
   { href: "/admin/payment-instructions", label: "Payment instructions", icon: Settings },
   { href: "/admin/activity", label: "Activity history", icon: ScrollText },
-  { href: "/admin/staff", label: "Staff access", icon: Users },
+  { href: "/admin/staff", label: "Owner access", icon: Users },
 ];
 
-export default function AdminSidebar({ email, name, isOwner }: { email: string; name: string | null; isOwner: boolean }) {
+export default function AdminSidebar({ email, name }: { email: string; name: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -46,8 +45,8 @@ export default function AdminSidebar({ email, name, isOwner }: { email: string; 
   </SidebarMenuItem>;
 
   return <Sidebar collapsible="icon">
-    <nav aria-label="Staff navigation" className="flex h-full min-h-0 flex-col">
-    <SidebarHeader><div className="flex flex-col items-start gap-1 px-2 py-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={150} height={85} className="h-auto w-36 group-data-[collapsible=icon]:w-9"/><span className="text-xs text-[#b7c7cf] group-data-[collapsible=icon]:hidden">Staff portal</span></div></SidebarHeader>
+    <nav aria-label="Owner navigation" className="flex h-full min-h-0 flex-col">
+    <SidebarHeader><div className="flex flex-col items-start gap-1 px-2 py-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={150} height={85} className="h-auto w-36 group-data-[collapsible=icon]:w-9"/><span className="text-xs text-[#b7c7cf] group-data-[collapsible=icon]:hidden">Owner portal</span></div></SidebarHeader>
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>Operations</SidebarGroupLabel>
@@ -55,7 +54,7 @@ export default function AdminSidebar({ email, name, isOwner }: { email: string; 
       </SidebarGroup>
       <SidebarGroup className="pt-0">
         <SidebarGroupLabel>Management &amp; finance</SidebarGroupLabel>
-        <SidebarGroupContent><SidebarMenu className="gap-0.5">{management.filter(item => isOwner || item.href === "/admin/payment-instructions").map(renderItem)}</SidebarMenu></SidebarGroupContent>
+        <SidebarGroupContent><SidebarMenu className="gap-0.5">{management.map(renderItem)}</SidebarMenu></SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup className="pt-0">
         <SidebarGroupContent><SidebarMenu className="gap-0.5">
@@ -69,7 +68,7 @@ export default function AdminSidebar({ email, name, isOwner }: { email: string; 
         <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
           {name && <p className="truncate text-xs font-semibold">{name}</p>}
           <p className="truncate text-xs text-sidebar-foreground/70">{email}</p>
-          <p className="text-xs text-sidebar-foreground/70">{isOwner ? "Owner" : "Staff"}</p>
+          <p className="text-xs text-sidebar-foreground/70">Owner</p>
         </div>
         <SidebarTrigger aria-label="Toggle sidebar" className="hidden shrink-0 text-white hover:text-white md:inline-flex" />
       </div>
