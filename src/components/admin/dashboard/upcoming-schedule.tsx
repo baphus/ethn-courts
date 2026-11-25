@@ -30,7 +30,7 @@ function addDay(date: string) { return addDaysManilaStr(date, 1); }
 export function UpcomingSchedule() {
   const state = useAnalytics<ScheduleData>("section=schedule");
   const [tab, setTab] = useState<Tab>("today");
-  return <Card title="Upcoming schedule" subtitle="Pending and confirmed reservations that haven’t ended" action={<Link href="/admin/calendar" className="text-xs font-semibold text-primary hover:underline">Open calendar</Link>}>
+  return <Card title="Upcoming schedule" subtitle="Confirmed reservations that haven’t started" action={<Link href="/admin/calendar" className="text-xs font-semibold text-primary hover:underline">Open calendar</Link>}>
     <Body state={state} skeleton="h-56">{d => {
       const tomorrow = addDay(d.operatingDate);
       const inTab = (i: ScheduleItem) => tab === "week" || i.operatingDate === (tab === "today" ? d.operatingDate : tomorrow);

@@ -2,7 +2,9 @@
 
 This contract covers only `ethn.extensions`, `ethn.extension_items`, the extension ownership of `ethn.court_allocations`, and `ethn.payments.extension_id`. It is not a complete staff feature until shared read/reporting callers below are integrated.
 
-## Hold
+> The extension management page and all extension write endpoints are retired. See [extension and refund retirement](ethn-extension-refund-retirement.md) for the required pre-deployment reconciliation. Historical records, allocations, and payments are retained.
+
+## Hold (historical)
 
 `createExtensionHold(pool, verifyStaffIdentity, body)` accepts exactly:
 

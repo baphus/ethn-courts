@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg id="still" xmlns="http://www.w3.org/2000/svg" font-family="SF Pro Display" font-weight="400" data-d-component="svg" fill="currentColor" style="background:transparent;color:#ededed" viewBox="-9.5 -39.5 340 220" width="100%" role="img" aria-label="Isometric pickleball court with two paddles rallying a ball" preserveAspectRatio="xMidYMid meet"><style>
+#rally-ball { transform: translate(-69px, 15px); }
+#rally-left, #rally-right { transform-box:fill-box; transform-origin: 50% 70%; }
+#rally-left { transform: translate(3px,-1px) rotate(9deg); }
+@media (prefers-reduced-motion: no-preference) {
+  svg:not(:target) #rally-ball { animation: rally-flight 3.5s linear infinite; }
+  svg:not(:target) #rally-left { animation: rally-left-swing 1.75s ease-in-out infinite; }
+  svg:not(:target) #rally-right { animation: rally-right-swing 1.75s ease-in-out infinite; }
+}
+@keyframes rally-left-swing {
+  0%,100% { transform:translate(3px,-1px) rotate(9deg); }
+  7% { transform:translate(0,0) rotate(-4deg); }
+  18%,76% { transform:translate(0,0) rotate(0deg); }
+  90% { transform:translate(-4px,2px) rotate(-12deg); }
+}
+@keyframes rally-right-swing {
+  0%,26%,76%,100% { transform:translate(0,0) rotate(0deg); }
+  40% { transform:translate(4px,3px) rotate(-12deg); }
+  50% { transform:translate(-3px,-2px) rotate(10deg); }
+  57% { transform:translate(0,0) rotate(-4deg); }
+}
+@keyframes rally-flight {
+0.000% {transform:translate(-69.000px,15.000px)}
+1.250% {transform:translate(-62.052px,10.062px)}
+2.500% {transform:translate(-55.210px,5.850px)}
+3.750% {transform:translate(-48.472px,2.362px)}
+5.000% {transform:translate(-41.840px,-0.400px)}
+6.250% {transform:translate(-35.312px,-2.438px)}
+7.500% {transform:translate(-28.890px,-3.750px)}
+8.750% {transform:translate(-22.573px,-4.337px)}
+10.000% {transform:translate(-16.360px,-4.200px)}
+11.250% {transform:translate(-10.252px,-3.337px)}
+12.500% {transform:translate(-4.250px,-1.750px)}
+13.750% {transform:translate(1.648px,0.562px)}
+15.000% {transform:translate(7.440px,3.600px)}
+16.250% {transform:translate(13.127px,7.363px)}
+17.500% {transform:translate(18.710px,11.850px)}
+18.750% {transform:translate(24.188px,17.062px)}
+20.000% {transform:translate(29.560px,23.000px)}
+21.250% {transform:translate(34.827px,29.662px)}
+22.500% {transform:translate(39.990px,37.050px)}
+23.750% {transform:translate(45.048px,45.163px)}
+25.000% {transform:translate(50.000px,54.000px)}
+26.250% {transform:translate(45.048px,45.163px)}
+27.500% {transform:translate(39.990px,37.050px)}
+28.750% {transform:translate(34.828px,29.663px)}
+30.000% {transform:translate(29.560px,23.000px)}
+31.250% {transform:translate(24.188px,17.062px)}
+32.500% {transform:translate(18.710px,11.850px)}
+33.750% {transform:translate(13.127px,7.362px)}
+35.000% {transform:translate(7.440px,3.600px)}
+36.250% {transform:translate(1.648px,0.562px)}
+37.500% {transform:translate(-4.250px,-1.750px)}
+38.750% {transform:translate(-10.252px,-3.338px)}
+40.000% {transform:translate(-16.360px,-4.200px)}
+41.250% {transform:translate(-22.572px,-4.337px)}
+42.500% {transform:translate(-28.890px,-3.750px)}
+43.750% {transform:translate(-35.312px,-2.438px)}
+45.000% {transform:translate(-41.840px,-0.400px)}
+46.250% {transform:translate(-48.473px,2.363px)}
+47.500% {transform:translate(-55.210px,5.850px)}
+48.750% {transform:translate(-62.052px,10.062px)}
+50.000% {transform:translate(-69.000px,15.000px)}
+51.250% {transform:translate(-62.053px,10.063px)}
+52.500% {transform:translate(-55.210px,5.850px)}
+53.750% {transform:translate(-48.473px,2.363px)}
+55.000% {transform:translate(-41.840px,-0.400px)}
+56.250% {transform:translate(-35.312px,-2.438px)}
+57.500% {transform:translate(-28.890px,-3.750px)}
+58.750% {transform:translate(-22.572px,-4.337px)}
+60.000% {transform:translate(-16.360px,-4.200px)}
+61.250% {transform:translate(-10.252px,-3.337px)}
+62.500% {transform:translate(-4.250px,-1.750px)}
+63.750% {transform:translate(1.647px,0.562px)}
+65.000% {transform:translate(7.440px,3.600px)}
+66.250% {transform:translate(13.127px,7.362px)}
+67.500% {transform:translate(18.710px,11.850px)}
+68.750% {transform:translate(24.188px,17.062px)}
+70.000% {transform:translate(29.560px,23.000px)}
+71.250% {transform:translate(34.828px,29.663px)}
+72.500% {transform:translate(39.990px,37.050px)}
+73.750% {transform:translate(45.048px,45.163px)}
+75.000% {transform:translate(50.000px,54.000px)}
+76.250% {transform:translate(45.048px,45.163px)}
+77.500% {transform:translate(39.990px,37.050px)}
+78.750% {transform:translate(34.828px,29.663px)}
+80.000% {transform:translate(29.560px,23.000px)}
+81.250% {transform:translate(24.188px,17.062px)}
+82.500% {transform:translate(18.710px,11.850px)}
+83.750% {transform:translate(13.127px,7.362px)}
+85.000% {transform:translate(7.440px,3.600px)}
+86.250% {transform:translate(1.647px,0.562px)}
+87.500% {transform:translate(-4.250px,-1.750px)}
+88.750% {transform:translate(-10.252px,-3.337px)}
+90.000% {transform:translate(-16.360px,-4.200px)}
+91.250% {transform:translate(-22.572px,-4.337px)}
+92.500% {transform:translate(-28.890px,-3.750px)}
+93.750% {transform:translate(-35.312px,-2.438px)}
+95.000% {transform:translate(-41.840px,-0.400px)}
+96.250% {transform:translate(-48.473px,2.363px)}
+97.500% {transform:translate(-55.210px,5.850px)}
+98.750% {transform:translate(-62.053px,10.063px)}
+100.000% {transform:translate(-69.000px,15.000px)}
+}
+</style><g transform="matrix(1 .36 -1 .36 155 17)"><rect x="0" y="0" width="154" height="143" rx="3" fill="#466b52"/><rect x="12" y="14" width="130" height="115" fill="#749ba9"/><rect x="56" y="14" width="42" height="115" fill="#eaa170"/><g stroke="white" stroke-width="1.6" fill="none"><rect x="12" y="14" width="130" height="115"/><path d="M56 14V129 M98 14V129 M12 71.5H56 M98 71.5H142"/></g></g><path d="M218 50L103 91L103 66L218 25Z" fill="#232b2b" fill-opacity=".12"/><path d="M218 25v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M213 26.782608695652172v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M208 28.565217391304348v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M203 30.347826086956523v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M198 32.130434782608695v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M193 33.91304347826087v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M188 35.69565217391305v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M183 37.47826086956522v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M178 39.26086956521739v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M173 41.04347826086956v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M168 42.826086956521735v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M163 44.608695652173914v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M158 46.391304347826086v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M153 48.17391304347826v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M148 49.95652173913044v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M143 51.73913043478261v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M138 53.52173913043478v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M133 55.30434782608695v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M128 57.08695652173913v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M123 58.869565217391305v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M118 60.65217391304348v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M113 62.43478260869565v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M108 64.21739130434783v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M103 66v25" stroke="#38403f" stroke-width=".65" opacity=".6"/><path d="M218 25L103 66" stroke="#38403f" stroke-width=".65" opacity=".7"/><path d="M218 30L103 71" stroke="#38403f" stroke-width=".65" opacity=".7"/><path d="M218 35L103 76" stroke="#38403f" stroke-width=".65" opacity=".7"/><path d="M218 40L103 81" stroke="#38403f" stroke-width=".65" opacity=".7"/><path d="M218 45L103 86" stroke="#38403f" stroke-width=".65" opacity=".7"/><path d="M218 50L103 91" stroke="#38403f" stroke-width=".65" opacity=".7"/><path d="M218 50V23 M103 91V64" stroke="#252c2c" stroke-width="4" stroke-linecap="round"/><path d="M103 65L218 24" stroke="#f4f4ef" stroke-width="2.5"/><g id="rally-left"><g transform="translate(83 61) rotate(-34)"><rect x="-4" y="6" width="8" height="23" rx="3" fill="#263630"/><rect x="-14" y="-23" width="28" height="36" rx="9" fill="#233e33" stroke="#152a22" stroke-width="2"/><rect x="-10" y="-19" width="20" height="28" rx="6" fill="#476c58"/></g></g><g id="rally-right"><g transform="translate(233 105) rotate(143)"><rect x="-4" y="6" width="8" height="23" rx="3" fill="#263630"/><rect x="-14" y="-23" width="28" height="36" rx="9" fill="#c47746" stroke="#8d5434" stroke-width="2"/><rect x="-10" y="-19" width="20" height="28" rx="6" fill="#eaa170"/></g></g><path d="M103 49Q173 -4 222 88" stroke="#a9bb51" stroke-width="1.7" stroke-dasharray="4 5" fill="none" opacity=".8" id="rally-trail"/><g id="rally-ball"><circle cx="172" cy="34" r="6" fill="#d9eb68"/><g fill="#879a35"><circle cx="170" cy="32" r="1.2"/><circle cx="175" cy="35" r="1.2"/><circle cx="169" cy="37" r="1"/></g></g></svg>

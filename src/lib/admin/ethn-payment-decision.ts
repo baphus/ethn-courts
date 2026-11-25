@@ -50,6 +50,8 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
     if (payment.method === "cash" || !proof || !payment.merchant_snapshot) throw new Error("DECISION_INCOMPATIBLE");
     const now = (await client.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
     if (decision.action === "approve") {
+      const { ended } = (await client.query("SELECT max(ends_at) <= clock_timestamp() AS ended FROM ethn.booking_items WHERE booking_id=$1", [bookingId])).rows[0];
+      if (ended) throw new Error("DECISION_ALREADY_FINAL");
       if (decision.reference !== null && decision.reference !== payment.claimed_reference?.trim()) throw new Error("REFERENCE_MISMATCH");
       if (decision.amount !== null && decision.amount !== booking.total) throw new Error("AMOUNT_MISMATCH");
       if (decision.receivedAt && new Date(decision.receivedAt) > now) throw new Error("INVALID_INPUT");

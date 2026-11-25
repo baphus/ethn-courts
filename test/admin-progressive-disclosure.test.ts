@@ -11,6 +11,12 @@ test('bounded admin creation tasks have labelled dialog entry points',()=>{
  ['src/app/admin/open-plays/page.tsx','Create open play'],
  ] as const){const text=source(file);assert.match(text,/DialogContent/,file);assert.match(text,/DialogTitle/,file);assert.ok(text.includes(label),file);assert.match(text,/onOpenChange/,file);}
 });
+test('court editor treats null descriptions as blank when opening, saving and checking edits',()=>{
+ const text=source('src/app/admin/courts/court-setup.tsx');
+ assert.match(text,/setEditDescription\(detail\.description \?\? ""\)/);
+ assert.match(text,/setEditDescription\(updated\.description \?\? ""\)/);
+ assert.match(text,/editDescription\.trim\(\) !== \(editing\.description \?\? ""\)/);
+});
 test('uncertain attendance changes cannot silently close or resubmit',()=>{
  const text=source('src/app/admin/bookings/outcome-controls.tsx');
  assert.match(text,/inflight\.current \|\| unknown/);

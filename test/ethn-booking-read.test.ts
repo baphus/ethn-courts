@@ -72,6 +72,13 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     assert.equal(matching.total, 1); assert.equal(matching.rows[0].id, rejected);
     const tracking = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=TC${rejected.replaceAll("-", "").slice(0, 10)}`));
     assert.equal(tracking.total, 1);
+    assert.equal(tracking.rows[0].trackingCode, `TC${rejected.replaceAll("-", "").slice(0, 10)}`);
+    assert.deepEqual(tracking.rows[0].courtNames, ["Court 1"]);
+    assert.equal(tracking.rows[0].guestEmail, "p@example.test");
+    assert.equal(tracking.rows[0].guestPhone, "09170000000");
+    assert.equal(tracking.rows[0].slotCount, 2);
+    assert.deepEqual(tracking.rows[0].playTimes[0].courts, ["Court 1"]);
+    assert.ok(!JSON.stringify(tracking).includes("TRACKING_HASH_SECRET"));
     const page = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&limit=1&page=2"));
     assert.equal(page.rows.length, 1); assert.equal(page.total, 2);
 

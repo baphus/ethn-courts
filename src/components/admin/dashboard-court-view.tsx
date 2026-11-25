@@ -11,10 +11,10 @@ import { StatusBadge } from "./dashboard-status";
 import { CourtTimeline } from "./court-timeline";
 import { CourtCard } from "./court-card";
 import { KpiRow, type Kpi } from "./kpi-row";
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { shiftDate } from "@/app/admin/calendar/date-utils";
 import { Avatar } from "./court-avatar";
-import { courtStatus, currentPosition, intervalLabel, timelineTime } from "./court-timeline-utils";
+import { courtStatus, currentPosition, dashboardCourtSchedule, intervalLabel, timelineTime } from "./court-timeline-utils";
 import { useBookingDetail, useCourtDay, useNow } from "./use-court-day";
 
 const dateTime = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -28,9 +28,10 @@ function Skeleton() {
 
 export function DashboardCourtView({ overview, owner, overviewError, retryOverview }: { overview: DashboardOverview | null; owner: boolean; overviewError: string; retryOverview: () => void }) {
   const [date, setDate] = useState("");
-  const { day, error, loading, updated } = useCourtDay(date);
-  const selectedDate = date || day?.date || overview?.operatingDate || "";
+  const { day: calendar, error, loading, updated } = useCourtDay(date);
+  const selectedDate = date || calendar?.date || overview?.operatingDate || "";
   const now = useNow();
+  const day = useMemo(() => calendar && dashboardCourtSchedule(calendar, now), [calendar, now]);
   const [block, setBlock] = useState<{ court: string; item: Interval } | null>(null);
   const [booking, setBooking] = useState<string | null>(null);
   const { detail, error: detailError } = useBookingDetail(booking);
@@ -40,7 +41,6 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
 
   const placeholder = overviewError ? "Unavailable" : <LoadingSkeleton className="h-7 w-16 motion-reduce:animate-none" />;
   const kpis: Kpi[] = overview || owner ? [
-    { label: "Bookings", Icon: CalendarDays, value: overview ? Number(overview.periods.today) || 0 : placeholder },
     { label: "Pending", Icon: Clock, value: overview ? Number(overview.counts.pending) || 0 : placeholder },
     { label: "Confirmed", Icon: CheckCircle2, value: overview ? Number(overview.counts.confirmed) || 0 : placeholder },
   ] : [];
@@ -66,7 +66,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
       {statuses.map(({ court, status }) => <CourtCard key={court.id} court={court} status={status} now={now} live={live} onOpen={setBooking} />)}
     </section>}
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-lg font-semibold">Court timeline</h2>
+      <div><h2 className="text-lg font-semibold">Court timeline</h2><p className="text-xs text-muted-foreground">Shows current and upcoming confirmed bookings and court blocks. Check the calendar for pending bookings and holds.</p></div>
       <div className="flex items-center gap-2">
         <button type="button" aria-label="Previous date" className={navBtn} disabled={!selectedDate} onClick={() => setDate(shiftDate(selectedDate, -1))}><ChevronLeft className="size-4" /></button>
         <input aria-label="Court schedule date" type="date" className={navBtn} value={selectedDate} onChange={event => { if (event.target.value) setDate(event.target.value); }} />

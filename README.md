@@ -42,6 +42,8 @@ Contact details require `db/ethn/0026_contact_settings.sql` after the preceding 
 
 ## Removed features
 
+Booking refunds and extension management are retired. Before deploying that change, follow the [extension reconciliation checklist](docs/ethn-extension-refund-retirement.md).
+
 Late-payment exception review is removed: no staff screen, review APIs, navigation entry or exception alerts. Existing payment history and expired-hold safeguards remain; see `docs/ethn-exceptions-api.md`.
 
 ## Verification and launch gates

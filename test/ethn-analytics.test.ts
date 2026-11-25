@@ -39,7 +39,9 @@ test("staff cannot obtain finance; strict query validation and schedule segments
   const schedule = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=schedule")) as { items: { id: string; bookingId: string }[] };
   assert.deepEqual(schedule.items.map(({ id, bookingId }) => ({ id, bookingId })), [{ id: "item:1", bookingId: "booking" }]);
   const sql = db.queries.find(q => q.includes("WITH parts AS"))!;
-  assert.match(sql, /p\.ends_at > \$3/); assert.match(sql, /LIMIT 301/); assert.doesNotMatch(sql, /min\(p\.starts_at\)/);
+  assert.match(sql, /WHERE b\.status = 'confirmed'/);
+  assert.match(sql, /p\.starts_at >= \$3/);
+  assert.match(sql, /LIMIT 301/); assert.doesNotMatch(sql, /min\(p\.starts_at\)/);
   assert.ok(!db.queries.some(q => q.includes("WITH days AS")));
   assert.ok(db.releases() > 0);
 });

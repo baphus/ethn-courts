@@ -37,7 +37,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "5. Changes, cancellations, and refunds",
     body: [
-      "The website does not offer self-service rescheduling, cancellations, or refunds. Contact ETHN Courts as soon as possible if you need help. Staff can handle eligible cases only; contacting us does not guarantee a change or refund. Any approved refund is made outside the website. Nothing here limits rights you have under applicable law.",
+      "Bookings cannot be extended through the website. The website does not offer self-service rescheduling or cancellation and does not process refunds. Contact ETHN Courts if you need help. Nothing here limits rights you have under applicable law.",
     ],
   },
   {

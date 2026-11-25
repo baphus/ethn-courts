@@ -3,6 +3,7 @@ import { addDaysManilaStr } from "@/lib/courts";
 import { manilaDateStr } from "@/lib/booking/slots";
 import { getStaff, type StaffVerifier } from "@/lib/admin/ethn-payments";
 import { getFinance } from "@/lib/admin/ethn-finance";
+import { summarizeBookingSchedule } from "./ethn-booking-schedule";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,7 +52,7 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
     const periods = (await client.query(`SELECT
       count(*) FILTER (WHERE operating_date >= $2::date)::int AS current,
       count(*) FILTER (WHERE operating_date < $2::date)::int AS prior,
-      count(*) FILTER (WHERE operating_date = $1::date)::int AS today
+      count(*) FILTER (WHERE operating_date = $1::date AND status = 'confirmed')::int AS today
       FROM ethn.bookings WHERE status <> 'held' AND operating_date BETWEEN $3::date AND $1::date`,
       [operatingDate, dashboardDateOffset(operatingDate, -14), dashboardDateOffset(operatingDate, -29)])).rows[0];
     const recent = await client.query(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
@@ -115,13 +116,28 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const total = Number((await client.query(`SELECT count(*)::int AS total FROM ethn.bookings b ${where}`, values)).rows[0].total);
-    const rows = await client.query<SummaryRow & { archived: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
-      b.archived_at IS NOT NULL AS archived,
+    const rows = await client.query<SummaryRow & { archived: boolean; tracking_code: string | null; guest_email: string | null; guest_phone: string | null }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+      b.archived_at IS NOT NULL AS archived, b.tracking_code, b.guest_email, b.guest_phone,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
       FROM ethn.bookings b ${where} ORDER BY b.created_at DESC, b.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset]);
+    const schedules = new Map<string, Parameters<typeof summarizeBookingSchedule>[0]>();
+    if (rows.rows.length) {
+      const { rows: items } = await client.query<{ booking_id: string; court_name: string; starts_at: Date; ends_at: Date; duration_minutes: number; interval_minutes: number }>(`
+        SELECT i.booking_id, c.name AS court_name, i.starts_at, i.ends_at, i.duration_minutes, i.interval_minutes
+        FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id WHERE i.booking_id = ANY($1::uuid[])
+        UNION ALL
+        SELECT e.booking_id, c.name, i.starts_at, i.ends_at, i.duration_minutes, i.interval_minutes
+        FROM ethn.extensions e JOIN ethn.extension_items i ON i.extension_id = e.id JOIN ethn.courts c ON c.id = i.court_id
+        WHERE e.booking_id = ANY($1::uuid[]) AND e.status IN ('confirmed', 'completed')`, [rows.rows.map(row => row.id)]);
+      for (const item of items) {
+        const schedule = schedules.get(item.booking_id) ?? [];
+        schedule.push({ courtName: item.court_name, startsAt: item.starts_at.toISOString(), endsAt: item.ends_at.toISOString(), durationMinutes: item.duration_minutes, intervalMinutes: item.interval_minutes });
+        schedules.set(item.booking_id, schedule);
+      }
+    }
     await client.query("COMMIT");
-    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived })), page, limit, total };
+    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
 }

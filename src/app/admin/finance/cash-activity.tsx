@@ -11,10 +11,9 @@ import { KpiCard } from "@/components/admin/kpi-row";
 import { Wallet } from "lucide-react";
 
 const series = [
-  ["bookingPayments", "Booking and extension receipts"],
+  ["bookingPayments", "Booking receipts"],
   ["otherSales", "Other sales"],
   ["expenses", "Expenses"],
-  ["refunds", "External refunds"],
 ] as const;
 const metrics = [...series, ["net", "Net recorded cash"]] as const;
 const pesos = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" });
@@ -23,7 +22,7 @@ export function CashActivity({ from, to }: { from: string; to: string }) {
   const { data: report, error, loading, retry } = useDashboardResource<CashReport>(`/api/ethn/admin/finance?${new URLSearchParams({ basis: "cash", from, to })}`);
   const methodTotal = report?.paymentMethods.reduce((sum, { amount }) => sum + Number(amount), 0) ?? 0;
   return <section className="space-y-4" aria-labelledby="cash-activity-heading" aria-busy={loading}>
-    <div className="flex items-center gap-2"><h2 id="cash-activity-heading" className="text-lg font-semibold">Cash activity</h2><FinanceInfo label="About cash activity">Manila receipt dates for verified booking and extension payments. When receipt time is missing, the verification date is used instead. Sales, corrections and recorded external refunds use their own ledger dates. Net recorded cash is receipts and sales less expenses and refunds.</FinanceInfo></div>
+    <div className="flex items-center gap-2"><h2 id="cash-activity-heading" className="text-lg font-semibold">Cash activity</h2><FinanceInfo label="About cash activity">Verified receipts use Manila receipt dates, or the verification date if no receipt time was recorded. Historical extension receipts are included. Net recorded cash subtracts expenses and historical refunds. See the export for ledger detail.</FinanceInfo></div>
     {error && <p role="alert">{error} <Button variant="link" onClick={retry}>Retry</Button></p>}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">{metrics.map(([key, label]) => {
         const change = report && cashChange(report.current[key], report.previous[key]);
@@ -36,7 +35,7 @@ export function CashActivity({ from, to }: { from: string; to: string }) {
             {series.map(([key, label], i) => <Line key={key} dataKey={key} name={label} stroke={`var(--chart-${i + 1})`} strokeWidth={2} strokeDasharray={i ? `${i + 2} ${i + 1}` : undefined} dot={false} />)}
           </LineChart></ResponsiveContainer></div> : !error && <Skeleton className="h-72 w-full motion-reduce:animate-none" />}
         </div>
-        <aside className="space-y-4"><section className="rounded-xl border bg-card p-5 shadow-sm"><h3 className="font-semibold">Payment methods</h3><p className="mt-1 text-xs text-muted-foreground">Verified booking and extension receipts</p><div className="mt-4 space-y-3">{!report && !error && <LoadingRows label="Loading payment methods" />}{report?.paymentMethods.map(({ id, name, amount }) => <div key={id} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{name}</span><span className="text-right tabular-nums">{formatCashAmount(amount)}{methodTotal > 0 && Number(amount) >= 0 && <span className="ml-2 text-muted-foreground">{(Number(amount) / methodTotal * 100).toFixed(1)}%</span>}</span></div>)}</div></section>
+        <aside className="space-y-4"><section className="rounded-xl border bg-card p-5 shadow-sm"><h3 className="font-semibold">Payment methods</h3><p className="mt-1 text-xs text-muted-foreground">Verified booking receipts</p><div className="mt-4 space-y-3">{!report && !error && <LoadingRows label="Loading payment methods" />}{report?.paymentMethods.map(({ id, name, amount }) => <div key={id} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{name}</span><span className="text-right tabular-nums">{formatCashAmount(amount)}{methodTotal > 0 && Number(amount) >= 0 && <span className="ml-2 text-muted-foreground">{(Number(amount) / methodTotal * 100).toFixed(1)}%</span>}</span></div>)}</div></section>
           <section className="rounded-xl border bg-card p-5 shadow-sm"><h3 className="font-semibold">Expense categories</h3><p className="mt-1 text-xs text-muted-foreground">Highest amounts by ledger date, including corrections</p><div className="mt-4 space-y-3">{!report ? !error && <LoadingRows label="Loading expense categories" /> : report.expenseCategories.length ? [...report.expenseCategories].sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 5).map(item => <div key={item.category} className="flex justify-between gap-3 text-sm"><span>{item.category}</span><span className="tabular-nums">{formatCashAmount(item.amount)}</span></div>) : <p className="text-sm text-muted-foreground">No expenses in this period.</p>}</div></section></aside>
       </div>
   </section>;

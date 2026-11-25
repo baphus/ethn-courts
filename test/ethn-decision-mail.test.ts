@@ -11,20 +11,34 @@ test("decision mail validates kinds and optional token without breaking submissi
     { id: "2", kind: "booking_approved", payload: base, attempts: 0 },
     { id: "3", kind: "booking_rejected", payload: { ...base, reason: "Please resubmit" }, attempts: 0 },
     { id: "4", kind: "booking_rejected", payload: { ...base, reason: "", trackingToken: "bad" }, attempts: 0 },
+    { id: "5", kind: "booking_cancelled", payload: { email: base.email, staff: true, total: base.total, reason: "private note" }, attempts: 0 },
+    { id: "6", kind: "booking_refunded", payload: { ...base, trackingToken: "a".repeat(64), reference: "private reference" }, attempts: 0 },
+    { id: "7", kind: "booking_approved", payload: { email: base.email, staff: true, total: base.total }, attempts: 0 },
+    { id: "8", kind: "booking_approved", payload: { ...base, email: "one,two@example.com" }, attempts: 0 },
   ];
   const statuses: unknown[] = [], messages: { subject: string; text: string }[] = [];
   const pool = { connect: async () => ({ query: async (sql: string, args?: unknown[]) => {
     if (sql.includes("SELECT id, kind")) return { rows };
+    if (sql.includes("FROM ethn.booking_items")) return { rows: [{ court: "Court 1", starts_at: new Date("2026-01-01T12:00:00Z"), ends_at: new Date("2026-01-01T17:00:00Z") }] };
     if (sql.includes("SET status = $3")) statuses.push(args?.[2]);
     return { rows: [] };
   }, release() {} }) };
   await drainEthnOutbox(pool as never, { sendMail: async m => { messages.push(m); } }, { bookingId, from: "mail@example.com", appUrl: "https://example.com" });
-  assert.deepEqual(statuses, ["sent", "sent", "sent", "dead"]);
-  assert.match(messages[0].text, /pending review/);
-  assert.match(messages[1].text, /confirmed and fully paid/);
-  assert.match(messages[1].text, /code and email/);
-  assert.doesNotMatch(messages[1].text, /\/track\//);
+  assert.deepEqual(statuses, ["sent", "sent", "sent", "dead", "sent", "sent", "sent", "dead"]);
+  assert.deepEqual(messages.map(m => m.subject), ["Payment proof received", "Booking confirmed", "Booking not confirmed", "Booking cancelled", "Booking refund recorded", "Booking confirmed"].map(title => `${title} | ETHN Courts`));
+  for (const [index, message] of messages.entries()) {
+    assert.match(message.text, /Court schedule \(Philippine time\):\nCourt 1:.*8:00 PM.*Jan 2, 2026, 1:00 AM/);
+    assert.match(message.text, /ETHN Courts\n.*Balamban, Cebu.*\n[\s\S]*Contact ETHN Courts: https:\/\/example\.com\/contact/);
+    assert.equal(message.text.includes("Directions:"), index === 1 || index === 5);
+  }
+  assert.match(messages[0].text, /^.*pending review.*not confirmed yet/);
+  assert.match(messages[1].text, /Total paid: PHP 100.00/);
+  assert.match(messages[1].text, /code and email: https:\/\/example\.com\/track\n/);
   assert.match(messages[2].text, /not booked[\s\S]*Please resubmit/);
+  assert.match(messages[3].text, /No refund was recorded/);
+  assert.match(messages[4].text, /outside the booking website[\s\S]*Refund recorded: PHP 100.00[\s\S]*\/checkout\/track\/a{64}/);
+  assert.doesNotMatch(messages.map(m => m.text).join("\n"), /private note|private reference/);
+  for (const index of [3, 5]) assert.doesNotMatch(messages[index].text, /Track|Booking code/);
 });
 
 test("tracking exposes rejection reason only for rejected payment and booking", async () => {

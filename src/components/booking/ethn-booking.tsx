@@ -6,7 +6,9 @@ import { EmptyIcon } from "@/components/ui/empty-icon";
 import { LoadingAnimation } from "@/components/ui/loading-animation";
 import HowItWorks from "@/components/landing/how-it-works";
 import Faq from "@/components/landing/faq";
+import CourtGallery from "@/components/landing/court-gallery";
 import RallyCourt from "./rally-court";
+import EthnHeroLogo from "./ethn-hero-logo";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -14,7 +16,7 @@ import { toast } from "sonner";
 import { checkoutFailure, holdExpiry } from "./checkout-feedback";
 import EthnBookingReceipt from "./ethn-booking-receipt";
 import type { CheckoutReceipt } from "@/lib/booking/ethn-receipt";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Clock3, CreditCard, Download, Image as ImageIcon, Users } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Clock3, CreditCard, Download, Image as ImageIcon, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { priceItems, validateGuest } from "@/lib/booking/core";
@@ -51,27 +53,6 @@ const statusStyles = {
   "Rate unavailable": "bg-[#fff0d5] text-[#805000] border-[#efcf93]",
 } as const;
 
-/* ──────────────────────────────────────────────────────────────
-   IMAGE SLOTS — paste your image paths here (e.g. "/hero-court.jpg").
-   Leave the hero empty for the animated court.
-   ────────────────────────────────────────────────────────────── */
-const IMAGES = {
-  hero: "", // Set an image path to replace the animated court.
-  book: "/stock/book.jpg",       // "Book a court" card
-  openPlays: "/stock/openPlays.jpg",  // "Open plays" card
-  track: "/stock/track.jpg",      // "Track a booking" card
-  visit: "/stock/visit.jpg",      // "Visit us" card
-};
-
-function Photo({ src, label, className = "" }: { src: string; label: string; className?: string }) {
-  if (src) return <img src={src} alt="" className={`object-cover ${className}`} />;
-  return (
-    <div role="img" aria-label={`${label} placeholder`} className={`grid place-items-center bg-[repeating-linear-gradient(135deg,#447244_0_12px,#447244_12px_24px)] p-4 text-center text-[11px] font-bold uppercase tracking-widest text-white/55 ${className}`}>
-      <span>{label}<br />placeholder</span>
-    </div>
-  );
-}
-
 function Ball({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -82,47 +63,9 @@ function Ball({ className = "" }: { className?: string }) {
   );
 }
 
-function BallSticker() {
-  const dots = [[50, 24], [33, 33], [67, 33], [24, 50], [50, 50], [76, 50], [33, 67], [67, 67], [50, 76]];
-  return (
-    <svg viewBox="0 0 100 100" className="block h-auto w-full drop-shadow-[0_6px_0_rgba(0,0,0,.2)]">
-      <circle cx="50" cy="50" r="47" fill="#fff" />
-      <circle cx="50" cy="50" r="39" fill="#ffad4c" />
-      <g fill="#447244" opacity=".8">{dots.map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="4.5" />)}</g>
-      <path d="M22 38a30 30 0 0 1 16-17" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" opacity=".7" />
-    </svg>
-  );
-}
-
-function PaddleSticker() {
-  const holes: [number, number][] = [];
-  for (let r = 0; r < 5; r++) for (let c = 0; c < 4; c++) holes.push([30 + c * 14, 32 + r * 13]);
-  return (
-    <svg viewBox="0 0 100 172" className="block h-auto w-full drop-shadow-[0_6px_0_rgba(0,0,0,.2)]">
-      <g fill="#fff" stroke="#fff" strokeWidth="12" strokeLinejoin="round"><rect x="10" y="8" width="80" height="108" rx="38" /><rect x="40" y="108" width="20" height="56" rx="8" /></g>
-      <rect x="40" y="108" width="20" height="56" rx="8" fill="#447244" />
-      <g stroke="#ffad4c" strokeWidth="3" strokeLinecap="round"><path d="M44 124h12M44 134h12M44 144h12M44 154h12" /></g>
-      <rect x="10" y="8" width="80" height="108" rx="38" fill="#f28500" />
-      <rect x="20" y="18" width="60" height="88" rx="28" fill="#ffad4c" />
-      <g fill="#f28500">{holes.map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="3" />)}</g>
-    </svg>
-  );
-}
-
-/* Floating sticker. `speed` = extra px it rises per px of page scroll. */
-function Sticker({ kind, className, speed, rot, delay = 0 }: { kind: "ball" | "paddle"; className: string; speed: number; rot: number; delay?: number }) {
-  return (
-    <span aria-hidden="true" className={`ethn-sticker pointer-events-none absolute z-10 ${className}`} style={{ transform: `translate3d(0, calc(var(--sy, 0) * -${speed}px), 0)` }}>
-      <span className="ethn-float block" style={{ "--r": `${rot}deg`, animationDelay: `${delay}s` } as React.CSSProperties}>
-        {kind === "ball" ? <BallSticker /> : <PaddleSticker />}
-      </span>
-    </span>
-  );
-}
-
 function Guides() {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 mx-auto grid max-w-7xl grid-cols-4 [&>*:last-child]:border-r">
+    <div aria-hidden="true" className="ethn-guides pointer-events-none absolute inset-0 -z-10 mx-auto grid max-w-7xl grid-cols-4 [&>*:last-child]:border-r">
       <span className="border-l border-dashed border-white/10" /><span className="border-l border-dashed border-white/10" /><span className="border-l border-dashed border-white/10" /><span className="border-l border-dashed border-white/10" />
     </div>
   );
@@ -159,6 +102,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const previewDialog = useRef<HTMLDialogElement>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [chosenDate, setChosenDate] = useState("");
+  const [heroMotion, setHeroMotion] = useState(true);
   const [dateStatus, setDateStatus] = useState("");
   const dateId = useId();
   const [dateFallback, setDateFallback] = useState(false);
@@ -216,7 +160,6 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const [trackCode, setTrackCode] = useState(""); const [trackEmail, setTrackEmail] = useState(""); const [tracking, setTracking] = useState<Tracking | null>(null);
   const [trackError, setTrackError] = useState(""); const [trackBusy, setTrackBusy] = useState(false);
   const lock = useRef(false);
-  const heroRef = useRef<HTMLElement>(null);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (reviewing && !draft) reviewHeading.current?.focus(); }, [reviewing, draft]);
   const clock = useRef({ server: 0, monotonic: 0 });
@@ -290,14 +233,6 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   useEffect(() => {
     const timer = window.setInterval(() => { if (clock.current.server) setNow(clock.current.server + performance.now() - clock.current.monotonic); }, 1000);
     return () => window.clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0;
-    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { if (!reduce) heroRef.current?.style.setProperty("--sy", String(Math.min(window.scrollY, 1400))); }); };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
   }, []);
 
   function changeDate(date: string) {
@@ -466,53 +401,44 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
 
   const contactFields = <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input required maxLength={200} value={name} onChange={e => updateProgress({ name: e.target.value })} autoComplete="name" /></label><label className={field}>Email<Input required type="email" maxLength={254} value={email} onChange={e => updateProgress({ email: e.target.value })} autoComplete="email" /></label><label className={field}>Contact number<Input required type="tel" maxLength={50} value={phone} onChange={e => updateProgress({ phone: e.target.value })} autoComplete="tel" /></label></div>;
 
-  const playCards = [
-    { href: "/book", label: "Book a court", image: IMAGES.book, caption: "Book a court" },
-    { href: "/open-plays", label: "Open plays", image: IMAGES.openPlays, caption: "Open plays" },
-    { href: "/track", label: "Track a booking", image: IMAGES.track, caption: "Track a booking" },
-    { href: "/contact", label: "Visit us", image: IMAGES.visit, caption: "Visit us" },
-  ];
-
   return <div className={`min-h-screen bg-[#447244] text-[#17252e]${ranges.length && !reviewing && !draft && !result ? " max-lg:[&+footer]:pb-[calc(9rem+env(safe-area-inset-bottom))] max-lg:[&+footer_.developer-promo]:hidden" : ""}`}>
     <style>{`
-      @keyframes ethn-rise{from{transform:translateY(105%)}to{transform:none}}
       @keyframes ethn-court{from{transform:translateY(45%);opacity:0}to{transform:none;opacity:1}}
       @keyframes ethn-fade{from{opacity:0}to{opacity:1}}
-      .ethn-line{display:block;overflow:hidden;padding-bottom:.03em}
-      .ethn-line>span{display:block;animation:ethn-rise .9s cubic-bezier(.2,.8,.2,1) both}
-      .ethn-line:nth-child(2)>span{animation-delay:.12s}
-      .ethn-court{animation:ethn-court 1.1s .35s cubic-bezier(.2,.8,.2,1) both}
-      .ethn-fade{animation:ethn-fade .8s .7s both}
-      @keyframes ethn-float{0%,100%{transform:translateY(0) rotate(var(--r,0deg))}50%{transform:translateY(-14px) rotate(calc(var(--r,0deg) + 5deg))}}
-      .ethn-float{animation:ethn-float 5s ease-in-out infinite;will-change:transform}
-      @media (prefers-reduced-motion:reduce){.ethn-line>span,.ethn-court,.ethn-fade,.ethn-float{animation:none}.ethn-sticker{transform:none!important}}
+      @keyframes ethn-trail-shot{0%{clip-path:inset(0 100% 0 0)}14%,100%{clip-path:inset(0)}86%{opacity:1}96%,100%{opacity:0}}
+      @keyframes ethn-ball-shot{0%{opacity:0;transform:translate(-475px,80px)}4%{opacity:1}14%,100%{transform:none}86%{opacity:1}96%,100%{opacity:0}}
+      @media (prefers-reduced-motion:no-preference){
+        .ethn-hero{--wordmark-duration:.35s;--shot-duration:.48s;--after-shot:calc(var(--wordmark-duration) + var(--shot-duration));--shot-ease:cubic-bezier(.2,.8,.2,1)}
+        .ethn-logo-wordmark{animation:ethn-fade var(--wordmark-duration) backwards}
+        .ethn-logo-trail{transform-box:fill-box;--shot:ethn-trail-shot}
+        .ethn-logo-ball{--shot:ethn-ball-shot}
+        .ethn-hero[data-motion="true"] :is(.ethn-logo-trail,.ethn-logo-ball){animation:var(--shot) 3.5s ease-in var(--wordmark-duration) infinite backwards}
+        .ethn-hero>.ethn-guides,.ethn-fade{animation:ethn-fade .45s var(--after-shot) backwards}
+        .ethn-court{animation:ethn-court .65s var(--after-shot) var(--shot-ease) backwards}
+        .ethn-fade:focus-within{animation:none}
+      }
     `}</style>
     <main>
       {!bookingPage && <>{/* HERO */}
-      <section ref={heroRef} className="relative isolate overflow-hidden bg-[#447244] px-4 pt-3 text-center text-white sm:px-6">
+      <section data-motion={heroMotion} className="ethn-hero relative isolate -mt-14 overflow-hidden bg-[#447244] px-4 pt-[calc(3.5rem+.75rem)] pb-16 text-center text-white sm:-mt-24 sm:px-6 sm:pt-[calc(6rem+.75rem)] sm:pb-24">
+        <img src="/court-gallery/c9Uh1G3i.jpg" alt="" fetchPriority="high" className="pointer-events-none absolute inset-0 -z-10 size-full object-cover object-[center_58%] sm:object-[center_55%]" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(20,69,36,.94)_0%,rgba(38,94,49,.76)_34%,rgba(45,105,55,.35)_58%,rgba(30,76,40,.3)_100%)]" />
         <Guides />
-        {/* Floating stickers: they drift on their own and rise faster than the page as you scroll */}
-        <Sticker kind="paddle" className="left-[3%] top-[24%] w-12 sm:w-16 lg:w-24" speed={0.35} rot={-18} />
-        <Sticker kind="ball" className="right-[5%] top-[19%] w-10 sm:w-14 lg:w-20" speed={0.55} rot={10} delay={0.8} />
-        <Sticker kind="paddle" className="right-[3%] top-[46%] hidden w-14 sm:block lg:w-24" speed={0.25} rot={24} delay={1.6} />
-        <Sticker kind="ball" className="left-[7%] top-[52%] w-8 sm:w-12 lg:w-16" speed={0.45} rot={-8} delay={0.4} />
-        <Sticker kind="ball" className="left-[19%] top-[68%] hidden md:block md:w-12 lg:w-14" speed={0.6} rot={15} delay={1.2} />
-        <Sticker kind="paddle" className="right-[16%] top-[66%] hidden md:block md:w-14 lg:w-20" speed={0.4} rot={-28} delay={2} />
+
 
         <h1 className="relative z-10 mx-auto mt-4 w-[min(80%,38rem)]">
-          <img src="/ethn-courts-logo-hero.svg" alt="ETHN Courts" className="h-auto w-full" />
+          <EthnHeroLogo />
         </h1>
 
         <div className="ethn-fade relative z-20 mx-auto mt-4 flex items-center justify-center gap-2 sm:gap-3">
           <a href="/book" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg public-cta-primary public-cta-on-dark px-3 text-xs font-extrabold shadow-[0_5px_0_#a55500] transition hover:shadow-[0_3px_0_#a55500] motion-safe:hover:translate-y-[2px] sm:min-h-12 sm:w-auto sm:px-7 sm:text-sm">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
-          <a href="/open-plays" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg public-cta-secondary public-cta-on-dark px-3 text-xs font-bold transition-colors sm:min-h-12 sm:w-auto sm:px-7 sm:text-sm">See open plays</a>
+          <a href="/open-plays" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg public-cta-secondary public-cta-on-dark [--public-cta-surface:var(--color-cocoa)] px-3 text-xs font-bold transition-[filter] hover:brightness-90 active:brightness-75 sm:min-h-12 sm:w-auto sm:px-7 sm:text-sm">See open plays</a>
         </div>
 
-        {/* HERO IMAGE — set IMAGES.hero above to replace the animated court */}
-        <div className="ethn-court pointer-events-none relative mx-auto -mt-[80px] w-[80%] sm:-mt-[88px] sm:w-full sm:max-w-[720px]">
-          {IMAGES.hero ? <img src={IMAGES.hero} alt="Pickleball court at ETHN Courts" className="block h-auto w-full" /> : <RallyCourt />}
-          <p className="absolute inset-x-0 top-[28%] hidden -translate-y-1/2 px-5 text-xl font-extrabold text-white sm:block">Your next game starts here.</p>
+        <div className="ethn-court pointer-events-none mx-auto -mt-24 grid h-[min(62vw,22rem)] w-full max-w-5xl place-items-center sm:-mt-36 sm:h-[min(34vw,26rem)]">
+          <img src={`/pickleball_centered_animated.svg${heroMotion ? "" : "#still"}`} alt="Isometric pickleball court with two paddles rallying a ball" className="h-full w-full object-contain" />
         </div>
+        <button type="button" aria-label={heroMotion ? "Stop hero animations" : "Play hero animations"} className="relative z-20 inline-grid size-11 place-items-center rounded-md bg-[#173d23] text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:hidden" onClick={() => setHeroMotion((playing) => !playing)}>{heroMotion ? <Square aria-hidden="true" className="size-4" /> : <Play aria-hidden="true" className="size-4" />}</button>
       </section>
 
       {/* BOOK INTRO BAND */}
@@ -644,7 +570,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
           })}
         </tbody></table></div>
       <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-[#405966]">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"], ["Rate unavailable", "R"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>
-      <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#447244] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <Photo src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} label={court.name} className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-[#405966]">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit" className="public-cta-secondary">Close</Button></form></dialog>
+      <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="m-auto w-[min(90vw,28rem)] overscroll-contain rounded-2xl bg-white p-6 text-[#447244] shadow-xl backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#0f2938]/70"><h2 id="court-preview-title" className="font-display text-2xl font-bold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <img src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} alt="" className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-[#405966]">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-[#405966]">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit" className="public-cta-secondary">Close</Button></form></dialog>
       </>}
     </section>
     {!loading && availability && ranges.length > 0 && <aside aria-label="Booking summary" className={bookingPage ? "min-w-0 lg:sticky lg:top-28" : "fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:sticky lg:top-24 lg:z-auto lg:p-0"}><div className={bookingPage ? "flex flex-col rounded-2xl border border-[#dce5e8] bg-white p-4 shadow-sm lg:max-h-[calc(100dvh-8rem)]" : "flex max-h-[min(50dvh,24rem)] flex-col rounded-2xl border border-[#dce5e8] bg-white px-4 pb-3 shadow-xl lg:max-h-[calc(100dvh-7rem)] lg:p-5"}>
@@ -657,9 +583,15 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <div className={bookingPage ? "mt-2 hidden shrink-0 lg:block" : "mt-2 shrink-0"}>{bookingPage ? <Button className="public-cta-primary min-h-11 w-full" disabled={busy || !availability.configured || !validRanges || !total} onClick={() => { setError(""); setReviewing(true); }}>Review selection</Button> : validRanges && total && availability.configured ? <a className="inline-flex min-h-11 w-full items-center justify-center rounded-md public-cta-primary px-4 text-sm font-bold transition-colors" href={`/book?${new URLSearchParams({ date: chosenDate, ranges: JSON.stringify(ranges.map(({ courtId, start, end }) => ({ courtId, start, end }))) })}`}>Continue booking</a> : <p className="text-sm">Choose valid times to continue.</p>}</div>
     </div>{bookingPage && <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d5e2ce] bg-white px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl lg:hidden"><div className="flex items-center justify-between gap-3"><div className="min-w-0 text-sm"><p className="font-semibold text-[#447244]">{selectionSlots !== undefined ? slotLabel(selectionSlots) : ranges.length} selected</p><p>Estimated total <strong className="tabular-nums">{total ? money(total) : "Unavailable"}</strong></p></div><Button className="public-cta-primary min-h-11 shrink-0" disabled={busy || !availability.configured || !validRanges || !total} onClick={() => { setError(""); setReviewing(true); }}>Review</Button></div></div>}</aside>}
     </div>}
+        </div>
+      </section>
 
-          {!bookingPage && <>
-            <section id="track" className={`min-w-0 scroll-mt-28 text-[#17252e] sm:scroll-mt-32 ${card}`}>
+      {!bookingPage && <CourtGallery />}
+
+      {!bookingPage && <HowItWorks />}
+
+      {!bookingPage && <div className="bg-[#447244] px-4 py-4 sm:px-6">
+          <section id="track" className={`mx-auto min-w-0 max-w-7xl scroll-mt-28 text-[#17252e] sm:scroll-mt-32 ${card}`}>
               <div className="mx-auto max-w-xl text-center">
                 <h2 className="font-display text-2xl font-bold text-[#447244]">Track your reservation</h2>
                 <p className="mt-2 text-sm leading-5 text-[#405966]">Use the tracking code and email from your request to see where your booking stands.</p>
@@ -667,24 +599,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
               <form onSubmit={lookup} className="mx-auto mt-4 grid max-w-3xl gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><label className="block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Tracking code<Input aria-label="Tracking code" className="mt-2 min-h-11 border-[#a7c5a0] bg-white font-semibold normal-case tracking-normal text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" required maxLength={5} value={trackCode} onChange={e => setTrackCode(e.target.value)} /></label><label className="block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Email<Input aria-label="Email" className="mt-2 min-h-11 border-[#a7c5a0] bg-white font-semibold normal-case tracking-normal text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" required type="email" value={trackEmail} onChange={e => setTrackEmail(e.target.value)} /></label><Button className="public-cta-primary min-h-11 px-6 font-bold" disabled={trackBusy} type="submit">{trackBusy ? "Checking…" : "Track"}</Button></form>
               {trackError && <p role="alert" className="mt-3 text-sm text-destructive">{trackError}</p>}
               <div aria-live="polite">{tracking && <div className="mt-5 text-left"><TrackingSummary booking={tracking} /></div>}</div>
-            </section>
-          </>}
-        </div>
-      </section>
-
-      {!bookingPage && <>{/* PLAY YOUR WAY */}
-      <section id="open-plays" className="scroll-mt-28 sm:scroll-mt-32 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-7 sm:px-8">
-          <div className="flex items-center gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#447244] text-[#ffad4c]"><Ball className="h-6 w-6" /></span><h2 className={sectionTitle}>Play your<br />way</h2></div>
-          <div className="flex max-w-sm flex-col gap-4 text-[11px] leading-5 text-[#405966]"><a href="/open-plays" className={`${sectionCta} public-cta-secondary`}><Users aria-hidden="true" className="mr-2 size-4" />View open plays</a><p>Discover upcoming open plays, or reserve a court for your own group.</p></div>
-        </div>
-        <div className="mx-auto grid max-w-7xl gap-4 px-5 pb-10 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
-          {playCards.map(c => <a key={c.label} href={c.href} className="group block"><div className="relative aspect-[3/4] overflow-hidden rounded-2xl"><Photo src={c.image} label={c.label} className="h-full w-full transition-transform duration-500 group-hover:scale-105" /><span className="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-[#447244] opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">{c.label}<span aria-hidden="true">↗</span></span></div><p className="mt-2 text-xs font-medium text-[#405966]">{c.caption}</p></a>)}
-        </div>
-      </section>
-    </>}
-
-      {!bookingPage && <HowItWorks />}
+          </section>
+      </div>}
 
       {!bookingPage && <>{/* VISIT */}
       <section className="relative isolate scroll-mt-28 bg-[#447244] px-4 py-4 sm:scroll-mt-32 sm:px-6">

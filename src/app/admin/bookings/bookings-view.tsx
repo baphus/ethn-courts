@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, CalendarDays, ChevronDown, Filter, ListFilter, RotateCcw } from "lucide-react";
+import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, RotateCcw } from "lucide-react";
 import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/booking-status";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,9 +15,12 @@ import { parseFilters, serializeFilters, statuses, type Filters } from "./bookin
 import StaffOccupancy from "./staff-occupancy";
 import BookingDetail from "./booking-detail";
 import { GuestName } from "../guest-name";
+import { formatPlayTime } from "./booking-play-time";
 
 
-type Result = { rows: BookingSummary[]; page: number; limit: number; total: number };
+type Result = { rows: (BookingSummary & { trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
+const headers = ["Tracking no.", "Customer", "Contact", "Play date", "Courts", "No. of slots", "Play time", "Status", "Total", "Date booked", ""];
+const cell = "border-r px-3 py-2 last:border-r-0";
 const initial: Filters = { q: "", status: [], from: "", to: "", page: 1, archived: "" };
 const input = "h-9 rounded-sm border bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -25,7 +28,7 @@ export default function BookingsView() {
   const [filters, setFilters] = useState(initial); const [ready, setReady] = useState(false);
   const [search, setSearch] = useState(""); const [draft, setDraft] = useState(initial); const [open, setOpen] = useState(false);
   const [result, setResult] = useState<Result | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null); const [quickApprove, setQuickApprove] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => { const read = () => { const params = new URLSearchParams(window.location.search); const f = parseFilters(params); if (params.has("q")) { params.delete("q"); const qs = params.toString(); window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); } setFilters(previous => ({ ...f, q: previous.q })); setReady(true); }; read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read); }, []);
   function update(next: Filters, replace = false) { const qs = serializeFilters(next); window.history[replace ? "replaceState" : "pushState"](null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); setFilters(next); }
   useEffect(() => { if (!ready || search.trim() === filters.q) return; const timer = setTimeout(() => update({ ...filters, q: search.trim(), page: 1 }, true), 300); return () => clearTimeout(timer); }, [search, filters, ready]);
@@ -33,7 +36,6 @@ export default function BookingsView() {
   const invalidRange = !!draft.from && !!draft.to && draft.from > draft.to;
   const active = Number(!!filters.status.length || !!filters.archived) + Number(!!filters.from || !!filters.to);
   const legacyMode = filters.archived === "all" || (filters.archived === "true" && filters.status.length > 0);
-  const show = (row: BookingSummary, quick = false) => { setQuickApprove(quick); setSelected(row.id); };
   return <div className="w-full space-y-5 pb-24">
     <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6"><div><h1 className="text-2xl font-semibold tracking-tight">Bookings</h1><p className="mt-2 text-sm text-muted-foreground">Find and review reservations.</p></div><Button render={<Link href="/admin/bookings/new" />}>New booking</Button></header>
     <section aria-label="Booking filters" className="flex flex-wrap items-end gap-2 [&_button]:rounded-sm [&_button]:h-9">
@@ -70,11 +72,28 @@ export default function BookingsView() {
     </section>
     {error && <ErrorNotice message={error} />}
     <section aria-label="Search results" className="overflow-hidden rounded-md border bg-card">
-      <div role="region" aria-label="Booking results table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"><table className="w-full min-w-[44rem] text-left text-sm"><thead className="border-b bg-muted/50 text-muted-foreground"><tr>{["Guest", "Status", "Play date", "Date booked", "Items", "Total", ""].map((h, i) => <th key={i} scope="col" className={`border-r px-3 py-2 font-medium last:border-r-0 ${i === 4 || i === 5 ? "text-right" : ""}`}>{h || <span className="sr-only">Details</span>}</th>)}</tr></thead><tbody className="divide-y" aria-busy={loading}>{loading ? [0, 1, 2].map(index => <tr key={index}>{Array.from({ length: 7 }, (_, column) => <td key={column} className="border-r px-3 py-2 last:border-r-0"><Skeleton className="h-4 w-full max-w-24 motion-reduce:animate-none" /></td>)}</tr>) : !error && result?.rows.map(row => <tr key={row.id} className="hover:bg-muted/30"><td className="border-r px-3 py-2 font-medium"><GuestName name={row.guestName} /></td><td className="border-r px-3 py-2"><BookingStatusBadge state={row.status} />{row.archived && <span className="ml-2"><BookingStatusBadge state="archived" /></span>}</td><td className="border-r px-3 py-2 last:border-r-0">{formatDisplayDate(row.operatingDate)}</td><td className="border-r px-3 py-2 last:border-r-0">{dateTime(row.createdAt)}</td><td className="border-r px-3 py-2 text-right tabular-nums">{row.itemCount}</td><td className="border-r px-3 py-2 text-right font-medium tabular-nums">{money(row.total)}</td><td className="border-r px-3 py-2 last:border-r-0"><Button variant="outline" size="sm" className="rounded-sm" onClick={() => show(row)} aria-label={`View booking for ${row.guestName || "Guest"}`}>View</Button>{row.status === "pending" && <Button variant="ghost" size="sm" onClick={() => show(row, true)} aria-label={`Approve booking for ${row.guestName || "Guest"}`}>Approve</Button>}</td></tr>)}</tbody></table></div>
+      <div role="region" aria-label="Booking results table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
+        <table className="w-full min-w-[68rem] text-left text-sm">
+          <thead className="border-b bg-muted/50 text-muted-foreground"><tr>{headers.map(h => <th key={h} scope="col" className={`${cell} whitespace-nowrap font-medium ${h === "Total" || h === "No. of slots" ? "text-right" : ""}`}>{h || <span className="sr-only">Details</span>}</th>)}</tr></thead>
+          <tbody className="divide-y" aria-busy={loading}>{loading ? [0, 1, 2].map(index => <tr key={index}>{headers.map(h => <td key={h} className={cell}><Skeleton className="h-4 w-full max-w-24 motion-reduce:animate-none" /></td>)}</tr>) : !error && result?.rows.map(row => <tr key={row.id} className="hover:bg-muted/30">
+            <td className={cell + " whitespace-nowrap font-mono text-xs"}>{row.trackingCode || "—"}</td>
+            <td className={cell + " font-medium"}><GuestName name={row.guestName} /></td>
+            <td className={cell + " text-xs"}>{row.guestEmail && <div className="max-w-48 wrap-anywhere">{row.guestEmail}</div>}{row.guestPhone && <div className="whitespace-nowrap text-muted-foreground">{row.guestPhone}</div>}{!row.guestEmail && !row.guestPhone && "—"}</td>
+            <td className={cell + " whitespace-nowrap"}>{formatDisplayDate(row.operatingDate)}</td>
+            <td className={cell}>{row.courtNames.join(", ") || "—"}</td>
+            <td className={cell + " text-right tabular-nums"}>{row.slotCount}</td>
+            <td className={cell}>{row.playTimes.length ? <ul className="space-y-1">{row.playTimes.map(range => <li key={range.startsAt + "/" + range.endsAt}><span className="whitespace-nowrap">{formatPlayTime(range.startsAt, range.endsAt, row.operatingDate)}</span>{row.playTimes.length > 1 && <span className="block text-xs text-muted-foreground">{range.courts.join(", ")}</span>}</li>)}</ul> : "—"}</td>
+            <td className={cell}><BookingStatusBadge state={row.status} />{row.archived && <span className="ml-2"><BookingStatusBadge state="archived" /></span>}</td>
+            <td className={cell + " text-right font-medium tabular-nums"}>{money(row.total)}</td>
+            <td className={cell}>{dateTime(row.createdAt)}</td>
+            <td className={cell}><Button variant="outline" size="sm" className="rounded-sm" onClick={() => setSelected(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
       {!loading && !error && result?.rows.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No bookings match these filters.</p>}
       {!error && result && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={result.page} pageSize={result.limit} total={result.total} onPageChange={page => update({ ...filters, page })} busy={loading} /></div>}
     </section>
-    <StaffOccupancy revision={refresh} onBooking={id => { setQuickApprove(false); setSelected(id); }} />
-    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="max-h-[90vh] gap-2 overflow-y-auto sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded quickApprove={quickApprove} onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
+    <StaffOccupancy revision={refresh} onBooking={setSelected} />
+    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="max-h-[90vh] gap-2 overflow-y-auto sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
   </div>;
 }

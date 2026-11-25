@@ -4,6 +4,7 @@ import { parsePesos, priceItems } from '../booking/core';
 import { resolveSchedule } from '../booking/schedule';
 import { expireExtensionHolds } from '../booking/extension-expiry';
 import type { StaffVerifier } from './ethn-payments';
+import { isEthnMailAddress } from '../mail/ethn-address';
 const money=(v:bigint)=>`${v/BigInt(100)}.${(v%BigInt(100)).toString().padStart(2,'0')}`;
 const hourMs = 3_600_000;
 const positiveBigint = (value: unknown): value is string => typeof value === 'string' && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= BigInt('9223372036854775807');
@@ -25,16 +26,18 @@ function parseRanges(value: unknown) {
 export function validateInternalBooking(body:unknown) {
  if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('INVALID_INPUT');
  const b=body as Record<string,unknown>;
- if(Object.keys(b).some(k=>!['ranges','date','guestName','guestPhone','method','reference','receivedAt','displayedTotal','settingsVersion','paymentReceived','idempotencyKey'].includes(k)))throw new Error('INVALID_INPUT');
+ if(Object.keys(b).some(k=>!['ranges','date','guestName','guestPhone','guestEmail','method','reference','receivedAt','displayedTotal','settingsVersion','paymentReceived','idempotencyKey'].includes(k)))throw new Error('INVALID_INPUT');
  for(const k of ['date','guestName','method','displayedTotal','settingsVersion','idempotencyKey'])if(typeof b[k]!=='string')throw new Error('INVALID_INPUT');
  if(!positiveBigint(b.settingsVersion)||!/^\d{4}-\d\d-\d\d$/.test(b.date as string)||!b.guestName||String(b.guestName).trim().length>100||!String(b.guestName).trim()||!/^[a-z][a-z0-9_-]{0,63}$/.test(b.method as string)||!/^[\x21-\x7e]{1,200}$/.test(b.idempotencyKey as string)||b.paymentReceived!==true)throw new Error('INVALID_INPUT');
  const ranges = parseRanges(b.ranges);
+ const guestEmail = typeof b.guestEmail === 'string' ? b.guestEmail.trim() : b.guestEmail;
+ if (guestEmail != null && guestEmail !== '' && !isEthnMailAddress(guestEmail)) throw new Error('INVALID_INPUT');
  if(b.guestPhone!=null&&(typeof b.guestPhone!=='string'||b.guestPhone.length>30||!/^[0-9+()\-\s]*$/.test(b.guestPhone)))throw new Error('INVALID_INPUT');
  if(b.reference!=null&&(typeof b.reference!=='string'||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
  const receivedAt=b.receivedAt?new Date(b.receivedAt as string):null;
  if(receivedAt&&(!Number.isFinite(receivedAt.getTime())||typeof b.receivedAt!=='string'||!/(?:Z|[+-]\d\d:\d\d)$/.test(b.receivedAt)))throw new Error('INVALID_INPUT');
  let displayedTotal:string;try{displayedTotal=money(parsePesos(b.displayedTotal as string));}catch{throw new Error('INVALID_INPUT');}
- return {ranges,date:b.date as string,guestName:(b.guestName as string).trim(),guestPhone:(b.guestPhone as string)?.trim()||null,method:b.method as string,reference:b.method==='cash'?null:(b.reference as string)?.trim()||null,receivedAt:receivedAt?.toISOString()??null,displayedTotal,settingsVersion:b.settingsVersion as string,idempotencyKey:b.idempotencyKey as string};
+ return {ranges,...(guestEmail ? {guestEmail} : {}),date:b.date as string,guestName:(b.guestName as string).trim(),guestPhone:(b.guestPhone as string)?.trim()||null,method:b.method as string,reference:b.method==='cash'?null:(b.reference as string)?.trim()||null,receivedAt:receivedAt?.toISOString()??null,displayedTotal,settingsVersion:b.settingsVersion as string,idempotencyKey:b.idempotencyKey as string};
 }
 export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:StaffVerifier,body:unknown){
  const input=validateInternalBooking(body),actor=await verify();if(!actor||!/^[0-9a-f-]{36}$/i.test(actor))throw new Error('UNAUTHENTICATED');
@@ -63,7 +66,7 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   if (cents <= BigInt(0)) throw new Error('PRICE_CHANGED');
   const total=money(cents);if(total!==input.displayedTotal||settings.version!==input.settingsVersion)throw new Error('PRICE_CHANGED');
   const id=randomUUID(),merchant=JSON.stringify({name:method.name,instructions:method.instructions});
-  await c.query("INSERT INTO ethn.bookings(id,owner_hash,walk_in_actor,operating_date,status,expires_at,total,guest_name,guest_phone,price_acknowledged,merchant_snapshot,settings_version) VALUES($1,$2,$3,$4,'confirmed',$5,$6,$7,$8,true,$9,$10)",[id,owner,actor,input.date,now,total,input.guestName,input.guestPhone,merchant,settings.version]);
+  await c.query("INSERT INTO ethn.bookings(id,owner_hash,walk_in_actor,operating_date,status,expires_at,total,guest_name,guest_phone,guest_email,price_acknowledged,merchant_snapshot,settings_version) VALUES($1,$2,$3,$4,'confirmed',$5,$6,$7,$8,$9,true,$10,$11)",[id,owner,actor,input.date,now,total,input.guestName,input.guestPhone,input.guestEmail??null,merchant,settings.version]);
   for (const range of resolved.ranges) {
    const item=randomUUID(),start=range.start.toISOString(),end=range.end.toISOString();
    await c.query('INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[item,id,range.courtId,start,end,money(parsePesos(range.rate)),range.minutes,money(priceItems([range])),settings.interval_minutes,settings.minimum_minutes]);
@@ -71,6 +74,7 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   }
   await c.query("INSERT INTO ethn.payments(id,booking_id,method,merchant_snapshot,status,accepted_reference,collected_amount,received_at,verified_at,verified_by) VALUES($1,$2,$3,$4,'accepted',$5,$6,$7,$8,$9)",[randomUUID(),id,input.method,merchant,input.reference,total,input.receivedAt,now,actor]);
   await c.query("INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,'internal.create',$3::jsonb)",[id,actor,JSON.stringify({method:input.method,total,paymentReceived:true})]);
+  if (input.guestEmail) await c.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,'booking_approved',$3::jsonb)", [randomUUID(),id,JSON.stringify({email:input.guestEmail,total,staff:true})]);
   const result={bookingId:id,status:'confirmed',total,method:input.method};
   await c.query("UPDATE ethn.idempotency SET result=$3::jsonb WHERE owner_hash=$1 AND operation='internal.create' AND key=$2",[owner,idempotencyKey,JSON.stringify(result)]);
   committing=true;await c.query('COMMIT');return result;

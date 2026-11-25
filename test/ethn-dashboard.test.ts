@@ -27,6 +27,7 @@ test("staff dashboard excludes finance and bounds non-held booking periods", asy
   assert.equal("finance" in data, false);
   const periods = queries.find(q => q.sql.includes("AS current"))!;
   assert.match(periods.sql, /status <> 'held'/);
+  assert.match(periods.sql, /operating_date = \$1::date AND status = 'confirmed'\)::int AS today/);
   assert.deepEqual(periods.args, ["2026-03-01", "2026-02-15", "2026-01-31"]);
-  assert.match(queries.find(q => q.sql.includes("LIMIT 8"))!.sql, /status <> 'held'/);
+  assert.match(queries.find(q => q.sql.includes("LIMIT 8"))!.sql, /status NOT IN \('held', 'expired'\)/);
 });

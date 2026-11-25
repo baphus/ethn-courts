@@ -43,6 +43,13 @@
       "when": 1795565640432,
       "tag": "0005_nonconsecutive_customer_slots",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795625500393,
+      "tag": "0006_ambiguous_maximus",
+      "breakpoints": true
     }
   ]
 }

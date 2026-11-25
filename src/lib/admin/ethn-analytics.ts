@@ -232,7 +232,7 @@ async function schedule(pool: Db) {
       )
       SELECT p.id, b.id::text AS booking_id, b.guest_name, b.status, b.operating_date::text AS operating_date, p.starts_at, p.ends_at, c.name AS court
       FROM ethn.bookings b JOIN parts p ON p.booking_id = b.id JOIN ethn.courts c ON c.id = p.court_id
-      WHERE b.status IN ('pending','confirmed') AND b.operating_date BETWEEN $1::date AND $2::date AND p.ends_at > $3::timestamptz
+      WHERE b.status = 'confirmed' AND b.operating_date BETWEEN $1::date AND $2::date AND p.starts_at >= $3::timestamptz
       ORDER BY p.starts_at, p.id LIMIT 301`, [operatingDate, addDays(operatingDate, 6), now])).rows;
     return { operatingDate, truncated: rows.length > 300, items: rows.slice(0, 300).map(r => ({ id: r.id as string, bookingId: r.booking_id as string, guestName: r.guest_name as string | null, status: r.status as string, operatingDate: r.operating_date as string, startsAt: new Date(r.starts_at).toISOString(), endsAt: new Date(r.ends_at).toISOString(), courts: [r.court as string] })) };
   });

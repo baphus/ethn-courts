@@ -31,7 +31,7 @@ export function HeroStats({ overview, owner, overviewError, retryOverview }: { o
   ] : [{ label: "Bookings this month", Icon: BookOpen, href: "/admin/bookings" }]).map(item => ({
     ...item, value: error ? "Unavailable" : <Skeleton className="h-7 w-16 motion-reduce:animate-none" />,
   }));
-  const today: Stat = { label: "Today's bookings", value: overview ? overview.periods.today : overviewError ? "Unavailable" : <Skeleton className="h-7 w-16 motion-reduce:animate-none" />, href: "/admin/bookings", Icon: CalendarDays };
+  const today: Stat = { label: "Today's confirmed bookings", value: overview ? overview.periods.today : overviewError ? "Unavailable" : <Skeleton className="h-7 w-16 motion-reduce:animate-none" />, href: overview ? `/admin/bookings?status=confirmed&from=${overview.operatingDate}&to=${overview.operatingDate}` : undefined, Icon: CalendarDays };
   return <section aria-label="Dashboard overview" className="space-y-2">
     {error && <div role="alert" className="flex items-center gap-3 rounded-lg border border-destructive/50 p-3 text-sm">{error}<button type="button" onClick={retry} className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted">Retry</button></div>}
     <div className={`grid grid-cols-2 gap-3 ${(owner || overview?.finance) ? "xl:grid-cols-3" : "xl:grid-cols-2"}`}>

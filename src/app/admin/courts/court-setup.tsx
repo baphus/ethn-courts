@@ -22,7 +22,7 @@ const scheduleEndpoint = "/api/ethn/admin/hours";
 const courtsEndpoint = "/api/ethn/admin/courts";
 
 type Court = Snapshot["courts"][number];
-type CourtDetails = { id: string; name: string; description: string; active: boolean; version: string; photoVersion: string; previousSettingsVersion?: string; settingsVersion?: string };
+type CourtDetails = { id: string; name: string; description: string | null; active: boolean; version: string; photoVersion: string; previousSettingsVersion?: string; settingsVersion?: string };
 type HourWindow = Court["hours"][number];
 type NewCourt = { name: string; description: string; idempotencyKey: string };
 
@@ -81,7 +81,7 @@ export default function CourtSetup() {
   useEffect(() => { void loadDetails(); }, [loadDetails]);
 
   const hoursDirty = editing !== null && editHours !== data?.courts.find(court => court.id === editing.id)?.hours;
-  const detailsDirty = editing !== null && (editName.trim() !== editing.name || editDescription.trim() !== editing.description || photo !== null);
+  const detailsDirty = editing !== null && (editName.trim() !== editing.name || editDescription.trim() !== (editing.description ?? "") || photo !== null);
 
   function closeEdit() {
     if (busy || ((hoursDirty || detailsDirty) && !window.confirm("Discard unsaved court changes?"))) return;
@@ -145,7 +145,7 @@ export default function CourtSetup() {
         const updated: CourtDetails = await response.json();
         const version = courtDetailsVersion(snapshot, updated);
         snapshot = { ...snapshot, version: version ?? snapshot.version, courts: snapshot.courts.map(court => court.id === updated.id ? { ...court, name: updated.name } : court) };
-        setEditing(updated); setEditName(updated.name); setEditDescription(updated.description); setPhoto(null);
+        setEditing(updated); setEditName(updated.name); setEditDescription(updated.description ?? ""); setPhoto(null);
         setDetails(previous => previous?.map(court => court.id === updated.id ? updated : court) ?? [updated]);
         setData(snapshot);
         if (hoursDirty) setEditNotice("Court details saved. Weekly hours have not been saved yet.");
@@ -264,7 +264,7 @@ export default function CourtSetup() {
             </div>
             <div className="flex flex-wrap items-center gap-2"><label className="mr-auto flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={court.active} disabled={busy || stale} onChange={e => void setCourtActive(court, e.target.checked)} /> Active</label>
               <Button type="button" variant="outline" size="sm" disabled={busy || stale} onClick={() => { setDialogError(""); setQuickCourt(court); setQuick({ opens: "07:00", closes: "20:00", hourlyRate: "", weekdays: [0, 1, 2, 3, 4, 5, 6] }); }}>Quick setup</Button>
-              <Button type="button" variant="outline" size="sm" disabled={busy || stale || !detail} onClick={() => { if (!detail) return; setDialogError(""); setEditNotice(""); setDetailsStale(false); setEditName(detail.name); setEditDescription(detail.description); setEditHours(court.hours); setPhoto(null); setEditing(detail); }}>Edit court</Button>
+              <Button type="button" variant="outline" size="sm" disabled={busy || stale || !detail} onClick={() => { if (!detail) return; setDialogError(""); setEditNotice(""); setDetailsStale(false); setEditName(detail.name); setEditDescription(detail.description ?? ""); setEditHours(court.hours); setPhoto(null); setEditing(detail); }}>Edit court</Button>
             </div>
           </div>
         </section>;

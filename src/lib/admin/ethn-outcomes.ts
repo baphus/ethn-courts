@@ -25,6 +25,27 @@ export async function completeDueBookingsFromCron(pool: Pick<Pool, "connect">) {
   return completeDue(pool, "system:completion", "cron");
 }
 
+// Caller holds the ordered court locks in the operations transaction.
+export async function cancelPastPendingBookings(client: PoolClient) {
+  const result = await client.query(`WITH due AS (
+    SELECT b.id FROM ethn.bookings b
+    WHERE b.status='pending'
+      AND (SELECT max(i.ends_at) FROM ethn.booking_items i WHERE i.booking_id=b.id) <= statement_timestamp()
+    ORDER BY b.id LIMIT 50 FOR UPDATE OF b
+  ), cancelled AS (
+    UPDATE ethn.bookings b SET status='cancelled' FROM due
+    WHERE b.id=due.id AND b.status='pending' RETURNING b.id
+  ), allocations AS (
+    UPDATE ethn.court_allocations a SET state='cancelled'
+    FROM ethn.booking_items i, cancelled b
+    WHERE a.item_id=i.id AND i.booking_id=b.id AND a.state='pending'
+  )
+  INSERT INTO ethn.audit(booking_id,actor,action,detail)
+  SELECT id,'system:cancellation','booking.cancel','{"reason":"scheduled court time ended before approval"}'::jsonb
+  FROM cancelled`);
+  return result.rowCount ?? 0;
+}
+
 async function completeDue(pool: Pick<Pool, "connect">, actor: string, source: "staff" | "cron") {
   const client = await pool.connect();
   let discard = false;

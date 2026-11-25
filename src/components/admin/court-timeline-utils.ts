@@ -51,6 +51,11 @@ export function mergeIntervals(intervals: Interval[]): Interval[] {
   return out;
 }
 export const mergeDay = (day: Calendar): Calendar => ({ ...day, courts: day.courts.map(c => ({ ...c, intervals: mergeIntervals(c.intervals) })) });
+export function dashboardCourtSchedule(day: Calendar, now: number): Calendar {
+  return { ...day, courts: day.courts.map(court => ({ ...court, intervals: court.intervals.filter(item =>
+    Date.parse(item.endsAt) > now && (item.kind !== "booking" || item.state === "confirmed"),
+  ) })) };
+}
 export function bookingCount(court: Court) {
   return new Set(court.intervals.filter(i => i.kind === "booking" && i.state !== "held" && i.bookingId).map(i => i.bookingId)).size;
 }

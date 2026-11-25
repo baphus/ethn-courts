@@ -3,7 +3,6 @@ import { hasValidOrigin } from "@/lib/request-origin";
 import { readAdminJson } from "@/lib/admin/ethn-json";
 import { adminError, adminResponse } from "@/lib/admin/ethn-staff-server";
 
-export const holdSchema = z.object({ bookingId: z.string(), courtId: z.string(), date: z.string(), start: z.string(), end: z.string(), settingsVersion: z.string(), idempotencyKey: z.string() }).strict();
 export const confirmSchema = z.object({ extensionId: z.string().uuid(), key: z.string().min(1).max(200), method: z.enum(["cash", "gcash"]), collectedAmount: z.string(), receivedAt: z.string(), acceptedReference: z.string().optional(), paymentReceived: z.literal(true) }).strict();
 export const expireSchema = z.object({ extensionId: z.string().uuid() }).strict();
 export async function body<T>(request: Request, schema: z.ZodType<T>): Promise<T> {

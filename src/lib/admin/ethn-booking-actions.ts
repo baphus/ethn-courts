@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { isEthnMailAddress } from '../mail/ethn-address';
 import type { Pool } from 'pg';
 import type { StaffVerifier } from './ethn-payments';
 export type BookingAction='cancel'|'refund'|'archive';
@@ -24,7 +25,7 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
   if(!prior||prior.fingerprint!==fingerprint)throw new Error('IDEMPOTENCY_MISMATCH');
   if(!inserted.rowCount){if(!prior.result)throw new Error('IDEMPOTENCY_INCOMPLETE');committing=true;await c.query('COMMIT');return prior.result;}
   await c.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
-  const b=(await c.query('SELECT id,status,walk_in_actor,archived_at,total::text FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
+  const b=(await c.query('SELECT id,status,walk_in_actor,archived_at,total::text,guest_email,tracking_code,tracking_hash FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
   const now=(await c.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
   if(action==='archive'){
    if(!['expired','rejected','completed','cancelled','refunded'].includes(b.status))throw new Error('ACTION_CONFLICT');
@@ -43,6 +44,16 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
    const status=action==='refund'?'refunded':'cancelled';
    await c.query('UPDATE ethn.bookings SET status=$2 WHERE id=$1',[id,status]);
    await c.query("UPDATE ethn.court_allocations SET state=$2 WHERE state='confirmed' AND starts_at>$3 AND item_id IN(SELECT id FROM ethn.booking_items WHERE booking_id=$1)",[id,status,now]);
+   if (isEthnMailAddress(b.guest_email)) {
+    let trackingToken: string | undefined;
+    if (b.tracking_code) {
+     const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_submission' ORDER BY id LIMIT 1",[id])).rows[0];
+     const token = submission?.payload?.trackingToken;
+     if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token) && createHash('sha256').update(token).digest('hex') === b.tracking_hash) trackingToken = token;
+    }
+    const payload = {email:b.guest_email,total:b.total,...(b.tracking_code ? {code:b.tracking_code,trackingToken} : {staff:true})};
+    await c.query('INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,$3,$4::jsonb)',[randomUUID(),id,`booking_${status}`,JSON.stringify(payload)]);
+   }
   }
   await c.query('INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,$3,$4::jsonb)',[id,actor,`booking.${action}`,JSON.stringify({reason:input.reason,reference:input.reference})]);
   const result={bookingId:id,status:action==='archive'?b.status:action==='refund'?'refunded':'cancelled',archived:action==='archive'};
