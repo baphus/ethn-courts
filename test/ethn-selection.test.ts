@@ -1,7 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { acceptedDate, addDays, bookingDate, gridTimes, handoffRanges, toggleSlot, slotDate, slotEndDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
+import { acceptedDate, addDays, bookingDate, gridSlotCount, gridTimes, handoffRanges, toggleSlot, slotDate, slotEndDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
 import { manilaDateStr } from "../src/lib/booking/slots.ts";
+
+test("grid slot counts use the checkout interval and never guess for legacy data", () => {
+  assert.equal(gridSlotCount(0, 60), 0);
+  assert.equal(gridSlotCount(30, 30), 1);
+  assert.equal(gridSlotCount(180, 60), 3);
+  assert.equal(gridSlotCount(180, 30), 6);
+  assert.equal(gridSlotCount(360, 60), 6);
+  assert.equal(gridSlotCount(45, 30), undefined);
+  assert.equal(gridSlotCount(180), undefined);
+});
 
 test("landing default date rolls over at Manila midnight and matches the returned schedule", () => {
   const before = manilaDateStr(new Date("2026-11-19T15:59:59Z"));

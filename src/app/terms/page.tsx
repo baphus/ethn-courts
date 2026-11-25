@@ -76,12 +76,9 @@ export default function TermsPage() {
           className="mx-auto w-full max-w-3xl px-4 pt-12 pb-8 sm:px-6"
           aria-labelledby="terms-heading"
         >
-          <p className="inline-block rounded-full bg-flame-light px-4 py-1.5 text-[11px] font-extrabold tracking-[0.14em] text-flame uppercase">
-            Legal
-          </p>
           <h1
             id="terms-heading"
-            className="font-display mt-4 text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
+            className="font-display text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
           >
             Terms of Service
           </h1>

@@ -2,6 +2,12 @@ export type Window = { opensAt: string; closesAt: string; hourlyRate: string | n
 export type Occupied = { startsAt: string; endsAt: string; state: string };
 export type Range = { courtId: string; start: string; end: string; rate: string; window: number };
 
+export function gridSlotCount(minutes: number, intervalMinutes?: number): number | undefined {
+  if (!intervalMinutes || minutes < 0) return;
+  const count = minutes / intervalMinutes;
+  return Number.isSafeInteger(count) && count >= 0 ? count : undefined;
+}
+
 export function validDate(date: string | null): date is string {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const timestamp = Date.parse(`${date}T00:00:00Z`);

@@ -9,8 +9,7 @@ export default function HowItWorks() {
   return (
     <section id="how-it-works" className="scroll-mt-28 bg-[#f2f6f7] px-5 py-14 text-[#447244] sm:scroll-mt-32 sm:px-8 sm:py-20" aria-labelledby="how-heading">
       <div className="mx-auto max-w-7xl">
-        <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#a65300]">From booking to court</p>
-        <h2 id="how-heading" className="font-display mt-3 text-4xl font-black uppercase leading-none sm:text-6xl">How booking works</h2>
+        <h2 id="how-heading" className="font-display text-4xl font-black uppercase leading-none sm:text-6xl">How booking works</h2>
         <p className="mt-4 max-w-xl text-sm leading-6 text-[#405966]">No account needed. Review your booking before you pay, then track its status while staff verify your payment.</p>
         <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, i) => (
@@ -21,7 +20,6 @@ export default function HowItWorks() {
             </li>
           ))}
         </ol>
-        <a href="/book" className="mt-7 inline-flex min-h-12 items-center rounded-lg bg-[#447244] px-6 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
       </div>
     </section>
   );

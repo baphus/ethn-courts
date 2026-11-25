@@ -1,4 +1,4 @@
-import { CarFront, Clock, ExternalLink, MapPin, Phone } from "lucide-react";
+import { CarFront, Clock, ExternalLink, Phone } from "lucide-react";
 import { FALLBACK_RATES, type DisplayRates } from "@/lib/pricing-display";
 import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
 import { VENUE_FACEBOOK_LINK, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
@@ -9,13 +9,9 @@ export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRa
     <section id="location" className="scroll-mt-20" aria-labelledby="location-heading">
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
         <div className="mx-auto max-w-2xl space-y-2 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-parchment px-3.5 py-1.5 text-[11px] font-bold text-ink">
-            <MapPin className="size-3.5 text-flame" aria-hidden />
-            Venue &amp; Directions
-          </span>
           <h2
             id="location-heading"
-            className="pt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl"
+            className="text-3xl font-black tracking-tight text-ink sm:text-4xl"
           >
             Find Us in Tabuelan
           </h2>
@@ -26,10 +22,7 @@ export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRa
 
         <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-3xl border border-line bg-oat/60 p-6 sm:p-7">
-            <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold tracking-[0.14em] text-flame uppercase">
-              <MapPin className="size-3.5" aria-hidden /> Pickleball Complex
-            </p>
-            <h3 className="mt-1.5 text-xl font-black tracking-tight text-ink">
+            <h3 className="text-xl font-black tracking-tight text-ink">
               Central Sports Complex, Tabuelan
             </h3>
             <p className="mt-1 text-[13px] leading-5 text-ink/70">

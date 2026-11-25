@@ -61,7 +61,7 @@ export async function createCheckout(pool: Pick<Pool, "connect">, input: Checkou
     const deadline = (await client.query("SELECT clock_timestamp() + $1::integer * interval '1 minute' AS expires_at", [settings.hold_minutes])).rows[0].expires_at as Date;
     const bookingId = randomUUID();
     const items = resolved.ranges.map(r => ({ courtId: r.courtId, start: r.start.toISOString(), end: r.end.toISOString(), rate: pesos(parsePesos(r.rate)), minutes: r.minutes, amount: pesos(priceItems([r])) }));
-    const result = { checkoutId: bookingId, items, total, expiresAt: deadline.toISOString(), settingsVersion: settings.version as string, merchant: settings.merchant as string, paymentMethods, priceChanged: changed, acknowledgementRequired: changed };
+    const result = { checkoutId: bookingId, items, total, intervalMinutes: settings.interval_minutes as number, expiresAt: deadline.toISOString(), settingsVersion: settings.version as string, merchant: settings.merchant as string, paymentMethods, priceChanged: changed, acknowledgementRequired: changed };
     await client.query("INSERT INTO ethn.bookings (id, owner_hash, operating_date, status, expires_at, total, price_acknowledged, merchant_snapshot, settings_version,payment_methods_snapshot) VALUES ($1, $2, $3, 'held', $4, $5, $6, $7, $8,$9::jsonb)", [bookingId, ownerHash, input.date, deadline, total, !changed, settings.merchant, settings.version,JSON.stringify(paymentMethods)]);
     for (const item of items) {
       const itemId = randomUUID();

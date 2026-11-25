@@ -12,7 +12,6 @@ import {
   MapPin,
   QrCode,
   RotateCcw,
-  Sparkles,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
@@ -102,11 +101,7 @@ export default function ConfirmationStep({
         <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-live text-live-dot sm:size-16">
           <BadgeCheck className="size-8 sm:size-9" aria-hidden />
         </div>
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-live-dot/20 bg-live px-3 py-1 text-xs font-bold text-live-dot">
-          <Sparkles className="size-3.5" aria-hidden />
-          <span>Booking Request Received</span>
-        </div>
-        <h1 className="mt-3 text-2xl font-black tracking-tight text-ink sm:text-3xl">
+        <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">
           You&apos;re almost ready to play!
         </h1>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-warm-muted">

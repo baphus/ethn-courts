@@ -138,10 +138,7 @@ export default function TrackView({
       <div className="rounded-3xl border border-line-warm/70 bg-white p-6 shadow-sm sm:p-8">
         <div className="flex flex-col items-center gap-4 border-b border-line-warm/40 pb-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <div>
-            <span className="block text-xs font-bold tracking-wider text-warm-muted uppercase">
-              Booking status · {trackingCode}
-            </span>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-ink sm:text-3xl">
+            <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">
               Hello, {fullName}!
             </h1>
           </div>
@@ -231,10 +228,7 @@ export default function TrackView({
       <div className="rounded-3xl border border-line-warm/70 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-5 flex items-center justify-between border-b border-line-warm/40 pb-4">
           <div>
-            <span className="block text-xs font-bold tracking-wider text-warm-muted uppercase">
-              Check-in Pass
-            </span>
-            <h2 className="mt-0.5 text-lg font-bold text-ink">Your check-in QR pass</h2>
+            <h2 className="text-lg font-bold text-ink">Your check-in QR pass</h2>
           </div>
           <QrCode className="size-5 text-flame" />
         </div>
@@ -295,7 +289,7 @@ export default function TrackView({
               <button
                 type="button"
                 onClick={downloadQr}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-flame px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-flame-hover hover:-translate-y-0.5 active:scale-[0.98]"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl public-cta-primary px-4 py-2.5 text-xs font-bold shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.98]"
               >
                 <Download className="size-4" aria-hidden />
                 <span>Download QR</span>
@@ -303,7 +297,7 @@ export default function TrackView({
               <button
                 type="button"
                 onClick={copyLink}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-line-warm/70 bg-cream px-4 py-2.5 text-xs font-bold text-pine transition-all hover:bg-oat hover:-translate-y-0.5 active:scale-[0.98]"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl public-cta-secondary px-4 py-2.5 text-xs font-bold transition-all hover:-translate-y-0.5 active:scale-[0.98]"
               >
                 {copiedLink ? (
                   <>
@@ -326,7 +320,7 @@ export default function TrackView({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2 pb-2">
         <Link
           href="/book"
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-flame px-6 text-sm font-bold text-white shadow-sm transition-all hover:bg-flame-hover hover:-translate-y-0.5 active:scale-[0.99]"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl public-cta-primary px-6 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 active:scale-[0.99]"
         >
           <RotateCcw className="size-4" aria-hidden />
           <span>Book Another Court</span>
@@ -334,7 +328,7 @@ export default function TrackView({
 
         <Link
           href="/"
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-line-warm/70 bg-white px-6 text-sm font-bold text-ink transition-all hover:bg-cream hover:-translate-y-0.5 active:scale-[0.99]"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl public-cta-secondary px-6 text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-[0.99]"
         >
           <span>Back to Homepage</span>
           <ArrowRight className="size-4 text-warm-muted" aria-hidden />

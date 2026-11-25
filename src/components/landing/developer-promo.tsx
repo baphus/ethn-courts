@@ -35,7 +35,7 @@ export default function DeveloperPromo() {
             href={PORTFOLIO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-flame px-3.5 py-2 text-xs font-bold text-white hover:bg-flame-hover"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full public-cta-secondary px-3.5 py-2 text-xs font-bold transition-colors"
           >
             Contact Sephus
             <ExternalLink className="size-3.5" aria-hidden />

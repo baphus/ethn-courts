@@ -82,7 +82,7 @@ export default function LoginForm() {
 
             <Field>
               <FieldError>{error}</FieldError>
-              <Button type="submit" disabled={busy} className="w-full rounded-lg bg-[#f28500] font-bold text-white hover:bg-[#d97300]">
+              <Button type="submit" disabled={busy} className="public-cta-primary w-full rounded-lg font-bold">
                 {busy ? (
                   <span className="flex items-center justify-center gap-2">
                     <LoadingAnimation size="compact" label="Signing in" />

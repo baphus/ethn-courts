@@ -69,7 +69,7 @@ export default function ActivityLog() {
   }
 
   return <div className="w-full space-y-5 pb-24">
-    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">OWNER SETTINGS</p><h1 className="text-2xl font-semibold tracking-tight">Activity history</h1><p className="max-w-2xl text-muted-foreground">Review recorded booking and administrative activity.</p></header>
+    <header className="space-y-2"><h1 className="text-2xl font-semibold tracking-tight">Activity history</h1><p className="max-w-2xl text-muted-foreground">Review recorded booking and administrative activity.</p></header>
     <div className="flex flex-wrap items-end gap-2">
       <form onSubmit={search} className="flex min-w-0 flex-wrap items-end gap-2" role="search" aria-label="Activity history">
         <label className="grid min-w-0 gap-1 text-sm font-medium">Booking ID<Input type="search" value={draft.q} onChange={e => setDraft({ ...draft, q: e.target.value })} maxLength={36} autoComplete="off" spellCheck={false} placeholder="Complete booking UUID" /></label>

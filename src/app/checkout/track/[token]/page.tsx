@@ -38,7 +38,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
     <main className="min-h-screen bg-[#f6f8f8] px-4 py-8 text-ink sm:py-12">
       <div className="mx-auto max-w-3xl">
 
-        <div className="mt-8"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f28500]">Booking updates</p><h1 className="font-display mt-2 text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl">Reservation status</h1></div>
+        <div className="mt-8"><h1 className="font-display text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl">Reservation status</h1></div>
         {!booking ? (
           <div className="mt-8 rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8">
             <h2 className="text-xl font-bold">{unavailable ? "Tracking is unavailable" : "Reservation not found"}</h2>
@@ -51,8 +51,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
             <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="reservation-heading">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Reservation</p>
-                  <h2 id="reservation-heading" className={`mt-2 inline-flex rounded-md border px-3 py-1 text-2xl font-bold capitalize ${bookingStatusStyle(booking.status).className}`}>{booking.status}</h2>
+                  <h2 id="reservation-heading" className={`inline-flex rounded-md border px-3 py-1 text-2xl font-bold capitalize ${bookingStatusStyle(booking.status).className}`}>{booking.status}</h2>
                 </div>
                 <div className="sm:text-right">
                   <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Total</p>

@@ -217,6 +217,55 @@ html.dark {
   }
 }
 
+/* Public CTA colors are opt-in; admin buttons keep their own theme. */
+.public-cta-primary {
+  border: 1px solid var(--public-cta-edge, var(--color-ink));
+  background-color: var(--color-flame);
+  color: var(--color-ink);
+}
+
+.public-cta-secondary {
+  border: 1px solid var(--color-cocoa);
+  background-color: transparent;
+  color: var(--color-cocoa);
+}
+
+.public-cta-on-dark {
+  --public-cta-edge: white;
+}
+
+.public-cta-secondary.public-cta-on-dark {
+  border-color: white;
+  background-color: var(--public-cta-surface, transparent);
+  color: white;
+}
+
+@media (hover: hover) {
+  .public-cta-primary:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--color-flame-hover);
+  }
+
+  .public-cta-secondary:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--color-pine-ink);
+  }
+
+  .public-cta-secondary.public-cta-on-dark:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--color-cocoa);
+  }
+}
+
+:is(.public-cta-primary, .public-cta-secondary):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px white;
+}
+
+@media (forced-colors: active) {
+  :is(.public-cta-primary, .public-cta-secondary):focus-visible {
+    outline-color: Highlight;
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);

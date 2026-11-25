@@ -100,7 +100,7 @@ export default function SetupForm() {
                 <Field><FieldLabel htmlFor="password">Password</FieldLabel><Input id="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={busy} /></Field>
                 <Field><FieldLabel htmlFor="setup-key">Setup key</FieldLabel><Input id="setup-key" type="password" autoComplete="off" value={setupKey} onChange={(e) => setSetupKey(e.target.value)} required disabled={busy} /><p className="text-xs text-muted-foreground">Enter the setup key provided by your administrator.</p></Field>
                 {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-                <Button type="submit" disabled={busy} className="w-full rounded-lg bg-[#f28500] font-bold text-white hover:bg-[#d97300]">
+                <Button type="submit" disabled={busy} className="public-cta-primary w-full rounded-lg font-bold">
                   {busy ? <span className="flex items-center justify-center gap-2"><LoadingAnimation size="compact" label="Creating account" />Creating account…</span> : "Create owner account"}
                 </Button>
               </FieldGroup>

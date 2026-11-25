@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Clock,
-  MapPin,
   Search,
   Zap,
 } from "lucide-react";
@@ -80,16 +79,9 @@ export default function Hero({
             HERO COPY
             ============================================================ */}
         <div className="max-w-xl animate-rise motion-reduce:animate-none">
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1.5 pr-4 pl-1.5 text-xs font-bold text-white backdrop-blur">
-
-            <MapPin className="size-3.5 text-flame" aria-hidden />
-
-            Tabuelan, Cebu
-          </p>
-
           <h1
             id="hero-heading"
-            className="mt-5 text-[44px] leading-[1.02] font-black tracking-[-0.03em] text-balance sm:text-[64px]"
+            className="text-[44px] leading-[1.02] font-black tracking-[-0.03em] text-balance sm:text-[64px]"
           >
             <span className="block text-white">Book a court.</span>
 
@@ -107,7 +99,7 @@ export default function Hero({
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
             <a
               href="/book"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-flame px-8 py-4 text-base font-bold text-white shadow-[0_14px_30px_rgba(234,102,44,0.4)] transition-all hover:-translate-y-0.5 hover:bg-flame-hover active:translate-y-0"
+              className="inline-flex items-center justify-center gap-2 rounded-full public-cta-primary public-cta-on-dark px-8 py-4 text-base font-bold shadow-[0_14px_30px_rgba(234,102,44,0.4)] transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               Book Now
               <ArrowRight className="size-4" aria-hidden />
@@ -115,7 +107,7 @@ export default function Hero({
 
             <a
               href="/track"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-8 py-4 text-base font-bold text-white backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white/20 active:translate-y-0"
+              className="inline-flex items-center justify-center gap-2 rounded-full public-cta-secondary public-cta-on-dark [--public-cta-surface:var(--color-ink)] px-8 py-4 text-base font-bold transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               <Search className="size-4" aria-hidden />
               Track Booking
@@ -158,11 +150,6 @@ export default function Hero({
 
               {/* Main speech bubble */}
               <div className="relative rounded-[22px] border-[3px] border-[#12151d] bg-[#fff8e7] px-5 py-3 shadow-[5px_6px_0_#12151d]">
-                {/* Comic kicker */}
-                <span className="block text-center text-[10px] font-black uppercase tracking-[0.2em] text-flame sm:text-[11px]">
-                  Ready?
-                </span>
-
                 {/* Main text */}
                 <span className="block whitespace-nowrap text-xl leading-none font-black italic tracking-[-0.04em] text-[#12151d] sm:text-2xl">
                   Let&apos;s get dinking!
