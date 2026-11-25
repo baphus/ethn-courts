@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseFilters, serializeFilters } from "../src/app/admin/bookings/booking-filters";
 
 test("booking URL filters round trip and reject invalid bounds", () => {
-  assert.deepEqual(parseFilters(new URLSearchParams("status=held")).status, []);
+  assert.deepEqual(parseFilters(new URLSearchParams("status=held&status=expired")).status, []);
   assert.deepEqual(parseFilters(new URLSearchParams("status=confirmed")).status, ["confirmed"]);
   const filters = parseFilters(new URLSearchParams("q=Jane&status=confirmed&status=pending&status=confirmed&archived=all&from=2026-01-01&to=2026-02-01&page=42"));
   assert.equal(filters.q, "");

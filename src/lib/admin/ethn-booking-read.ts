@@ -6,7 +6,8 @@ import { getFinance } from "@/lib/admin/ethn-finance";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-const statuses = new Set(["pending", "confirmed", "completed", "expired", "rejected", "cancelled", "refunded"]);
+const statuses = new Set(["pending", "confirmed", "completed", "rejected", "cancelled", "refunded"]);
+const visibleBooking = "b.status NOT IN ('held', 'expired')";
 type Db = Pick<Pool, "connect">;
 type SummaryRow = { id: string; guest_name: string | null; status: string; operating_date: string; created_at: Date; total: string; item_count: number };
 function summary(row: SummaryRow) {
@@ -55,7 +56,7 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
       [operatingDate, dashboardDateOffset(operatingDate, -14), dashboardDateOffset(operatingDate, -29)])).rows[0];
     const recent = await client.query(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
-      FROM ethn.bookings b WHERE b.status <> 'held' ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
+      FROM ethn.bookings b WHERE ${visibleBooking} ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
     await client.query("COMMIT");
     result = { operatingDate, calendarDate: manilaDateStr(now), counts, periods, recentBookings: recent.rows.map(summary) };
   } catch (error) { discardClient=await rollback(client); throw error; }
@@ -86,7 +87,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   await getStaff(pool, verify);
   const offset = (page - 1) * limit;
   const values: unknown[] = [];
-  const filters = ["b.status <> 'held'"];
+  const filters = [visibleBooking];
   if (archived !== "all" && archived !== "include") {
     filters.push(archived === "true" ? "b.archived_at IS NOT NULL" : "b.archived_at IS NULL");
   }
@@ -133,7 +134,7 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const b = (await client.query(`SELECT id, operating_date::text, status, no_show, expires_at, total::text, guest_name, guest_email, guest_phone, created_at, walk_in_actor, archived_at
-      FROM ethn.bookings WHERE id = $1`, [id])).rows[0];
+      FROM ethn.bookings b WHERE b.id = $1 AND ${visibleBooking}`, [id])).rows[0];
     if (!b) { await client.query("COMMIT"); return null; }
     const [items, payments] = await Promise.all([
       client.query(`SELECT i.court_id::text, c.name AS court_name, i.starts_at, i.ends_at, i.duration_minutes, i.hourly_rate::text, i.amount::text

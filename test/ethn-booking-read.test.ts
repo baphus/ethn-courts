@@ -14,7 +14,7 @@ test("query validation rejects malformed or unbounded parameters", async () => {
   let connections = 0;
   const pool = { connect: async () => { connections++; throw new Error("unexpected DB access"); } };
   const verify = async () => staff;
-  for (const query of ["q=x&q=y", "unknown=x", "status=held", "status=pending&status=held", "status=pending&status=rejected&status=confirmed&status=completed&status=expired&status=cancelled&status=refunded&status=pending", "archived=current", "archived=true&archived=all", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
+  for (const query of ["q=x&q=y", "unknown=x", "status=held", "status=pending&status=held", "status=expired", "status=pending&status=rejected&status=confirmed&status=completed&status=cancelled&status=refunded&status=pending", "archived=current", "archived=true&archived=all", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
     await assert.rejects(searchEthnBookings(pool as never, verify, new URLSearchParams(query)), /INVALID_INPUT/);
   }
   assert.equal(connections, 0);
@@ -39,25 +39,34 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true),($3,'staff',false)", [owner, staff, disabled]);
     const futurePending = await booking("pending", { start: future });
     const overduePending = await booking("pending");
-    await booking("confirmed"); await booking("completed"); await booking("expired");
-    const held = await booking("held");
-    await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [held]);
+    await booking("confirmed"); await booking("completed");
+    const expired = await booking("expired");
+    const held = await booking("held"), staleHold = await booking("held");
+    await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [staleHold]);
     const rejected = await booking("rejected");
     await admin.query(`INSERT INTO ethn.payments(id,booking_id,method,status,claimed_amount,claimed_reference,created_at) VALUES($1,$2,'gcash','exception',100,'R-1',clock_timestamp())`, [uuid(), overduePending]);
     await admin.query("UPDATE ethn.payments SET reviewed_at=clock_timestamp(),reviewed_by=$1,review_reason='late review' WHERE booking_id=$2", [owner, overduePending]);
 
     for (const auth of [null, disabled, "00000000-0000-4000-8000-000000000099"]) await assert.rejects(ethnDashboard(pool, async () => auth), /UNAUTHENTICATED|FORBIDDEN/);
     const dashboard = await ethnDashboard(pool, async () => owner);
-    assert.equal(dashboard.counts.held, 0);
-    assert.ok(dashboard.recentBookings.every(row => row.status !== "held"));
+    assert.equal(dashboard.counts.held, 1);
+    assert.equal(dashboard.counts.expired, 1);
+    assert.equal(dashboard.recentBookings.length, 5);
+    assert.ok(dashboard.recentBookings.every(row => !["held", "expired"].includes(row.status)));
     assert.equal(dashboard.counts.pending, 2);
     assert.equal(dashboard.counts.pendingReviewOverdue, 1);
     assert.ok(dashboard.operatingDate === day || dashboard.operatingDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10));
     assert.ok(!JSON.stringify(dashboard).includes("OWNER_HASH_SECRET"));
 
     const all = await searchEthnBookings(pool, async () => staff, new URLSearchParams());
-    assert.equal(all.total, 6);
-    assert.ok(all.rows.every(row => row.status !== "held"));
+    assert.equal(all.total, 5);
+    assert.ok(all.rows.every(row => !["held", "expired"].includes(row.status)));
+    for (const id of [held, staleHold, expired]) {
+      const hidden = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${id}&archived=all`));
+      assert.equal(hidden.total, 0);
+      assert.deepEqual(hidden.rows, []);
+      assert.equal(await ethnBookingDetail(pool, async () => staff, id), null);
+    }
 
     const matching = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=%25%20Guest&status=rejected&from=${day}&to=${day}&page=1&limit=1`));
     assert.equal(matching.total, 1); assert.equal(matching.rows[0].id, rejected);
@@ -66,7 +75,7 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     const page = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&limit=1&page=2"));
     assert.equal(page.rows.length, 1); assert.equal(page.total, 2);
 
-    await admin.query("UPDATE ethn.bookings SET archived_at=clock_timestamp(), archived_by=$2 WHERE id=$1", [rejected, owner]);
+    await admin.query("UPDATE ethn.bookings SET archived_at=clock_timestamp(), archived_by=$2 WHERE id=ANY($1::uuid[])", [[rejected, expired], owner]);
     const query = "status=pending&status=rejected";
     const current = await searchEthnBookings(pool, async () => staff, new URLSearchParams(query));
     assert.equal(current.total, 2);

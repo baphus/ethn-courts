@@ -1,4 +1,4 @@
-export const statuses = ["pending", "confirmed", "completed", "expired", "rejected", "cancelled", "refunded"] as const;
+export const statuses = ["pending", "confirmed", "completed", "rejected", "cancelled", "refunded"] as const;
 export type Filters = { q: string; status: string[]; from: string; to: string; page: number; archived: "" | "true" | "all" | "include" };
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === `${value}T00:00:00.000Z`;
 export function parseFilters(params: URLSearchParams): Filters {
