@@ -6,7 +6,7 @@ const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.m
 
 test("bookings and finance keep labels visible while loading values", () => {
   const bookings = source("app/admin/bookings/bookings-view.tsx");
-  assert.match(bookings, /<div role="region" aria-label="Booking results table" tabIndex=\{0\} className="overflow-x-auto"><table/);
+  assert.match(bookings, /<div role="region" aria-label="Booking results table" tabIndex=\{0\} className="overflow-x-auto[^"]*"><table/);
   assert.match(bookings, /<thead[^\n]+<tbody[^\n]+aria-busy=\{loading\}[^\n]+<Skeleton/);
   assert.doesNotMatch(bookings, /\(loading \|\| !!result\?\.rows\.length\) &&/);
   assert.doesNotMatch(bookings, /LoadingAnimation/);

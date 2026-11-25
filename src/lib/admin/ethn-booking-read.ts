@@ -72,21 +72,23 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
 
 export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params: URLSearchParams) {
   const allowed = new Set(["q", "status", "from", "to", "page", "limit", "archived"]);
-  for (const key of new Set(params.keys())) if (!allowed.has(key) || params.getAll(key).length !== 1) invalid();
+  for (const key of new Set(params.keys())) if (!allowed.has(key) || (key !== "status" && params.getAll(key).length !== 1)) invalid();
   const q = (params.get("q") ?? "").trim();
-  const status = params.get("status") ?? "";
+  const selected = params.getAll("status");
+  if (selected.length === 1 && selected[0] === "") selected.pop();
+  const archived = params.get("archived");
+  if (archived !== null && archived !== "true" && archived !== "false" && archived !== "all") invalid();
   const from = params.get("from") ?? "", to = params.get("to") ?? "";
   const pageRaw = params.get("page") ?? "1", limitRaw = params.get("limit") ?? "20";
-  if (q.length > 100 || (status && !statuses.has(status)) || (from && !date(from)) || (to && !date(to)) || (from && to && from > to) || !/^\d+$/.test(pageRaw) || !/^\d+$/.test(limitRaw)) invalid();
+  if (q.length > 100 || selected.length > statuses.size || selected.some(status => !statuses.has(status)) || (from && !date(from)) || (to && !date(to)) || (from && to && from > to) || !/^\d+$/.test(pageRaw) || !/^\d+$/.test(limitRaw)) invalid();
   const page = Number(pageRaw), limit = Number(limitRaw);
   if (page < 1 || page > 1000 || limit < 1 || limit > 50) invalid();
   await getStaff(pool, verify);
   const offset = (page - 1) * limit;
   const values: unknown[] = [];
-  const archived = params.get('archived');
-  if (archived !== null && archived !== 'true' && archived !== 'false') invalid();
-  const filters: string[] = ["b.status <> 'held'", archived === 'true' ? 'b.archived_at IS NOT NULL' : 'b.archived_at IS NULL'];
-  if (status) { values.push(status); filters.push(`b.status = $${values.length}`); }
+  const filters = ["b.status <> 'held'"];
+  if (archived !== "all") filters.push(archived === "true" ? "b.archived_at IS NOT NULL" : "b.archived_at IS NULL");
+  if (selected.length) { values.push(selected); filters.push(`b.status = ANY($${values.length}::text[])`); }
   if (from) { values.push(from); filters.push(`b.operating_date >= $${values.length}::date`); }
   if (to) { values.push(to); filters.push(`b.operating_date <= $${values.length}::date`); }
   if (q) {
@@ -104,12 +106,13 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const total = Number((await client.query(`SELECT count(*)::int AS total FROM ethn.bookings b ${where}`, values)).rows[0].total);
-    const rows = await client.query(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+    const rows = await client.query<SummaryRow & { archived: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+      b.archived_at IS NOT NULL AS archived,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
       FROM ethn.bookings b ${where} ORDER BY b.created_at DESC, b.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset]);
     await client.query("COMMIT");
-    return { rows: rows.rows.map(summary), page, limit, total };
+    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived })), page, limit, total };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
 }

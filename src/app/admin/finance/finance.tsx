@@ -3,6 +3,7 @@
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { useDashboardResource, useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
+import { TablePager } from "@/components/admin/table-pager";
 import { LoadingRows } from "@/components/admin/loading-slots";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,8 @@ export default function Finance() {
   const [today] = useState(() => manilaTodayStr());
   const params = useSearchParams();
   const filters = useMemo(() => financeFilters(params, today), [params, today]);
+  const [searchDraft, setSearchDraft] = useState(filters.q);
+  useEffect(() => { setSearchDraft(filters.q); }, [filters.q]);
   const { from, to } = filters;
   const [draft, setDraft] = useState(filters);
   const filterKey = JSON.stringify(filters);
@@ -43,7 +46,11 @@ export default function Finance() {
   const { data: report, loading, error, retry: retryReport } = useDashboardResource<FinanceReport & { from: string; to: string }>(`/api/ethn/admin/finance?${new URLSearchParams({ from, to, basis: "approval" })}`);
   const currentRange = useRef(filters);
   currentRange.current = filters;
-  const { data: expenses, loading: listLoading, error: listError, retry: retryExpenses } = useDashboardResource<Expenses>(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`);
+  const { data: fetchedExpenses, loading: listLoading, error: listError, retry: retryExpenses } = useDashboardResource<Expenses>(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`);
+  const previousExpenses = useRef<Expenses | null>(null);
+  useEffect(() => { if (fetchedExpenses) previousExpenses.current = fetchedExpenses; }, [fetchedExpenses]);
+  const expenses = fetchedExpenses ?? (listLoading ? previousExpenses.current : null);
+  useEffect(() => { if (!listLoading && expenses) { const last = Math.min(1000, Math.max(1, Math.ceil(expenses.total / expenses.limit))); if (page > last) setPage(last); } }, [expenses, listLoading, page, filterKey]);
   const [filterError, setFilterError] = useState("");
   const [rangeOpen, setRangeOpen] = useState(false);
   const invalidate = useInvalidateOwnerResources();
@@ -136,16 +143,14 @@ export default function Finance() {
       <Sheet open={rangeOpen} onOpenChange={open => { setRangeOpen(open); if (open) { setDraft(filters); setFilterError(""); } }}>
         <SheetTrigger render={<Button variant="outline" />}><SlidersHorizontal aria-hidden="true" /> Filters</SheetTrigger>
         <SheetContent className="w-full gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="border-b"><SheetTitle>Filters</SheetTitle><SheetDescription>Choose a reporting period or narrow expenses by category and title.</SheetDescription></SheetHeader>
-          <form onSubmit={event => { event.preventDefault(); applyFilters(draft); }} className="flex min-h-0 flex-1 flex-col">
+          <SheetHeader className="border-b"><SheetTitle>Filters</SheetTitle><SheetDescription>Choose a reporting period for Finance.</SheetDescription></SheetHeader>
+          <form onSubmit={event => { event.preventDefault(); applyFilters({ ...filters, from: draft.from, to: draft.to }); }} className="flex min-h-0 flex-1 flex-col">
             <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
               <fieldset><legend className="mb-2 font-medium">Quick date range</legend><div className="flex flex-wrap gap-2">
                 {[7, 30, 90].map(days => { const start = addDaysManilaStr(today, 1 - days); return <Button key={days} type="button" size="sm" variant={from === start && to === today ? "secondary" : "outline"} onClick={() => applyFilters({ ...filters, from: start, to: today })}>Last {days} days</Button>; })}
               </div></fieldset>
               <label className="grid gap-1 text-sm font-medium">From<input className={input} type="date" required max={today} value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
               <label className="grid gap-1 text-sm font-medium">To<input className={input} type="date" required max={today} value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
-              <label className="grid gap-1 text-sm font-medium">Category<select className={input} value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}><option value="">All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select></label>
-              <label className="grid gap-1 text-sm font-medium">Title search<input className={input} type="search" maxLength={100} value={draft.q} onChange={e => setDraft({ ...draft, q: e.target.value })} /></label>
               {filterError && <p role="alert" className="text-sm text-destructive">{filterError}</p>}
             </div>
             <SheetFooter className="flex-row justify-between border-t"><Button variant="ghost" type="button" onClick={() => applyFilters(null)}>Reset</Button><Button type="submit">Apply filters</Button></SheetFooter>
@@ -180,7 +185,8 @@ export default function Finance() {
         </form>
       </section></DialogContent></Dialog>
         </div>
-        {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && expenses.rows.length > 0 && <div className="mt-4 flex items-center gap-4 text-sm"><button disabled={page <= 1} onClick={() => setPage(page - 1)} className="underline disabled:opacity-40">Previous</button><span>Page {page} · {expenses.total} expenses</span><button disabled={page * expenses.limit >= expenses.total} onClick={() => setPage(page + 1)} className="underline disabled:opacity-40">Next</button></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
+        <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); applyFilters({ ...filters, q: searchDraft.trim() }); }}><label className="grid min-w-0 flex-1 basis-56 gap-1 text-sm font-medium">Search expense title<input className={input} type="search" maxLength={100} value={searchDraft} onChange={e => setSearchDraft(e.target.value)} /></label><Button variant="outline" type="submit">Search</Button><label className="grid gap-1 text-sm font-medium">Category<select className={input} value={filters.category} onChange={e => applyFilters({ ...filters, category: e.target.value })}><option value="">All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select></label></form>
+        {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div role="region" aria-label="Expense results table" tabIndex={0} className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && <div className="mt-4"><TablePager page={expenses.page} pageSize={expenses.limit} total={expenses.total} onPageChange={setPage} busy={listLoading} /></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
       </section>
 
     </div>

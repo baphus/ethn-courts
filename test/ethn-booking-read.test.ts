@@ -14,7 +14,7 @@ test("query validation rejects malformed or unbounded parameters", async () => {
   let connections = 0;
   const pool = { connect: async () => { connections++; throw new Error("unexpected DB access"); } };
   const verify = async () => staff;
-  for (const query of ["q=x&q=y", "unknown=x", "status=held", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
+  for (const query of ["q=x&q=y", "unknown=x", "status=held", "status=pending&status=held", "status=pending&status=rejected&status=confirmed&status=completed&status=expired&status=cancelled&status=refunded&status=pending", "archived=current", "archived=true&archived=all", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
     await assert.rejects(searchEthnBookings(pool as never, verify, new URLSearchParams(query)), /INVALID_INPUT/);
   }
   assert.equal(connections, 0);
@@ -65,6 +65,20 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     assert.equal(tracking.total, 1);
     const page = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&limit=1&page=2"));
     assert.equal(page.rows.length, 1); assert.equal(page.total, 2);
+
+    await admin.query("UPDATE ethn.bookings SET archived_at=clock_timestamp(), archived_by=$2 WHERE id=$1", [rejected, owner]);
+    const query = "status=pending&status=rejected";
+    const current = await searchEthnBookings(pool, async () => staff, new URLSearchParams(query));
+    assert.equal(current.total, 2);
+    assert.ok(current.rows.every(row => row.status === "pending" && !row.archived));
+    const archived = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`${query}&archived=true`));
+    assert.equal(archived.total, 1);
+    assert.equal(archived.rows[0].id, rejected);
+    assert.equal(archived.rows[0].archived, true);
+    const combined = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`${query}&archived=all&limit=2`));
+    assert.equal(combined.total, 3);
+    assert.equal(combined.rows.length, 2);
+    assert.equal(combined.rows[0].id, rejected);
 
     const detail = await ethnBookingDetail(pool, async () => staff, overduePending);
     assert.ok(detail);
