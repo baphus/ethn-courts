@@ -57,12 +57,16 @@ test('missing rate and inactive court rejected', () => {
   assert.deepEqual(resolveSchedule(input), { error: 'COURT_UNAVAILABLE' });
 });
 
-test('horizon and duplicate court validation', () => {
+test('horizon and same-court overlap validation', () => {
   const input = base();
   input.date = '2026-12-20';
   input.hours = [row(0, '07:00', '12:00')];
   input.requests = [{ courtId: '1', start: at(input.date, 8), end: at(input.date, 9) }];
   assert.ok('ranges' in resolveSchedule(input));
+  input.requests.unshift({ courtId: '1', start: at(input.date, 10), end: at(input.date, 11) });
+  assert.ok('ranges' in resolveSchedule(input));
+  input.requests.push({ courtId: '1', start: at(input.date, 10), end: at(input.date, 12) });
+  assert.deepEqual(resolveSchedule(input), { error: 'INVALID_INPUT' });
   input.date = '2026-12-21';
   input.hours = [row(1, '07:00', '12:00')];
   input.requests = [{ courtId: '1', start: at(input.date, 8), end: at(input.date, 9) }];

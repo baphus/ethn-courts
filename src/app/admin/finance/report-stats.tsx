@@ -1,5 +1,5 @@
 import { CalendarDays, DollarSign, ReceiptText, TrendingUp } from "lucide-react";
-import { StatCard, STAT_CARD_GRID } from "@/components/admin/stat-card";
+import { KpiRow } from "@/components/admin/kpi-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FinanceReport } from "@/lib/admin/finance";
 
@@ -9,11 +9,11 @@ const formatCents = (value: number) => {
 };
 
 export function ReportStats({ report }: { report?: FinanceReport | null }) {
-  const placeholder = <Skeleton className="h-8 w-28 motion-reduce:animate-none" />;
-  return <div className={STAT_CARD_GRID} aria-busy={!report}>
-    <StatCard label="Booking Revenue" value={report ? formatCents(report.revenueCents) : placeholder} icon={DollarSign} subtitle="Counted on approval date" />
-    <StatCard label="Expenses" value={report ? formatCents(report.expenseCents) : placeholder} icon={ReceiptText} subtitle="Effective amounts by paid date" />
-    <StatCard label="Net Profit" value={report ? formatCents(report.profitCents) : placeholder} icon={TrendingUp} subtitle="Booking revenue less expenses" />
-    <StatCard label="Booking Count" value={report ? String(report.bookings) : placeholder} icon={CalendarDays} subtitle="Eligible bookings approved in range" />
-  </div>;
+  const placeholder = <Skeleton className="h-7 w-16 motion-reduce:animate-none" />;
+  return <div aria-busy={!report}><KpiRow items={[
+    { label: "Booking Revenue", value: report ? formatCents(report.revenueCents) : placeholder, Icon: DollarSign, children: <p className="text-xs text-muted-foreground">Counted on approval date</p> },
+    { label: "Expenses", value: report ? formatCents(report.expenseCents) : placeholder, Icon: ReceiptText, children: <p className="text-xs text-muted-foreground">Effective amounts by paid date</p> },
+    { label: "Net Profit", value: report ? formatCents(report.profitCents) : placeholder, Icon: TrendingUp, children: <p className="text-xs text-muted-foreground">Booking revenue less expenses</p> },
+    { label: "Booking Count", value: report ? String(report.bookings) : placeholder, Icon: CalendarDays, children: <p className="text-xs text-muted-foreground">Eligible bookings approved in range</p> },
+  ]} /></div>;
 }

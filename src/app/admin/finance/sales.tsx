@@ -99,14 +99,14 @@ export default function Sales({ from, to, onSaved }: { from: string; to: string;
     if (sale.corrections.length && leaves.length !== 1) { setMessage("Correction history is unclear. Refresh before correcting."); return; }
     void save({ url: `/api/ethn/admin/sales/${sale.id}/corrections`, body: { amount: voided ? null : target, method: voided ? null : targetMethod, reason, expectedCorrectionId: leaves[0]?.id ?? null, idempotencyKey: crypto.randomUUID() } });
   }
-  return <section id="sales" aria-label="Sales" className="space-y-4 rounded-2xl border bg-card p-5 sm:p-6">
+  return <section id="sales" aria-label="Sales" className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
     {readError && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Sales unavailable. <button type="button" className="underline" onClick={() => retrySales()}>Retry sales list</button></p>}
     {!createOpen && !selected && message && <p role={announceMessage ? "status" : undefined} className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{message}</p>}
     {pending && <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p>A request may already have been saved. Retry with the same owner account; do not create another sale until you verify the result.</p><button className={button} disabled={saving} onClick={() => void save(pending)}>Retry same request</button></div>}
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Sales</h2><FinanceInfo label="About sales">Latest 200 non-booking sales by Manila receipt date.</FinanceInfo></div></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="font-semibold">Sales</h2><FinanceInfo label="About sales">Latest 200 non-booking sales by Manila receipt date.</FinanceInfo></div></div>
     <Dialog open={createOpen} onOpenChange={open => { if (open) setCreateOpen(true); else if (!saving && (!description && !note && !amount && !time && !confirmed || window.confirm("Close this form? Unsaved entries stay on this page."))) setCreateOpen(false); }}><DialogTrigger render={<Button disabled={!ready || !!pending} />}>Add sale</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogTitle>Record sale</DialogTitle><DialogDescription>Record a non-booking sale after full payment.</DialogDescription>{message && <p role={announceMessage ? "status" : undefined} className="text-sm">{message}</p>}
     <form onSubmit={create} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-      <div><h2 className="text-xl font-bold">Record payment received</h2><p className="mt-1 text-sm text-slate-600">Use the actual payment date and time.</p></div>
+      <div><h2 className="font-semibold">Record payment received</h2><p className="mt-1 text-sm text-slate-600">Use the actual payment date and time.</p></div>
       <fieldset disabled={!ready || !!pending || saving} className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-semibold sm:col-span-2">Description<input className={input} required maxLength={160} value={description} onChange={e => setDescription(e.target.value)} /></label>
         <label className="text-sm font-semibold">Amount (₱)<input className={input} required inputMode="decimal" pattern="[0-9]+(\\.[0-9]{1,2})?" value={amount} onChange={e => setAmount(e.target.value)} /></label>

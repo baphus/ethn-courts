@@ -50,8 +50,8 @@ export default function StaffManager() {
     } catch { toast.warning("Staff access save could not be confirmed."); setError("Could not confirm whether access changed. Reload before retrying."); } finally { setBusy(false); }
   }
 
-  return <div className="mx-auto w-full max-w-4xl space-y-6 pb-12">
-    <header className="space-y-2"><h1 className="text-3xl font-semibold tracking-tight">Owner access</h1><p className="max-w-2xl text-muted-foreground">Grant or revoke Owner access for accounts that already exist in Auth. This page does not create logins or send invitations. At least one enabled owner must always remain.</p></header>
+  return <div className="w-full space-y-5 pb-24">
+    <header className="space-y-2"><h1 className="text-2xl font-semibold tracking-tight">Owner access</h1><p className="max-w-2xl text-muted-foreground">Grant or revoke Owner access for accounts that already exist in Auth. This page does not create logins or send invitations. At least one enabled owner must always remain.</p></header>
     {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error} {error.includes("sign in") && <a className="underline" href="/login?next=/admin/staff">Sign in</a>}</div>}
     {staff && <Dialog open={open} onOpenChange={next => { if (next) { setError(""); setOpen(true); } else if (!busy) { if (editing ? (enabled !== editing.enabled) : !!userId) setDiscard(true); else { setOpen(false); returnFocus?.focus(); } } }}>
         <DialogTrigger render={<Button onClick={() => { setReturnFocus(null); setEditing(null); setUserId(""); setEnabled(true); setDiscard(false); }} />}>+ Grant access</DialogTrigger>

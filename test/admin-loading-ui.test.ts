@@ -19,6 +19,6 @@ test("bookings and finance keep labels visible while loading values", () => {
   assert.match(source("app/admin/finance/sales.tsx"), /useDashboardResource<Sale\[\]>/);
   const stats = source("app/admin/finance/report-stats.tsx");
   for (const label of ["Booking Revenue", "Expenses", "Net Profit", "Booking Count"]) {
-    assert.match(stats, new RegExp(`label="${label}"[^\n]+: placeholder`));
+    assert.match(stats, new RegExp(`label: "${label}", value: report \\? [^\n]+: placeholder`));
   }
 });

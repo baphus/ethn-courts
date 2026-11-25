@@ -66,8 +66,8 @@ export default function NotificationsPage() {
     finally { setBusy(false); }
   }
 
-  return <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
-    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF INBOX</p><h1 className="text-3xl font-semibold tracking-tight">Notifications</h1><p className="max-w-2xl text-muted-foreground">Review updates for your staff account. This inbox works without browser push.</p></header>
+  return <div className="w-full space-y-5 pb-24">
+    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">STAFF INBOX</p><h1 className="text-2xl font-semibold tracking-tight">Notifications</h1><p className="max-w-2xl text-muted-foreground">Review updates for your staff account. This inbox works without browser push.</p></header>
     <PushControls />
     <section aria-label="Notifications" className="overflow-hidden rounded-xl border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="text-lg font-semibold">Your inbox</h2><p className="text-sm text-muted-foreground">Most recent 50 notifications</p></div><div className="flex flex-wrap items-center gap-3"><label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={unreadOnly} disabled={busy} onChange={event => setUnreadOnly(event.target.checked)} className="h-4 w-4 accent-primary" /> Unread only</label><Button type="button" variant="outline" disabled={busy || !unreadCount} onClick={() => void markAllRead()}>Mark all as read</Button></div></div>

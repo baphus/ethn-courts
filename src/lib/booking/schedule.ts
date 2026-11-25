@@ -45,7 +45,7 @@ export function resolveSchedule(input: {
   courts: readonly Court[]; hours: readonly Hours[]; requests: readonly Request[];
 }): ScheduleResult {
   const { date, now, anchorMinutes, interval, minimum, horizonDays, courts, hours, requests } = input;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(anchorMinutes) || anchorMinutes < 0 || anchorMinutes >= 1440 || !Number.isFinite(now.getTime()) || ![30, 60].includes(interval) || !Number.isInteger(minimum) || minimum < interval || minimum % interval || !Number.isSafeInteger(horizonDays) || horizonDays <= 0 || !requests.length || requests.length > 100 || new Set(requests.map(r => r.courtId)).size !== requests.length || requests.some(r => !r.courtId)) return { error: "INVALID_INPUT" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(anchorMinutes) || anchorMinutes < 0 || anchorMinutes >= 1440 || !Number.isFinite(now.getTime()) || ![30, 60].includes(interval) || !Number.isInteger(minimum) || minimum < interval || minimum % interval || !Number.isSafeInteger(horizonDays) || horizonDays <= 0 || !requests.length || requests.length > 100 || requests.some(r => !r.courtId)) return { error: "INVALID_INPUT" };
   const day = manilaWallClock(date).getTime();
   if (!Number.isFinite(day) || manilaDateStr(new Date(day)) !== date || !Number.isFinite(new Date(day + 2 * DAY).getTime())) return { error: "INVALID_INPUT" };
   const ranges: (CoreRange & { rate: string; minutes: number })[] = [];

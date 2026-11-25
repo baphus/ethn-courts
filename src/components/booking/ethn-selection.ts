@@ -54,16 +54,16 @@ export function gridTimes(windows: Window[], intervalMinutes: number, now: numbe
 }
 
 export function handoffRanges(raw: string, date: string | null, availability: { date: string; settings: { intervalMinutes: number; minimumMinutes: number }; courts: { id: string; windows: Window[]; occupied: Occupied[] }[] }, now: number): Range[] | null {
-  if (raw.length > 1000 || !validDate(date) || date !== availability.date || !Number.isFinite(now)) return null;
+  if (raw.length > 11000 || !validDate(date) || date !== availability.date || !Number.isFinite(now)) return null;
   try {
     const items: unknown = JSON.parse(raw);
-    if (!Array.isArray(items) || items.length < 1 || items.length > 2) return null;
+    if (!Array.isArray(items) || items.length < 1 || items.length > 100) return null;
     const result: Range[] = [];
     for (const item of items) {
-      if (!item || typeof item !== "object" || Object.keys(item).sort().join(",") !== "courtId,end,start" || typeof item.courtId !== "string" || typeof item.start !== "string" || typeof item.end !== "string" || result.some(r => r.courtId === item.courtId)) return null;
+      if (!item || typeof item !== "object" || Object.keys(item).sort().join(",") !== "courtId,end,start" || typeof item.courtId !== "string" || typeof item.start !== "string" || typeof item.end !== "string") return null;
       const court = availability.courts.find(c => c.id === item.courtId);
       const start = Date.parse(item.start), end = Date.parse(item.end);
-      if (!court || !Number.isFinite(start) || !Number.isFinite(end) || end - start < availability.settings.minimumMinutes * 60000 || start < now) return null;
+      if (!court || !Number.isFinite(start) || !Number.isFinite(end) || end - start < availability.settings.minimumMinutes * 60000 || start < now || result.some(r => r.courtId === item.courtId && start < Date.parse(r.end) && end > Date.parse(r.start))) return null;
       const wi = court.windows.findIndex(w => {
         const grid = slots(w, court.occupied, availability.settings.intervalMinutes, now);
         const selected = grid.filter(s => s.start >= start && s.end <= end);
@@ -76,17 +76,14 @@ export function handoffRanges(raw: string, date: string | null, availability: { 
   } catch { return null; }
 }
 
-export function selectRange(courtId: string, windowIndex: number, window: Window, grid: ReturnType<typeof slots>, index: number, current?: Range): Range | undefined {
-  const clicked = grid[index];
-  if (!clicked?.available || window.hourlyRate === null) return current;
-  let start = clicked.start, end = clicked.end;
-  if (current && current.window === windowIndex) {
-    if (clicked.start >= Date.parse(current.start) && clicked.end <= Date.parse(current.end)) {
-      return clicked.start === Date.parse(current.start) ? undefined : { ...current, end: new Date(clicked.start).toISOString() };
-    }
-    start = Math.min(Date.parse(current.start), clicked.start);
-    end = Math.max(Date.parse(current.start) + (clicked.end - clicked.start), clicked.end);
-    if (grid.some(s => s.start >= start && s.end <= end && !s.available)) { start = clicked.start; end = clicked.end; }
-  }
-  return { courtId, start: new Date(start).toISOString(), end: new Date(end).toISOString(), rate: window.hourlyRate, window: windowIndex };
+export function toggleSlot(ranges: Range[], courtId: string, window: number, rate: string, start: string, end: string): Range[] {
+  const selected = ranges.find(r => r.courtId === courtId && r.window === window && r.start <= start && r.end >= end);
+  if (selected) return ranges.flatMap(r => r !== selected ? [r] : [
+    ...(r.start < start ? [{ ...r, end: start }] : []),
+    ...(end < r.end ? [{ ...r, start: end }] : []),
+  ]);
+  const before = ranges.find(r => r.courtId === courtId && r.window === window && r.end === start);
+  const after = ranges.find(r => r.courtId === courtId && r.window === window && r.start === end);
+  return [...ranges.filter(r => r !== before && r !== after), { courtId, window, rate, start: before?.start ?? start, end: after?.end ?? end }]
+    .sort((a, b) => a.start.localeCompare(b.start) || a.courtId.localeCompare(b.courtId));
 }

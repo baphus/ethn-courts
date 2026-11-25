@@ -62,8 +62,8 @@ export default function ActivityLog() {
     setInputError(""); setPage(1); setFilters({ ...draft, q }); setFiltersOpen(false);
   }
 
-  return <div className="mx-auto w-full max-w-6xl space-y-6 pb-12">
-    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">OWNER SETTINGS</p><h1 className="text-3xl font-semibold tracking-tight">Activity history</h1><p className="max-w-2xl text-muted-foreground">Review recorded booking and administrative activity.</p></header>
+  return <div className="w-full space-y-5 pb-24">
+    <header className="space-y-2"><p className="text-sm font-medium text-muted-foreground">OWNER SETTINGS</p><h1 className="text-2xl font-semibold tracking-tight">Activity history</h1><p className="max-w-2xl text-muted-foreground">Review recorded booking and administrative activity.</p></header>
     <div className="flex flex-wrap items-center gap-3">
       <Popover open={filtersOpen} onOpenChange={open => { setFiltersOpen(open); if (open) { setDraft(filters); setInputError(""); } }}>
         <PopoverTrigger render={<Button variant="outline" />}>Filters{activeCount > 0 && ` (${activeCount})`}</PopoverTrigger>

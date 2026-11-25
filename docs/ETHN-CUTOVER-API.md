@@ -6,7 +6,7 @@
 {"settings":{"version":"1","intervalMinutes":30,"minimumMinutes":30,"anchorMinutes":420,"horizonDays":30,"holdMinutes":10},"serverNow":"2026-11-19T20:00:00.000Z","operatingDate":"2026-11-19","date":"2026-11-19","configured":false,"message":"Payment or pricing is not configured.","merchant":null,"courts":[{"id":"1","name":"Court 1","windows":[{"opensAt":"2026-11-18T23:00:00.000Z","closesAt":"2026-11-19T19:00:00.000Z","hourlyRate":null}],"occupied":[{"startsAt":"2026-11-19T00:00:00.000Z","endsAt":"2026-11-19T01:00:00.000Z","state":"pending"}]}]}
 ```
 
-Rates are decimal strings or null, never legacy fallback prices. IDs and settings version are strings. Instants are UTC ISO strings; windows and occupancy are half-open. Each booking range must fit one window. `configured=false` disables checkout when merchant or a displayed window rate is unset. Merchant is configured text, not a verified QR or GCash number; official payment instructions remain a launch gate. Invalid date returns 400 `INVALID_INPUT`; invalid configuration/schedule returns 503 `NOT_CONFIGURED`.
+Rates are decimal strings or null, never legacy fallback prices. IDs and settings version are strings. Instants are UTC ISO strings; windows and occupancy are half-open. Each booking range must fit one window and meet the configured minimum duration. Customer checkout accepts separate non-overlapping ranges for the same court; unselected gaps are not held. `configured=false` disables checkout when merchant or a displayed window rate is unset. Merchant is configured text, not a verified QR or GCash number; official payment instructions remain a launch gate. Invalid date returns 400 `INVALID_INPUT`; invalid configuration/schedule returns 503 `NOT_CONFIGURED`.
 
 ## Staff profile
 

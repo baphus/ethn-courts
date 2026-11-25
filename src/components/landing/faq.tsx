@@ -1,7 +1,7 @@
 const faqs = [
   {
     q: "How do I book a court?",
-    a: "Choose a date and available court times. Review your selection, then select Confirm and hold. Enter your contact details, pay using a method listed at checkout, and upload your payment proof before submitting.",
+    a: "Choose a date and available court times. If you’re on the homepage, select Continue booking. Select Review selection to check your times and estimated total and enter your contact details, then select Confirm and hold. Pay using a method listed at checkout, and upload your receipt as a JPG, PNG, or WebP file up to 5 MiB before submitting.",
   },
   {
     q: "Do I need an account?",

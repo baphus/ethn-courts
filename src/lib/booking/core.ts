@@ -43,11 +43,11 @@ export function validateRanges(date: string, now: Date, anchorMinutes: number, i
   const anchor = manilaWallClock(date, 0, anchorMinutes).getTime();
   const boundary = anchor + DAY;
   if (!Number.isFinite(anchor) || !Number.isFinite(new Date(boundary).getTime())) return false;
-  const seen = new Set<string>();
-  for (const range of ranges) {
+  const lastEnd = new Map<string, number>();
+  for (const range of [...ranges].sort((a, b) => a.start.getTime() - b.start.getTime())) {
     const { courtId, start, end, opens, closes } = range;
-    if (!courtId || seen.has(courtId)) return false;
-    seen.add(courtId);
+    if (!courtId || start.getTime() < (lastEnd.get(courtId) ?? -Infinity)) return false;
+    lastEnd.set(courtId, end.getTime());
     const [s, e, o, c] = [start, end, opens, closes].map(v => v.getTime());
     if (![s, e, o, c].every(Number.isFinite) || o < anchor || o >= boundary || c <= o || c > boundary || s < now.getTime() || s < o || e > c || e <= s || (s - o) % (interval * MINUTE) || (e - o) % (interval * MINUTE) || e - s < minimum * MINUTE) return false;
   }

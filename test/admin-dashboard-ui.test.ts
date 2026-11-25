@@ -32,6 +32,12 @@ test('dashboard leads with booking statuses and retains court view and optional 
   assert.ok(page.indexOf('Recent bookings') < page.indexOf('Finance this month'));
 });
 
+test('finance reporting uses the Dashboard KPI cards', () => {
+  assert.match(source('src/components/admin/dashboard/hero-stats.tsx'), /<KpiCard\b/);
+  assert.match(source('src/app/admin/finance/cash-activity.tsx'), /from "@\/components\/admin\/kpi-row";[\s\S]*<KpiCard\b/);
+  assert.match(source('src/app/admin/finance/report-stats.tsx'), /from "@\/components\/admin\/kpi-row";[\s\S]*<KpiRow\b/);
+});
+
 test('shell avoids unsupported nav-summary polling and misleading create menu', () => {
   const shell = source('src/components/admin/admin-sidebar.tsx') + source('src/components/admin/admin-topbar.tsx');
   assert.doesNotMatch(shell, /nav-summary|useNavSummary|Create new/);

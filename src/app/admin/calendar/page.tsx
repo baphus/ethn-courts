@@ -97,7 +97,7 @@ export default function CalendarPage() {
   }
 
   const displayedDate = calendar?.date ?? date;
-  return <div className="mx-auto w-full max-w-7xl space-y-6 pb-12">
+  return <div className="w-full space-y-5 pb-24">
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-2xl font-semibold tracking-tight">Court calendar</h1><p className="mt-1 text-sm text-muted-foreground">View occupancy and create closures or Open Plays.</p></div>
       <Dialog open={blockOpen} onOpenChange={open => { if (open) { if (!uncertain) setError(null); if (!reason && !title && !description && !startTime && !endTime && !courtIds.length && fee === "0" && !uncertain) { setStartDate(calendar?.date ?? date); setEndDate(calendar?.date ?? date); } setBlockOpen(true); } else if (!busy) { if (reason || title || description || startTime || endTime || courtIds.length || fee !== "0") setDiscard(true); else setBlockOpen(false); } }}>

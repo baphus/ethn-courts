@@ -7,6 +7,8 @@ import { LoadingRows } from "@/components/admin/loading-slots";
 import { Button } from "@/components/ui/button";
 import { cashChange, formatCashAmount, type CashReport } from "@/lib/admin/finance-cash";
 import { FinanceInfo } from "./finance-info";
+import { KpiCard } from "@/components/admin/kpi-row";
+import { Wallet } from "lucide-react";
 
 const series = [
   ["bookingPayments", "Booking and extension receipts"],
@@ -23,9 +25,9 @@ export function CashActivity({ from, to }: { from: string; to: string }) {
   return <section className="space-y-4" aria-labelledby="cash-activity-heading" aria-busy={loading}>
     <div className="flex items-center gap-2"><h2 id="cash-activity-heading" className="text-lg font-semibold">Cash activity</h2><FinanceInfo label="About cash activity">Manila receipt dates for verified booking and extension payments. When receipt time is missing, the verification date is used instead. Sales, corrections and recorded external refunds use their own ledger dates. Net recorded cash is receipts and sales less expenses and refunds.</FinanceInfo></div>
     {error && <p role="alert">{error} <Button variant="link" onClick={retry}>Retry</Button></p>}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{metrics.map(([key, label]) => {
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">{metrics.map(([key, label]) => {
         const change = report && cashChange(report.current[key], report.previous[key]);
-        return <div key={key} className="rounded-xl border bg-card p-4 shadow-sm"><p className="text-xs font-medium text-muted-foreground">{label}</p><div className="mt-2 text-xl font-semibold tabular-nums">{report ? formatCashAmount(report.current[key]) : error ? "Unavailable" : <Skeleton className="h-7 w-24 motion-reduce:animate-none" />}</div>{change && <p className="mt-2"><span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{change} vs previous period</span></p>}</div>;
+        return <KpiCard key={key} label={label} Icon={Wallet} value={report ? formatCashAmount(report.current[key]) : error ? "Unavailable" : <Skeleton className="h-7 w-24 motion-reduce:animate-none" />}>{change && <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{change} vs previous period</span>}</KpiCard>;
       })}</div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 rounded-xl border bg-card p-5 shadow-sm"><div className="mb-5"><h3 className="font-semibold">Cash activity trend</h3><p className="mt-1 text-sm text-muted-foreground">Daily activity in the selected period</p></div>

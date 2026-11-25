@@ -161,18 +161,18 @@ export default function Finance() {
     <section aria-label="Finance summary" aria-busy={loading}>
       {loading ? <ReportStats /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={retryReport}>Retry</button></p> : report && <ReportStats report={report} />}
     </section>
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Revenue and profit trend" aria-busy={loading}>
-      <div className="mb-5"><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Revenue and profit trend</h2><FinanceInfo label="About the revenue and profit trend">Daily, weekly, or monthly totals based on the selected range.</FinanceInfo></div></div>
+    <section className="rounded-xl border bg-card p-5 shadow-sm" aria-label="Revenue and profit trend" aria-busy={loading}>
+      <div className="mb-5"><div className="flex items-center gap-2"><h2 className="font-semibold">Revenue and profit trend</h2><FinanceInfo label="About the revenue and profit trend">Daily, weekly, or monthly totals based on the selected range.</FinanceInfo></div></div>
       {loading ? <Skeleton role="status" aria-label="Loading revenue and profit trend" className="h-64 w-full motion-reduce:animate-none" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
     </section>
     <Sales from={from} to={to} onSaved={invalidate} />
     {!expenseOpen && saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
     {pending && !expenseOpen && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Review or retry the saved expense request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
     <div>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-xl font-bold">Recorded expenses</h2><FinanceInfo label="About recorded expenses">Paid expenses in the selected period. Edits and deletes are audited.</FinanceInfo></div></div>
+      <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="font-semibold">Recorded expenses</h2><FinanceInfo label="About recorded expenses">Paid expenses in the selected period. Edits and deletes are audited.</FinanceInfo></div></div>
           <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Record an expense already paid.</DialogDescription>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-xl font-bold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Expenses are recorded on the date paid.</p>
+      <section className="rounded-xl border bg-card p-5 shadow-sm"><h2 className="font-semibold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Expenses are recorded on the date paid.</p>
         <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) { const fields = new FormData(e.currentTarget); const get = (key: string) => String(fields.get(key) ?? ""); void save({ title: get("title"), category: get("category"), amount: get("amount"), paidDate: get("paidDate"), description: get("description"), vendor: get("vendor"), notes: get("notes"), idempotencyKey: crypto.randomUUID() }); } }}>
           <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} className={input} /><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
           {saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}

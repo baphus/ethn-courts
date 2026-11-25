@@ -11,5 +11,5 @@ export default async function SettingsPage() {
     if (error instanceof Error && error.message === "FORBIDDEN") return <div role="alert">Owner access is not enabled for this account.</div>;
     return <div role="alert">Settings are unavailable. Please try again later.</div>;
   }
-  return <><OwnerContact /><a className="text-sm font-semibold text-primary underline" href="/admin/payment-instructions">Manage payment instructions</a></>;
+  return <div className="space-y-5 pb-24"><header><h1 className="text-2xl font-semibold tracking-tight">Settings</h1><p className="mt-1 text-sm text-muted-foreground">Manage venue contact and payment details.</p></header><OwnerContact /><a className="text-sm font-semibold text-primary underline" href="/admin/payment-instructions">Manage payment instructions</a></div>;
 }

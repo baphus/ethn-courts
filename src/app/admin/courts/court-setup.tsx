@@ -220,7 +220,7 @@ export default function CourtSetup() {
     } finally { setBusy(false); }
   }
 
-  return <div className="mx-auto w-full max-w-6xl space-y-6 pb-12">
+  return <div className="w-full space-y-5 pb-24">
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Court setup</h1>

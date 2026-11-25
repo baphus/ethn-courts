@@ -81,7 +81,7 @@ export default function AdminOpenPlaysPage() {
     }
     finally { setBusy(false); setRevision(value => value + 1); }
   }
-  return <div className="mx-auto w-full max-w-5xl space-y-6 pb-12"><header><h1 className="text-2xl font-semibold tracking-tight">Open Plays</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">Create sessions and reserve their courts. Fees are informational; this page does not manage signups or payments.</p></header>
+  return <div className="w-full space-y-5 pb-24"><header><h1 className="text-2xl font-semibold tracking-tight">Open Plays</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">Create sessions and reserve their courts. Fees are informational; this page does not manage signups or payments.</p></header>
     {!open && loadError && <p role="alert" className="border border-destructive/40 bg-destructive/5 p-4 text-sm">{loadError} Reload this page to try again.</p>}
     {!open && error && <p role={error.inlineOnly ? "alert" : undefined} className="border border-destructive/40 bg-destructive/5 p-4 text-sm">{error.message}</p>}
     <Dialog open={open} onOpenChange={next => { if (next) setOpen(true); else if (!busy && (!(title || description || startTime || endTime || selected.length) || window.confirm("Close this form? Your entries will remain until you leave this page."))) setOpen(false); }}>

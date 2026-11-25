@@ -36,6 +36,13 @@
       "when": 1795517464047,
       "tag": "0004_finance_expense_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795565640432,
+      "tag": "0005_nonconsecutive_customer_slots",
+      "breakpoints": true
     }
   ]
 }

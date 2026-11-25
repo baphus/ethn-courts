@@ -87,7 +87,7 @@ export default function OwnerPayment() {
     await load();
   }
 
-  return <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+  return <div className="w-full space-y-5 pb-24">
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-2xl font-semibold">Payment Setup</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage payment methods and QR codes shown to customers. Verify recipient details before enabling a method.</p></div>
       <Button disabled={loading} onClick={() => showForm()}>Add method</Button>

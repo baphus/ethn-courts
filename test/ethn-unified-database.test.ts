@@ -51,14 +51,20 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   await bookingAction(pool,verify,next.bookingId,'cancel',{key:randomUUID(),reason:'Customer cancelled, payment retained'});
   assert.equal((await admin.query('SELECT status FROM ethn.payments WHERE booking_id=$1',[next.bookingId])).rows[0].status,'accepted');
   const ownerToken=randomUUID();
-  const checkout=await createCheckout(pool,{ownerToken,idempotencyKey:randomUUID(),date,ranges:[{courtId:'2',start,end}],displayedTotal:'200.00',displayedVersion:'1'});
+  const early={courtId:'2',start,end},late={courtId:'2',start:`${date}T02:00:00.000Z`,end:`${date}T03:00:00.000Z`};
+  const onlineInput={ownerToken,idempotencyKey:randomUUID(),date,ranges:[late,early],displayedTotal:'400.00',displayedVersion:'1'};
+  await assert.rejects(createCheckout(pool,{...onlineInput,ranges:[early,early]}),/INVALID_INPUT/);
+  const checkout=await createCheckout(pool,onlineInput);
+  assert.deepEqual(await createCheckout(pool,{...onlineInput,ranges:[early,late]}),checkout);
+  const allocations=(await admin.query('SELECT a.starts_at,a.ends_at FROM ethn.court_allocations a JOIN ethn.booking_items i ON i.id=a.item_id WHERE i.booking_id=$1 AND a.state=$2 ORDER BY a.starts_at',[checkout.checkoutId,'held'])).rows;
+  assert.deepEqual(allocations.map(a=>[a.starts_at.toISOString(),a.ends_at.toISOString()]),[[early.start,early.end],[late.start,late.end]]);
   await savePaymentMethod(pool,verify,{id:'metrobank',name:'Changed bank',instructions:'Changed account',enabled:false});
   const proof=await reserveProof(pool,{ownerToken,checkoutId:checkout.checkoutId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
   const submitted=await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:checkout.checkoutId,reservationId:proof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Online guest',email:'test@example.test',phone:'123'}});
   assert.equal(submitted.booked,true);
   await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true});
   const online=(await admin.query('SELECT method,claimed_reference,collected_amount::text,received_at,merchant_snapshot FROM ethn.payments WHERE booking_id=$1',[checkout.checkoutId])).rows[0];
-  assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'200.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
+  assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
   await admin.query('UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1',[actor]);
   await assert.rejects(bookingAction(pool,verify,next.bookingId,'archive',{key:randomUUID()}),/FORBIDDEN/);
  }finally{await pool.end();await admin.end();}

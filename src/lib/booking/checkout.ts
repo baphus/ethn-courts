@@ -22,8 +22,8 @@ export async function createCheckout(pool: Pick<Pool, "connect">, input: Checkou
     const start = new Date(r.start), end = new Date(r.end);
     if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start.toISOString() !== r.start || end.toISOString() !== r.end || end <= start) throw new Error("INVALID_INPUT");
     return { courtId: r.courtId, start: r.start, end: r.end };
-  }).sort((a, b) => BigInt(a.courtId) < BigInt(b.courtId) ? -1 : BigInt(a.courtId) > BigInt(b.courtId) ? 1 : 0);
-  if (new Set(ranges.map(r => r.courtId)).size !== ranges.length) throw new Error("INVALID_INPUT");
+  }).sort((a, b) => BigInt(a.courtId) < BigInt(b.courtId) ? -1 : BigInt(a.courtId) > BigInt(b.courtId) ? 1 : a.start.localeCompare(b.start));
+  if (ranges.some((r, i) => i > 0 && r.courtId === ranges[i - 1].courtId && r.start < ranges[i - 1].end)) throw new Error("INVALID_INPUT");
   const ownerHash = hash(input.ownerToken.toLowerCase());
   const fingerprint = hash(JSON.stringify({ date: input.date, ranges, displayedTotal, displayedVersion: input.displayedVersion }));
   const client = await pool.connect();
