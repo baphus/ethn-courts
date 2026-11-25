@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<svg id="still" xmlns="http://www.w3.org/2000/svg" font-family="SF Pro Display" font-weight="400" data-d-component="svg" fill="currentColor" style="background:transparent;color:#ededed" viewBox="-9.5 -39.5 340 220" width="100%" role="img" aria-label="Isometric pickleball court with two paddles rallying a ball" preserveAspectRatio="xMidYMid meet"><style>
+<svg xmlns="http://www.w3.org/2000/svg" font-family="SF Pro Display" font-weight="400" data-d-component="svg" fill="currentColor" style="background:transparent;color:#ededed" viewBox="-9.5 -39.5 340 220" width="100%" role="img" aria-label="Isometric pickleball court with two paddles rallying a ball" preserveAspectRatio="xMidYMid meet"><style>
 #rally-ball { transform: translate(-69px, 15px); }
 #rally-left, #rally-right { transform-box:fill-box; transform-origin: 50% 70%; }
 #rally-left { transform: translate(3px,-1px) rotate(9deg); }
 @media (prefers-reduced-motion: no-preference) {
-  svg:not(:target) #rally-ball { animation: rally-flight 3.5s linear infinite; }
-  svg:not(:target) #rally-left { animation: rally-left-swing 1.75s ease-in-out infinite; }
-  svg:not(:target) #rally-right { animation: rally-right-swing 1.75s ease-in-out infinite; }
+  #rally-ball { animation: rally-flight 3.5s linear infinite; }
+  #rally-left { animation: rally-left-swing 1.75s ease-in-out infinite; }
+  #rally-right { animation: rally-right-swing 1.75s ease-in-out infinite; }
 }
 @keyframes rally-left-swing {
   0%,100% { transform:translate(3px,-1px) rotate(9deg); }

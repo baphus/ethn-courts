@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { checkoutFailure, holdExpiry } from "./checkout-feedback";
 import EthnBookingReceipt from "./ethn-booking-receipt";
 import type { CheckoutReceipt } from "@/lib/booking/ethn-receipt";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Clock3, CreditCard, Download, Image as ImageIcon, Play, Square } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Clock3, CreditCard, Download, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { priceItems, validateGuest } from "@/lib/booking/core";
@@ -102,7 +102,6 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const previewDialog = useRef<HTMLDialogElement>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [chosenDate, setChosenDate] = useState("");
-  const [heroMotion, setHeroMotion] = useState(true);
   const [dateStatus, setDateStatus] = useState("");
   const dateId = useId();
   const [dateFallback, setDateFallback] = useState(false);
@@ -412,7 +411,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         .ethn-logo-wordmark{animation:ethn-fade var(--wordmark-duration) backwards}
         .ethn-logo-trail{transform-box:fill-box;--shot:ethn-trail-shot}
         .ethn-logo-ball{--shot:ethn-ball-shot}
-        .ethn-hero[data-motion="true"] :is(.ethn-logo-trail,.ethn-logo-ball){animation:var(--shot) 3.5s ease-in var(--wordmark-duration) infinite backwards}
+        .ethn-hero :is(.ethn-logo-trail,.ethn-logo-ball){animation:var(--shot) 3.5s ease-in var(--wordmark-duration) infinite backwards}
         .ethn-hero>.ethn-guides,.ethn-fade{animation:ethn-fade .45s var(--after-shot) backwards}
         .ethn-court{animation:ethn-court .65s var(--after-shot) var(--shot-ease) backwards}
         .ethn-fade:focus-within{animation:none}
@@ -420,7 +419,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     `}</style>
     <main>
       {!bookingPage && <>{/* HERO */}
-      <section data-motion={heroMotion} className="ethn-hero relative isolate -mt-14 overflow-hidden bg-[#447244] px-4 pt-[calc(3.5rem+.75rem)] pb-16 text-center text-white sm:-mt-24 sm:px-6 sm:pt-[calc(6rem+.75rem)] sm:pb-24">
+      <section className="ethn-hero relative isolate -mt-14 overflow-hidden bg-[#447244] px-4 pt-[calc(3.5rem+.75rem)] pb-16 text-center text-white sm:-mt-24 sm:px-6 sm:pt-[calc(6rem+.75rem)] sm:pb-24">
         <img src="/court-gallery/c9Uh1G3i.jpg" alt="" fetchPriority="high" className="pointer-events-none absolute inset-0 -z-10 size-full object-cover object-[center_58%] sm:object-[center_55%]" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(20,69,36,.94)_0%,rgba(38,94,49,.76)_34%,rgba(45,105,55,.35)_58%,rgba(30,76,40,.3)_100%)]" />
         <Guides />
@@ -436,9 +435,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         </div>
 
         <div className="ethn-court pointer-events-none mx-auto -mt-24 grid h-[min(62vw,22rem)] w-full max-w-5xl place-items-center sm:-mt-36 sm:h-[min(34vw,26rem)]">
-          <img src={`/pickleball_centered_animated.svg${heroMotion ? "" : "#still"}`} alt="Isometric pickleball court with two paddles rallying a ball" className="h-full w-full object-contain" />
+          <img src="/pickleball_centered_animated.svg" alt="Isometric pickleball court with two paddles rallying a ball" className="h-full w-full object-contain" />
         </div>
-        <button type="button" aria-label={heroMotion ? "Stop hero animations" : "Play hero animations"} className="relative z-20 inline-grid size-11 place-items-center rounded-md bg-[#173d23] text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:hidden" onClick={() => setHeroMotion((playing) => !playing)}>{heroMotion ? <Square aria-hidden="true" className="size-4" /> : <Play aria-hidden="true" className="size-4" />}</button>
       </section>
 
       {/* BOOK INTRO BAND */}
