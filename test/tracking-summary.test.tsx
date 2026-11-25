@@ -1,0 +1,25 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { TrackingSummary, type Tracking } from "../src/components/booking/tracking-summary";
+
+test("tracking summary shows overnight dates, original total and guarded payment reason", () => {
+  const booking: Tracking = { status: "rejected", operatingDate: "2026-11-25", total: "500", items: [{ court: "Court 1", startsAt: "2026-11-25T15:00:00Z", endsAt: "2026-11-25T17:00:00Z", amount: "600" }], payments: [{ method: "bank_transfer", status: "rejected", reviewReason: "Unreadable" }] };
+  const render = () => renderToStaticMarkup(createElement(TrackingSummary, { booking }));
+  const html = render();
+  assert.match(html, /Nov 25, 2026/);
+  assert.match(html, /Nov 26, 2026/);
+  assert.match(html, /Original booking total/);
+  assert.match(html, /Bank Transfer/);
+  assert.match(html, /Reason: Unreadable/);
+  booking.payments[0].status = "pending";
+  assert.doesNotMatch(render(), /Unreadable/);
+  booking.status = "pending";
+  booking.payments[0].status = "rejected";
+  assert.doesNotMatch(render(), /Unreadable|received your payment proof/);
+  booking.payments[0].status = "unverified";
+  assert.match(render(), /received your payment proof.*until the venue verifies your payment/);
+  booking.status = "confirmed";
+  assert.doesNotMatch(render(), /received your payment proof/);
+});

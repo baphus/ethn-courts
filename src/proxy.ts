@@ -79,7 +79,7 @@ export default async function proxy(request: NextRequest) {
     );
   }
 
-  if (["/api/ethn/availability", "/api/checkout", "/api/checkout/release", "/api/checkout/proofs", "/api/checkout/submit", "/api/checkout/track", "/api/holds", "/api/holds/reclaim", "/api/proofs/upload-url", "/api/submit"].includes(request.nextUrl.pathname)) return NextResponse.next();
+  if (["/api/ethn/availability", "/api/checkout", "/api/checkout/release", "/api/checkout/proofs", "/api/checkout/submit", "/api/checkout/receipt", "/api/checkout/track", "/api/holds", "/api/holds/reclaim", "/api/proofs/upload-url", "/api/submit"].includes(request.nextUrl.pathname)) return NextResponse.next();
 
   let getResponse = () => NextResponse.next();
   let userId: string | null = null;
@@ -139,6 +139,7 @@ export const config = {
     "/api/checkout/release",
     "/api/checkout/proofs",
     "/api/checkout/submit",
+    "/api/checkout/receipt",
     "/api/checkout/track",
     "/api/proofs/upload-url",
     "/api/auth/forgot-password",

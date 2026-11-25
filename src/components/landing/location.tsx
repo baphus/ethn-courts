@@ -1,7 +1,7 @@
 import { CarFront, Clock, ExternalLink, Phone } from "lucide-react";
 import { FALLBACK_RATES, type DisplayRates } from "@/lib/pricing-display";
 import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
-import { VENUE_FACEBOOK_LINK, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
+import { VENUE_ADDRESS, VENUE_FACEBOOK_LINK, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
 
 export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRates }) {
   void rates;
@@ -13,7 +13,7 @@ export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRa
             id="location-heading"
             className="text-3xl font-black tracking-tight text-ink sm:text-4xl"
           >
-            Find Us in Tabuelan
+            Find Us in Balamban
           </h2>
           <p className="text-sm leading-6 text-ink/70 sm:text-base">
             Centrally located with convenient parking and premium facilities.
@@ -23,10 +23,10 @@ export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRa
         <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-3xl border border-line bg-oat/60 p-6 sm:p-7">
             <h3 className="text-xl font-black tracking-tight text-ink">
-              Central Sports Complex, Tabuelan
+              ETHN Courts
             </h3>
             <p className="mt-1 text-[13px] leading-5 text-ink/70">
-              RVF9+6XW, Poblacion, Tabuelan, Cebu, Philippines
+              {VENUE_ADDRESS}
             </p>
 
             <ul className="mt-5 space-y-3">
@@ -100,7 +100,7 @@ export default function Location({ rates = FALLBACK_RATES }: { rates?: DisplayRa
 
           <div className="relative overflow-hidden rounded-3xl border border-line bg-[repeating-linear-gradient(-45deg,#e9e4d8_0_8px,#f4efe2_8px_16px)] shadow-[0_20px_50px_rgba(66,48,45,0.12)]">
             <iframe
-              title="Google map of Daylor Village 1"
+              title="Google map of ETHN Courts"
               src={VENUE_MAP_EMBED}
               className="relative h-full min-h-[360px] w-full border-0"
               loading="lazy"

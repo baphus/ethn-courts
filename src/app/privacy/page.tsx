@@ -1,4 +1,5 @@
-import Footer from "@/components/landing/footer";
+import { VENUE_PHONE_DISPLAY } from "@/lib/booking/constants";
+import { VENUE_EMAIL } from "@/lib/venue";
 
 export const metadata = {
   title: "Privacy Policy — ETHN Courts",
@@ -8,108 +9,92 @@ export const metadata = {
 
 const SECTIONS: { heading: string; body: string[] }[] = [
   {
-    heading: "1. Overview",
+    heading: "1. Who this policy covers",
     body: [
-      "This policy explains how ETHN Courts handles personal information in connection with court bookings made through this website. It is written with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173) in mind.",
+      "ETHN Courts handles personal information when you book or track a reservation, submit payment proof, contact us, or sign in as a staff member. This policy explains what we handle and how to contact us about your rights under the Philippine Data Privacy Act of 2012 (Republic Act No. 10173).",
     ],
   },
   {
     heading: "2. Information we collect",
     body: [
-      "When you book a court we collect your name, email address, and phone number, along with the details of your booking such as the court, date, time slots, paddle and ball rentals, and total amount.",
-      "You also upload a photo or screenshot of your payment as proof of payment.",
-      "Our staff sign in to an admin area with an email address and password. We do not collect card or bank account details on this website.",
+      "For bookings, we collect your name, email address, phone number, reservation details, and payment information related to the booking, including the selected method and the proof you upload. Your proof may contain a payment reference or other details visible in the image. Do not include passwords, PINs, or unrelated transactions.",
+      "If you email us, we receive the address and message you send. The Contact form opens your email app; it does not send or store your message on the website. Staff sign-in uses an authentication provider.",
     ],
   },
   {
     heading: "3. How we use your information",
     body: [
-      "We use your information to review and manage your booking, verify your payment, send booking confirmation and status emails, and respond to your inquiries. We do not sell your personal information, and we do not use it for advertising.",
+      "We use it to reserve court time, manage rentals and bookings, verify payments, provide status updates, answer inquiries, handle disputes and refunds, keep operational and accounting records, and protect the service. Booking emails may be sent when email delivery is enabled.",
     ],
   },
   {
-    heading: "4. Proof of payment",
+    heading: "4. Private payment proofs and tracking",
     body: [
-      "Proof of payment images are stored in a private bucket that is not public. Only authorized ETHN Courts staff can view them, through links that expire after a short time. Payment proofs are automatically deleted after about 90 days.",
+      "Payment proofs are kept in private storage and can be opened by authorized staff through short-lived links. Keep your booking code and private tracking link to yourself. Anyone with the private link can see the reservation status and schedule.",
     ],
   },
   {
-    heading: "5. Sharing with service providers",
+    heading: "5. Service providers and external sites",
     body: [
-      "We rely on third-party service providers for website hosting, database and file storage, and email delivery. They process your information only as needed to operate these services for us, and not for their own marketing.",
+      "We use service providers for website hosting, authentication, database and file storage, and email delivery where enabled. The site embeds Google Maps, which may receive your IP address and information about your browser when the map loads. External services such as Google Maps, Facebook, and your payment provider have their own privacy policies.",
     ],
   },
   {
-    heading: "6. Cookies",
+    heading: "6. Browser storage and staff sessions",
     body: [
-      "You do not need an account to book a court, and the public booking pages do not require cookies to work. We use essential cookies only on the staff admin pages to keep a signed-in session active.",
+      "Guest booking does not require an account. The site uses session storage in your browser tab to restore checkout progress and let you reopen your receipt after refreshing. Staff authentication uses session cookies.",
     ],
   },
   {
-    heading: "7. Retention",
+    heading: "7. Retention and security",
     body: [
-      "We keep booking records for as long as needed for our records, and payment proofs are pruned about 90 days after they are uploaded.",
+      "We retain booking records and payment proofs as needed for booking administration, payment verification, disputes, accounting, and legal obligations. We use private storage and access controls to limit access to this information.",
     ],
   },
   {
-    heading: "8. Security",
+    heading: "8. Your rights and how to contact us",
     body: [
-      "We use access controls and private storage to protect your information. No system is completely secure, but we take reasonable steps to keep your data safe and to limit access to authorized staff only.",
-    ],
-  },
-  {
-    heading: "9. Your rights",
-    body: [
-      "Under the Data Privacy Act you may ask to access, correct, or delete the personal information we hold about you, and you may raise a concern about how we handle it. To make a request, contact us using the details below.",
-    ],
-  },
-  {
-    heading: "10. Contact",
-    body: [
-      "For any privacy question or request, email ckgrounds1@gmail.com or call or text 0961 633 3337.",
+      "You may request access to or correction of your personal information, object to its processing, or request erasure or blocking where the law permits. You may also file a complaint with the Philippine National Privacy Commission.",
+      `For privacy questions or requests, email ${VENUE_EMAIL} or call ${VENUE_PHONE_DISPLAY}.`,
     ],
   },
 ];
 
 export default function PrivacyPage() {
   return (
-    <>
-      <main id="main" className="bg-[#f6f8f8] pt-0">
-        <section
-          className="mx-auto w-full max-w-3xl px-4 pt-12 pb-8 sm:px-6"
-          aria-labelledby="privacy-heading"
+    <main id="main" className="bg-[#f6f8f8] pt-0">
+      <section
+        className="mx-auto w-full max-w-3xl px-4 pt-12 pb-8 sm:px-6"
+        aria-labelledby="privacy-heading"
+      >
+        <h1
+          id="privacy-heading"
+          className="font-display text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
         >
-          <h1
-            id="privacy-heading"
-            className="font-display text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
-          >
-            Privacy Policy
-          </h1>
-          <p className="mt-3 text-base leading-7 text-warm-muted">
-            How we collect, use, and protect your personal information. Last updated October 17,
-            2026.
-          </p>
-        </section>
+          Privacy Policy
+        </h1>
+        <p className="mt-3 text-base leading-7 text-warm-muted">
+          How ETHN Courts handles your personal information. Last updated November 25, 2026.
+        </p>
+      </section>
 
-        <section
-          className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
-          aria-label="Privacy Policy"
-        >
-          <article className="space-y-8">
-            {SECTIONS.map((s) => (
-              <div key={s.heading} className="space-y-3">
-                <h2 className="text-xl font-bold text-pine">{s.heading}</h2>
-                {s.body.map((p, i) => (
-                  <p key={i} className="text-[15px] leading-7 text-ink/80">
-                    {p}
-                  </p>
-                ))}
-              </div>
-            ))}
-          </article>
-        </section>
-      </main>
-      <Footer />
-    </>
+      <section
+        className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
+        aria-label="Privacy Policy"
+      >
+        <article className="space-y-8">
+          {SECTIONS.map((s) => (
+            <div key={s.heading} className="space-y-3">
+              <h2 className="text-xl font-bold text-pine">{s.heading}</h2>
+              {s.body.map((p, i) => (
+                <p key={i} className="text-[15px] leading-7 text-ink/80">
+                  {p}
+                </p>
+              ))}
+            </div>
+          ))}
+        </article>
+      </section>
+    </main>
   );
 }

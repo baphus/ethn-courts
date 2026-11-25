@@ -1,5 +1,5 @@
-import { EmptyIcon } from "@/components/ui/empty-icon";
-import { bookingStatusStyle } from "@/components/booking/booking-status";
+import { TrackingSummary } from "@/components/booking/tracking-summary";
+import { CopyTrackingLink } from "@/components/booking/copy-tracking-link";
 import type { Metadata } from "next";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { trackBooking } from "@/lib/booking/ethn-tracking";
@@ -13,14 +13,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
-
-const date = new Intl.DateTimeFormat("en-PH", {
-  timeZone: "Asia/Manila", dateStyle: "long",
-});
-const dateTime = new Intl.DateTimeFormat("en-PH", {
-  timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short",
-});
-const money = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" });
 
 export default async function CheckoutTrackPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -48,56 +40,12 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
           </div>
         ) : (
           <div className="mt-8 space-y-4">
-            <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="reservation-heading">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 id="reservation-heading" className={`inline-flex rounded-md border px-3 py-1 text-2xl font-bold capitalize ${bookingStatusStyle(booking.status).className}`}>{booking.status}</h2>
-                </div>
-                <div className="sm:text-right">
-                  <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Total</p>
-                  <p className="mt-2 text-xl font-bold">{money.format(Number(booking.total))}</p>
-                </div>
-              </div>
-              {booking.status === "pending" && <p className="mt-4 text-sm leading-6 text-ink">Your reservation is pending review and is not yet confirmed.</p>}
-              <div className="mt-6 border-t border-line pt-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Operating date</p>
-                <p className="mt-2 font-semibold">{date.format(new Date(`${booking.operatingDate}T12:00:00+08:00`))}</p>
-                <p className="mt-1 text-sm text-warm-muted">All dates and times are local.</p>
-              </div>
-            </section>
-            <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="courts-heading">
-              <h2 id="courts-heading" className="text-lg font-bold">Court schedule</h2>
-              <ul className="mt-4 divide-y divide-line">
-                {booking.items.map((item, index) => (
-                  <li key={index} className="flex flex-wrap justify-between gap-3 py-4 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="font-semibold">{item.court}</p>
-                      <p className="mt-1 text-sm text-warm-muted">Start: {dateTime.format(new Date(item.startsAt))}</p>
-                      <p className="mt-1 text-sm text-warm-muted">End: {dateTime.format(new Date(item.endsAt))}</p>
-                    </div>
-                    <p className="font-semibold">{money.format(Number(item.amount))}</p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section className="rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8" aria-labelledby="payment-heading">
-              <h2 id="payment-heading" className="text-lg font-bold">Payment status</h2>
-              {booking.payments.length === 0 ? <p className="mt-3 text-sm text-warm-muted text-center"><EmptyIcon /> No payment recorded.</p> : (
-                <ul className="mt-3 space-y-3">
-                  {booking.payments.map((payment, index) => (
-                    <li key={index} className="flex flex-wrap justify-between gap-2 text-sm">
-                      <span className="uppercase">{payment.method}</span>
-                      <span className="font-semibold capitalize">{payment.status}</span>
-                      {booking.status === "rejected" && payment.status === "rejected" && payment.reviewReason && <p className="w-full">Reason: {payment.reviewReason}</p>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-4 text-sm leading-6 text-warm-muted">Payment status is separate from reservation status.</p>
-            </section>
+            <TrackingSummary booking={booking} />
+            <CopyTrackingLink />
           </div>
         )}
-        <footer className="mt-8 border-t border-line pt-5 text-sm text-warm-muted">ETHN COURTS · All times are local.</footer>
+        <nav className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold text-pine" aria-label="Reservation navigation"><a className="underline underline-offset-4" href="/book">Book another court</a><a className="underline underline-offset-4" href="/">Back to homepage</a></nav>
+        <p className="mt-8 text-sm text-warm-muted">All times are local.</p>
       </div>
     </main>
   );

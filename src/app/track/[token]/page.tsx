@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { appBase } from "@/lib/app-url";
 import { FALLBACK_RATES, getDisplayRates, type DisplayRates } from "@/lib/pricing-display";
-import Footer from "@/components/landing/footer";
 import TrackView from "@/components/tracking/track-view";
 
 export const dynamic = "force-dynamic";
@@ -130,28 +129,25 @@ export default async function TrackPage({
     : null;
 
   return (
-    <>
-      <main id="main" className="min-h-screen bg-[#f6f8f8] pt-4 pb-16">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-          <TrackView
-            token={token}
-            url={url}
-            status={booking.status}
-            fullName={booking.full_name}
-            email={booking.email}
-            phone={booking.phone}
-            total={booking.total}
-            rejectReason={booking.reject_reason}
-            refundReason={booking.refund_reason}
-            trackingCode={booking.tracking_code}
-            slots={serializedSlots}
-            playDate={booking.play_date ?? null}
-            rental={serializedRental}
-            rates={rates}
-          />
-        </div>
-      </main>
-      <Footer rates={rates} />
-    </>
+    <main id="main" className="min-h-screen bg-[#f6f8f8] pt-4 pb-16">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <TrackView
+          token={token}
+          url={url}
+          status={booking.status}
+          fullName={booking.full_name}
+          email={booking.email}
+          phone={booking.phone}
+          total={booking.total}
+          rejectReason={booking.reject_reason}
+          refundReason={booking.refund_reason}
+          trackingCode={booking.tracking_code}
+          slots={serializedSlots}
+          playDate={booking.play_date ?? null}
+          rental={serializedRental}
+          rates={rates}
+        />
+      </div>
+    </main>
   );
 }

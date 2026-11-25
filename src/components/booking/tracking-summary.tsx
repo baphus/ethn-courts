@@ -38,7 +38,7 @@ export function TrackingSummary({ booking }: { booking: Tracking }) {
     <section className="rounded-2xl border border-[#dce5e8] bg-white p-5 sm:p-7" aria-label="Payment details">
       <h2 className="font-display text-xl font-bold text-[#447244]">Payment details</h2>
       {booking.payments.length === 0 ? <p className="mt-3 text-sm text-[#405966]">No payment recorded.</p> : <ul className="mt-3 divide-y divide-[#dce5e8]">{booking.payments.map((payment, i) => <li key={i} className="py-3 text-sm first:pt-0 last:pb-0"><div className="flex flex-wrap justify-between gap-2"><span>{label(payment.method)}</span><span className="font-semibold">{label(payment.status)}</span></div>{booking.status === "rejected" && payment.status === "rejected" && payment.reviewReason && <p className="mt-2">Reason: {payment.reviewReason}</p>}</li>)}</ul>}
-      <p className="mt-4 text-xs leading-5 text-[#405966]">Payment status is separate from reservation status.</p>
+      {booking.status === "pending" && booking.payments.some(payment => payment.status === "unverified") && <p className="mt-4 text-xs leading-5 text-[#405966]">We’ve received your payment proof. Your reservation isn’t confirmed until the venue verifies your payment.</p>}
     </section>
   </div>;
 }

@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import { cn } from "@/lib/utils";
 import Header from "@/components/landing/header";
+import Footer from "@/components/landing/footer";
+import PublicOnly from "@/components/landing/public-only";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -35,6 +37,10 @@ export const viewport: Viewport = {
   themeColor: "#447244",
 };
 
+const toastTop = "max(16px, env(safe-area-inset-top))";
+// Sonner uses the left mobile offset for both sides of the toast width.
+const toastMobileSide = "max(16px, env(safe-area-inset-left), env(safe-area-inset-right))";
+
 export default function RootLayout({
   children,
 }: {
@@ -50,7 +56,13 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <Header />
           {children}
-          <Toaster richColors position="top-center" mobileOffset={{ top: "max(16px, env(safe-area-inset-top))" }} />
+          <PublicOnly><Footer /></PublicOnly>
+          <Toaster
+            richColors
+            position="top-right"
+            offset={{ top: toastTop, right: "max(16px, env(safe-area-inset-right))" }}
+            mobileOffset={{ top: toastTop, left: toastMobileSide, right: toastMobileSide }}
+          />
         </ThemeProvider>
       </body>
     </html>

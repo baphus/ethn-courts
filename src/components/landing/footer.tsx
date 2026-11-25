@@ -1,14 +1,12 @@
 import Image from "next/image";
-import { Clock, Mail, MapPin, Phone } from "lucide-react";
-import { FALLBACK_RATES, type DisplayRates } from "@/lib/pricing-display";
+import { Mail, MapPin, Phone } from "lucide-react";
 import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
-import { VENUE_FACEBOOK_LINK, VENUE_MAP_LINK } from "@/lib/venue";
+import { VENUE_ADDRESS, VENUE_EMAIL, VENUE_FACEBOOK_LINK, VENUE_MAP_LINK } from "@/lib/venue";
 import DeveloperPromo from "@/components/landing/developer-promo";
 
 const SEPHUS_PORTFOLIO_URL = "https://www.sephus.tech";
 
-export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRates }) {
-  void rates;
+export default function Footer() {
   return (
     <footer
       id="contact"
@@ -22,7 +20,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
               <Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={160} height={91} className="h-auto w-36" />
             </p>
             <p className="max-w-xs text-[13px] leading-5 text-white/65">
-              Outdoor pickleball courts in Tabuelan, Cebu. Choose a court time and request your reservation online.
+              Outdoor pickleball courts in Balamban, Cebu. Choose a court time and request your reservation online.
             </p>
 
           </div>
@@ -32,7 +30,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
               Quick Links
             </p>
             {[
-              { href: "/#top", label: "Home" },
+              { href: "/", label: "Home" },
               { href: "/book", label: "Book Now" },
               { href: "/#how-it-works", label: "How It Works" },
               { href: "/contact", label: "Contact" },
@@ -54,7 +52,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
             </p>
             <p className="flex items-start gap-2 text-[13px] leading-5 text-white/70">
               <MapPin className="mt-0.5 size-4 shrink-0 text-flame" aria-hidden />
-              RVF9+6XW, Poblacion, Tabuelan, Cebu, Philippines
+              {VENUE_ADDRESS}
             </p>
             <a
               href={VENUE_MAP_LINK}
@@ -77,11 +75,11 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
               Email us
             </p>
             <a
-              href="mailto:ckgrounds1@gmail.com"
+              href={`mailto:${VENUE_EMAIL}`}
               className="flex items-center gap-2 text-[13px] font-bold break-all text-white/85 hover:text-flame hover:underline"
             >
               <Mail className="size-4 shrink-0 text-flame" aria-hidden />
-              ckgrounds1@gmail.com
+              {VENUE_EMAIL}
             </a>
             <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-white/55 uppercase">
               Call or text
@@ -105,7 +103,7 @@ export default function Footer({ rates = FALLBACK_RATES }: { rates?: DisplayRate
               <svg aria-hidden="true" className="size-4 shrink-0" viewBox="0 0 24 24" fill="#1877F2">
                 <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.883v2.26h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
               </svg>
-              CK Grounds
+              ETHN Courts
             </a>
           </div>
         </div>

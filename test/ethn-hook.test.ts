@@ -17,10 +17,12 @@ test("mail hook is opt-in, validates before dependencies, scopes and swallows fa
   console.error = (...args) => { errors.push(args); };
   try {
     await runEthnMailBestEffort(bookingId, {}, deps);
-    await runEthnMailBestEffort(bookingId, { ...env, ETHN_APP_URL: "http://bad.example" }, deps);
+    await runEthnMailBestEffort(bookingId, { ...env, NODE_ENV: "development", ETHN_APP_URL: "http://bad.example" }, deps);
+    await runEthnMailBestEffort(bookingId, { ...env, NODE_ENV: "production", ETHN_APP_URL: "http://localhost:3000" }, deps);
     assert.deepEqual(calls, []);
     await runEthnMailBestEffort(bookingId, env, deps);
-    assert.deepEqual(calls, ["pool", "transport", bookingId]);
-    assert.deepEqual(errors, [["ETHN mail delivery unavailable"], ["ETHN mail delivery unavailable"]]);
+    await runEthnMailBestEffort(bookingId, { ...env, NODE_ENV: "development", ETHN_APP_URL: "http://localhost:3000" }, deps);
+    assert.deepEqual(calls, ["pool", "transport", bookingId, "pool", "transport", bookingId]);
+    assert.deepEqual(errors, Array.from({ length: 4 }, () => ["ETHN mail delivery unavailable"]));
   } finally { console.error = oldError; }
 });

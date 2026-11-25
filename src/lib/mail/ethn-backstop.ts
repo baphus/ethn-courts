@@ -3,7 +3,7 @@ import { drainEthnOutbox, validateEthnOutboxConfig } from "./ethn-worker";
 
 export function ethnBackstopConfig(env: Record<string, string | undefined>) {
   if (env.ETHN_MAIL_ENABLED !== "1") return null;
-  const config = { from: env.ETHN_MAIL_FROM ?? "", appUrl: env.ETHN_APP_URL ?? "" };
+  const config = { from: env.ETHN_MAIL_FROM ?? "", appUrl: env.ETHN_APP_URL ?? "", ...(env.NODE_ENV === "development" ? { allowLocalHttp: true } : {}) };
   try {
     validateEthnOutboxConfig({ ...config, bookingId: "00000000-0000-0000-0000-000000000000" });
     return config;

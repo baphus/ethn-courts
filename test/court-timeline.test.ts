@@ -16,6 +16,8 @@ test("held label hides identity and attention deduplicates past pending bookings
   assert.equal(intervalLabel(item), "Unavailable");
   assert.equal(bookingTarget(item), null);
   const pending = { ...item, state: "pending", bookingId: "b" };
+  assert.equal(bookingTarget(pending), "b");
+  assert.match(intervalLabel(pending), /pending/);
   const day: Calendar = { date: "2026-11-22", serverNow: window.startsAt, window, courts: [{ id: "c", name: "Court", active: true, intervals: [item, pending, { ...pending, id: "2" }, { ...pending, id: "3", bookingId: "future", startsAt: window.endsAt }] }] };
   assert.equal(attention(day, Date.parse(window.startsAt)).length, 1);
   assert.deepEqual(attention({ ...day, courts: [] }, Date.now()), []);

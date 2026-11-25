@@ -61,13 +61,13 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
       const token = randomBytes(32).toString("hex");
       await client.query("UPDATE ethn.bookings SET status = 'pending', guest_name = $2, guest_email = $3, guest_phone = $4, tracking_code = $5, tracking_hash = $6, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone, code, hash(token)]);
       await client.query("UPDATE ethn.court_allocations SET state = 'pending' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = $1)", [checkout]);
-      result = { booked: true, status: "pending", trackingToken: token, code, total: booking.total, checkoutExpiresAt: new Date(booking.expires_at).toISOString() };
+      result = { booked: true, checkoutId: checkout, status: "pending", trackingToken: token, code, total: booking.total, checkoutExpiresAt: new Date(booking.expires_at).toISOString() };
       await client.query("INSERT INTO ethn.email_outbox (id, booking_id, kind, payload) VALUES ($1,$2,'booking_submission',$3::jsonb)", [randomUUID(), checkout, JSON.stringify({ email: customer.email, name: customer.name, code, trackingToken: token, total: booking.total })]);
     } else {
       if (booking.status === "held") await client.query("UPDATE ethn.bookings SET status = 'expired' WHERE id = $1", [checkout]);
       await client.query("UPDATE ethn.bookings SET guest_name = $2, guest_email = $3, guest_phone = $4, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone]);
       await client.query("UPDATE ethn.court_allocations SET state = 'expired' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = $1)", [checkout]);
-      result = { booked: false, status: "payment_exception", requiresStaffReview: true, message: "Not booked. Staff review required." };
+      result = { booked: false, checkoutId: checkout, status: "payment_exception", requiresStaffReview: true, message: "Not booked. Staff review required." };
     }
     await client.query("INSERT INTO ethn.payments (id, booking_id, method, merchant_snapshot, status, claimed_reference, claimed_amount, proof_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", [randomUUID(), checkout, method.id, JSON.stringify({name:method.name,instructions:method.instructions}), timely ? "unverified" : "exception", reference, claimedAmount, reservation]);
     await client.query("INSERT INTO ethn.audit (booking_id, actor, action, detail) VALUES ($1,$2,'booking.submit',$3::jsonb)", [checkout, owner, JSON.stringify({ outcome: timely ? "pending" : "payment_exception", reservationId: reservation })]);

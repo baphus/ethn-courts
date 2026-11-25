@@ -12,7 +12,7 @@ export default function DeveloperPromo() {
   if (dismissed) return null;
 
   return (
-    <div className="fixed right-4 bottom-4 z-50">
+    <div className="developer-promo fixed right-4 bottom-4 z-50">
       {open ? (
         <div className="w-64 rounded-2xl border border-line bg-cream p-4 shadow-xl">
           <div className="flex items-start justify-between gap-2">
