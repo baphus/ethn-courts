@@ -76,18 +76,9 @@ Open `supabase/audit-rls.sql` and run it in the SQL editor.
 
 This enables Row Level Security on `audit_log` with default-deny for API roles (no anon/authenticated user can read or write audit rows directly). The service role key the app uses bypasses RLS unconditionally — no change to app behavior.
 
-### 1e. Seed courts and pricing (first-time only)
+### 1e. Courts and pricing
 
-If this is a fresh database with no courts or pricing rows, run the seed script locally:
-
-```bash
-# Needs DATABASE_URL or DATABASE_POOLER_URL (port 6543) in .env
-node scripts/seed-production.mjs
-```
-
-Get the pooler connection string from: **Supabase Dashboard → Settings → Database → Connection string → URI** (select "Transaction pooler", port 6543).
-
-> The seed script is idempotent for courts and operating hours. Pricing rules are checked but never overwritten.
+The legacy production seeder was removed. For ETHN setup, follow the [README](../README.md).
 
 ---
 
@@ -104,7 +95,7 @@ In the **Vercel Dashboard → Project → Settings → Environment Variables**, 
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → Project API keys → `service_role` | **Keep secret — bypasses RLS** |
 
 > **These three are the only DB-related vars the runtime now needs.**
-> `DATABASE_URL`, `DATABASE_POOLER_URL`, and `DIRECT_DATABASE_URL` are no longer used at runtime. They're only needed locally for drizzle-kit migrations and the seed script.
+> `DATABASE_URL`, `DATABASE_POOLER_URL`, and `DIRECT_DATABASE_URL` are no longer used at runtime. These are legacy environment variables. For ETHN runtime and migration configuration, see the [README](../README.md).
 
 ### Required — Email (Gmail)
 

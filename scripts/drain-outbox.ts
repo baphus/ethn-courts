@@ -10,8 +10,7 @@
 // immediately after commit. Reach for this when mail didn't go out (e.g. the
 // dev server was down, SMTP was misconfigured, or rows are stuck in retry).
 //
-// Env: hand-parses .env (quotes stripped, no expansion — same as
-// scripts/seed-production.mjs); real environment values win over .env.
+// Env: hand-parses .env (quotes stripped, no expansion); real environment values win.
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -77,7 +77,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   const selected = params.getAll("status");
   if (selected.length === 1 && selected[0] === "") selected.pop();
   const archived = params.get("archived");
-  if (archived !== null && archived !== "true" && archived !== "false" && archived !== "all") invalid();
+  if (archived !== null && archived !== "true" && archived !== "false" && archived !== "all" && archived !== "include") invalid();
   const from = params.get("from") ?? "", to = params.get("to") ?? "";
   const pageRaw = params.get("page") ?? "1", limitRaw = params.get("limit") ?? "20";
   if (q.length > 100 || selected.length > statuses.size || selected.some(status => !statuses.has(status)) || (from && !date(from)) || (to && !date(to)) || (from && to && from > to) || !/^\d+$/.test(pageRaw) || !/^\d+$/.test(limitRaw)) invalid();
@@ -87,8 +87,16 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   const offset = (page - 1) * limit;
   const values: unknown[] = [];
   const filters = ["b.status <> 'held'"];
-  if (archived !== "all") filters.push(archived === "true" ? "b.archived_at IS NOT NULL" : "b.archived_at IS NULL");
-  if (selected.length) { values.push(selected); filters.push(`b.status = ANY($${values.length}::text[])`); }
+  if (archived !== "all" && archived !== "include") {
+    filters.push(archived === "true" ? "b.archived_at IS NOT NULL" : "b.archived_at IS NULL");
+  }
+  if (selected.length) {
+    values.push(selected);
+    const statusMatch = `b.status = ANY($${values.length}::text[])`;
+    filters.push(archived === "include" ? `(b.archived_at IS NOT NULL OR ${statusMatch})` : statusMatch);
+  } else if (archived === "include") {
+    filters.push("b.archived_at IS NOT NULL");
+  }
   if (from) { values.push(from); filters.push(`b.operating_date >= $${values.length}::date`); }
   if (to) { values.push(to); filters.push(`b.operating_date <= $${values.length}::date`); }
   if (q) {

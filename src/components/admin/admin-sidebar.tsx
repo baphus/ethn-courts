@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, CalendarDays, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, TriangleAlert, UserRound, Users, type LucideIcon } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger } from "@/components/ui/sidebar";
 import Image from "next/image";
+import AdminClock from "./admin-topbar";
+import ThemeToggle from "./theme-toggle";
+import ProfileDialog from "./profile-dialog";
 
 const itemClass = "h-8 px-2.5 text-xs group-data-[collapsible=icon]:mx-auto";
 
@@ -52,8 +55,8 @@ export default function AdminSidebar({ email, name, counts }: { email: string; n
   };
 
   return <Sidebar collapsible="icon">
-    <nav aria-label="Owner navigation" className="flex h-full min-h-0 flex-col">
-    <SidebarHeader><div className="flex flex-col items-start gap-1 px-2 py-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={150} height={85} className="h-auto w-36 group-data-[collapsible=icon]:w-9"/><span className="text-xs text-[#b7c7cf] group-data-[collapsible=icon]:hidden">Owner portal</span></div></SidebarHeader>
+    <nav aria-label="Owner navigation" className="admin-sidebar-nav flex h-full min-h-0 flex-col">
+    <SidebarHeader><div className="flex min-h-16 items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"><Image src="/ethn-courts-logo.svg" alt="ETHN Courts" width={150} height={85} className="h-auto w-24 group-data-[collapsible=icon]:w-9"/><SidebarTrigger aria-label="Toggle sidebar" title="Toggle sidebar" className="hidden shrink-0 md:inline-flex" /></div></SidebarHeader>
     <SidebarContent>
       <SidebarGroup>
         <SidebarGroupLabel>Operations</SidebarGroupLabel>
@@ -69,15 +72,19 @@ export default function AdminSidebar({ email, name, counts }: { email: string; n
         </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>
-    <SidebarFooter>
-      <div className="flex items-center gap-2 border-t border-sidebar-border px-2 pt-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+    <SidebarFooter className="border-t border-sidebar-border pt-4">
+      <AdminClock />
+      <div className="flex items-center gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground"><UserRound className="size-4" aria-hidden="true" /></span>
         <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
           {name && <p className="truncate text-xs font-semibold">{name}</p>}
           <p className="truncate text-xs text-sidebar-foreground/70">{email}</p>
           <p className="text-xs text-sidebar-foreground/70">Owner</p>
         </div>
-        <SidebarTrigger aria-label="Toggle sidebar" className="hidden shrink-0 text-white hover:text-white md:inline-flex" />
+      </div>
+      <div className="flex items-center gap-1 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+        <ProfileDialog email={email} name={name} />
+        <ThemeToggle />
       </div>
       <SidebarMenu><SidebarMenuItem><SidebarMenuButton className={itemClass} onClick={logout} tooltip="Sign out"><LogOut /><span>Sign out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
     </SidebarFooter>

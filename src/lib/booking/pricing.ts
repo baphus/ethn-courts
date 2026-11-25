@@ -248,8 +248,8 @@ export async function recalculateTotal(
     }
     // One rule prices the whole paddle line, chosen from the FIRST slot only,
     // then multiplied by every hour. That is correct while paddle has a single
-    // fixed rate (seed-production.mjs rows it as day_type='all', time_band='all',
-    // so every slot resolves to the same row). It becomes a wrong total the
+    // fixed rate (day_type='all', time_band='all', so every slot resolves to
+    // the same row). It becomes a wrong total the
     // moment a second paddle rate is added with a day_type or time_band that is
     // not 'all': a 17:00+18:00 booking would charge the morning rate for both
     // hours. If that happens, price paddle per slot like the court loop above.

@@ -80,6 +80,16 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     assert.equal(combined.rows.length, 2);
     assert.equal(combined.rows[0].id, rejected);
 
+    const included = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`status=pending&archived=include&q=Guest&from=${day}&to=${day}`));
+    assert.equal(included.total, 3);
+    assert.deepEqual(new Set(included.rows.map(row => row.id)), new Set([futurePending, overduePending, rejected]));
+    const noMatch = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&archived=include&q=does-not-match"));
+    assert.equal(noMatch.total, 0);
+    const archivedOnly = await searchEthnBookings(pool, async () => staff, new URLSearchParams("archived=true"));
+    assert.deepEqual(archivedOnly.rows.map(row => row.id), [rejected]);
+    const legacyAll = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&archived=all"));
+    assert.equal(legacyAll.total, 2);
+
     const detail = await ethnBookingDetail(pool, async () => staff, overduePending);
     assert.ok(detail);
     assert.equal(detail.payments[0].claimedAmount, "100.00");

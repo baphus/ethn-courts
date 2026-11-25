@@ -1,4 +1,5 @@
 "use client";
+import { BookingStatusBadge } from "@/components/booking/booking-status";
 
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
@@ -492,7 +493,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
               </div>
               <form onSubmit={lookup} className="mx-auto mt-4 grid max-w-3xl gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><label className="block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Tracking code<Input aria-label="Tracking code" className="mt-2 min-h-11 border-[#a7c5a0] bg-white font-semibold normal-case tracking-normal text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" required maxLength={5} value={trackCode} onChange={e => setTrackCode(e.target.value)} /></label><label className="block text-xs font-bold uppercase tracking-[.16em] text-[#447244]">Email<Input aria-label="Email" className="mt-2 min-h-11 border-[#a7c5a0] bg-white font-semibold normal-case tracking-normal text-[#294d2e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" required type="email" value={trackEmail} onChange={e => setTrackEmail(e.target.value)} /></label><Button className="min-h-11 bg-[#447244] px-6 font-bold text-white hover:bg-[#365e36] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]" disabled={trackBusy} type="submit">{trackBusy ? "Checking…" : "Track"}</Button></form>
               {trackError && <p role="alert" className="mt-3 text-sm text-destructive">{trackError}</p>}
-              {tracking && <div role="status" className="mt-5 space-y-2 border-t pt-4 text-sm"><p>Reservation: <strong className="capitalize">{tracking.status}</strong> · {formatDisplayDate(tracking.operatingDate)} · {money(tracking.total)}</p>{tracking.status === "pending" && <p>Pending review; not yet confirmed.</p>}{tracking.items.map((item, i) => <p key={i}>{item.court}: {formatDate(item.startsAt)} – {formatDate(item.endsAt)}</p>)}{tracking.payments.map((p, i) => <p key={i}>Payment: {p.method.toUpperCase()} · {p.status}{p.reviewReason && tracking.status === "rejected" ? ` · Reason: ${p.reviewReason}` : ""}</p>)}</div>}
+              {tracking && <div role="status" className="mt-5 space-y-2 border-t pt-4 text-sm"><p>Reservation: <BookingStatusBadge state={tracking.status} /> · {formatDisplayDate(tracking.operatingDate)} · {money(tracking.total)}</p>{tracking.status === "pending" && <p>Pending review; not yet confirmed.</p>}{tracking.items.map((item, i) => <p key={i}>{item.court}: {formatDate(item.startsAt)} – {formatDate(item.endsAt)}</p>)}{tracking.payments.map((p, i) => <p key={i}>Payment: {p.method.toUpperCase()} · {p.status}{p.reviewReason && tracking.status === "rejected" ? ` · Reason: ${p.reviewReason}` : ""}</p>)}</div>}
             </section>
           </>}
         </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { formatDisplayDate } from "@/lib/display-date";
 
 export type BookingSummary = { id: string; guestName: string | null; status: string; operatingDate: string; createdAt: string; total: string; itemCount: number; archived: boolean };
 export const money = (value: string) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value));
@@ -17,9 +16,6 @@ export async function request<T>(url: string, signal?: AbortSignal): Promise<T> 
 }
 export function ErrorNotice({ message }: { message: string }) {
   return <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{message} {message.includes("Sign in") && <Link className="underline" href="/login">Sign in</Link>}</div>;
-}
-export function BookingRows({ rows }: { rows: BookingSummary[] }) {
-  return <ul className="divide-y">{rows.map(row => <li key={row.id}><Link href={`/admin/bookings/${encodeURIComponent(row.id)}`} className="flex flex-wrap items-center justify-between gap-3 py-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"><span className="min-w-0"><strong className="block">{row.guestName || "Guest"}</strong><span className="text-sm text-muted-foreground">{formatDisplayDate(row.operatingDate)} · {row.itemCount} {row.itemCount === 1 ? "item" : "items"} · Created {dateTime(row.createdAt)}</span></span><span className="text-right text-sm"><span className="block font-semibold capitalize">{row.status}</span><span className="text-muted-foreground">Booking total {money(row.total)}</span></span></Link></li>)}</ul>;
 }
 
 export { default } from './bookings-view';

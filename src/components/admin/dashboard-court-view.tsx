@@ -11,7 +11,7 @@ import { StatusBadge } from "./dashboard-status";
 import { CourtTimeline } from "./court-timeline";
 import { CourtCard } from "./court-card";
 import { KpiRow, type Kpi } from "./kpi-row";
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { shiftDate } from "@/app/admin/calendar/date-utils";
 import { Avatar } from "./court-avatar";
 import { courtStatus, currentPosition, intervalLabel, timelineTime } from "./court-timeline-utils";
@@ -43,7 +43,6 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
     { label: "Bookings", Icon: CalendarDays, value: overview ? Number(overview.periods.today) || 0 : placeholder },
     { label: "Pending", Icon: Clock, value: overview ? Number(overview.counts.pending) || 0 : placeholder },
     { label: "Confirmed", Icon: CheckCircle2, value: overview ? Number(overview.counts.confirmed) || 0 : placeholder },
-    { label: "Overdue review", Icon: AlertTriangle, value: overview ? Number(overview.counts.pendingReviewOverdue) || 0 : placeholder, warn: !!overview && overview.counts.pendingReviewOverdue > 0 },
   ] : [];
 
   return <div className="space-y-5 pb-24">
@@ -62,7 +61,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
 
     {updated && <p className="text-xs text-muted-foreground" role="status">{loading ? "Refreshing schedule…" : `Last updated ${timelineTime(updated)}`}</p>}
 
-    {!day && !error && <div aria-label="Loading court summaries" className="grid gap-3 sm:grid-cols-2">{[0, 1].map(i => <div key={i} className="min-h-52 space-y-3 rounded-2xl border bg-card p-4 shadow-sm"><LoadingSkeleton className="h-4 w-24 motion-reduce:animate-none" /><LoadingSkeleton className="h-7 w-36 motion-reduce:animate-none" /><LoadingSkeleton className="h-16 w-full motion-reduce:animate-none" /></div>)}</div>}
+    {!day && !error && <div aria-label="Loading court summaries" className="grid gap-3 sm:grid-cols-2">{[0, 1].map(i => <div key={i} className="min-h-44 space-y-3 rounded-2xl border bg-card p-4 shadow-sm"><LoadingSkeleton className="h-4 w-24 motion-reduce:animate-none" /><LoadingSkeleton className="h-7 w-36 motion-reduce:animate-none" /><LoadingSkeleton className="h-16 w-full motion-reduce:animate-none" /></div>)}</div>}
     {day && <section aria-label="Court summaries" className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
       {statuses.map(({ court, status }) => <CourtCard key={court.id} court={court} status={status} now={now} live={live} onOpen={setBooking} />)}
     </section>}

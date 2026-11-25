@@ -1,4 +1,5 @@
 import { EmptyIcon } from "@/components/ui/empty-icon";
+import { bookingStatusStyle } from "@/components/booking/booking-status";
 import type { Metadata } from "next";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { trackBooking } from "@/lib/booking/ethn-tracking";
@@ -51,7 +52,7 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Reservation</p>
-                  <h2 id="reservation-heading" className="mt-2 text-2xl font-bold capitalize text-pine">{booking.status}</h2>
+                  <h2 id="reservation-heading" className={`mt-2 inline-flex rounded-md border px-3 py-1 text-2xl font-bold capitalize ${bookingStatusStyle(booking.status).className}`}>{booking.status}</h2>
                 </div>
                 <div className="sm:text-right">
                   <p className="text-xs font-bold uppercase tracking-wider text-warm-muted">Total</p>

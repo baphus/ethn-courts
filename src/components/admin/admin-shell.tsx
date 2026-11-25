@@ -2,11 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import NextTopLoader from "nextjs-toploader";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AdminSidebar from "./admin-sidebar";
-import AdminTopbar from "./admin-topbar";
-import ProfileDialog from "./profile-dialog";
 
 interface Props {
   email: string;
@@ -72,12 +70,14 @@ export default function AdminShell({ email, name, children }: Props) {
 
   return <SidebarActivity.Provider value={{ counts, refreshCounts, syncInbox }}><TooltipProvider>
     <NextTopLoader color="var(--primary)" showSpinner={false} />
-    <SidebarProvider style={{ "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
+    <SidebarProvider className="admin-shell-canvas" style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
       <div data-admin-shell className="contents">
         <AdminSidebar email={email} name={name} counts={counts} />
-        <SidebarInset className="min-w-0 overflow-x-clip">
-          <AdminTopbar><ProfileDialog email={email} name={name} /></AdminTopbar>
-          <div className="admin-workspace flex min-w-0 flex-1 flex-col gap-4 overflow-x-clip p-4 md:p-6">{children}</div>
+        <SidebarInset className="admin-frame min-w-0 overflow-x-clip">
+          <div className="admin-workspace flex min-w-0 flex-1 flex-col gap-4 overflow-x-clip p-4 md:p-6">
+            <SidebarTrigger aria-label="Open sidebar" className="self-start md:hidden" />
+            {children}
+          </div>
         </SidebarInset>
       </div>
     </SidebarProvider>

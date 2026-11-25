@@ -1,4 +1,5 @@
 "use client";
+import { BookingStatusBadge } from "@/components/booking/booking-status";
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,6 @@ export default function TrackLookup() {
       <Button disabled={busy} type="submit" className="min-h-12 w-full bg-[#447244] px-7 text-base text-white hover:bg-[#447244] sm:col-span-2 sm:w-auto sm:justify-self-start">{busy ? "Checking…" : "Track reservation"}</Button>
     </form>
     {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-    {tracking && <div role="status" className="mt-5 space-y-2 border-t pt-4 text-sm text-[#447244]"><p>Reservation: <strong className="capitalize">{tracking.status}</strong> · {formatDisplayDate(tracking.operatingDate)} · ₱{tracking.total}</p>{tracking.status === "pending" && <p>Pending review; not yet confirmed.</p>}{tracking.items.map((item, i) => <p key={i}>{item.court}: {formatDate(item.startsAt)} – {formatDate(item.endsAt)}</p>)}{tracking.payments.map((payment, i) => <p key={i}>Payment: {payment.method.toUpperCase()} · {payment.status}{payment.reviewReason && tracking.status === "rejected" ? ` · Reason: ${payment.reviewReason}` : ""}</p>)}</div>}
+    {tracking && <div role="status" className="mt-5 space-y-2 border-t pt-4 text-sm text-[#447244]"><p>Reservation: <BookingStatusBadge state={tracking.status} /> · {formatDisplayDate(tracking.operatingDate)} · ₱{tracking.total}</p>{tracking.status === "pending" && <p>Pending review; not yet confirmed.</p>}{tracking.items.map((item, i) => <p key={i}>{item.court}: {formatDate(item.startsAt)} – {formatDate(item.endsAt)}</p>)}{tracking.payments.map((payment, i) => <p key={i}>Payment: {payment.method.toUpperCase()} · {payment.status}{payment.reviewReason && tracking.status === "rejected" ? ` · Reason: ${payment.reviewReason}` : ""}</p>)}</div>}
   </div>;
 }

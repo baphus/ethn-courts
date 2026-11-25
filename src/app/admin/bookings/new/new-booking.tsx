@@ -65,7 +65,7 @@ export default function NewBooking() {
   const field = "grid gap-1 text-sm font-medium"; const input = "rounded-md border bg-background p-2";
   return <div className="w-full space-y-5 pb-24">
     <Link className="text-sm text-primary underline" href="/admin/bookings">← Back to bookings</Link>
-    <header><p className="text-xs font-bold uppercase tracking-widest text-primary">Front desk</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">New booking</h1><p className="mt-2 text-sm text-muted-foreground">Choose available hours, then record full payment. Selection does not reserve a court.</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">New booking</h1><p className="mt-2 text-sm text-muted-foreground">Choose available hours, then record full payment. Selection does not reserve a court.</p></header>
     {notice.message && <p role={notice.announce ? "alert" : undefined} className="rounded-lg border border-destructive/40 p-3 text-sm">{notice.message}</p>}{result && <p className="rounded-lg border p-3">{result}</p>}
     <form onSubmit={submit} className="space-y-6 rounded-xl border bg-card p-4 sm:p-6"><fieldset disabled={busy || !!pending} className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4"><label className={field}>Operating date<input className={input} type="date" required value={operatingDate} onChange={e => { const next = e.target.value; if (Object.keys(selection).length && !window.confirm("Changing the date clears selected hours. Continue?")) return; setSelection({}); setReview(false); setDate(next); }} /></label><Button type="button" variant="outline" onClick={() => { setSelection({}); setReview(false); }}>Clear selection</Button></div>

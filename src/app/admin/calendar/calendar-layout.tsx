@@ -1,4 +1,5 @@
 "use client";
+import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/booking-status";
 
 import { LoadingRows } from "@/components/admin/loading-slots";
 import { useEffect, useRef, useState } from "react";
@@ -14,10 +15,10 @@ type Detail = { guestName: string | null; status: string; total: string; items: 
 const dateLabel = (date: string, options: Intl.DateTimeFormatOptions = { weekday: "long", month: "long", day: "numeric", year: "numeric" }) => new Intl.DateTimeFormat("en-PH", { ...options, timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 const time = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const stateColors: Record<string, string> = {
-  held: "border-sky-200 bg-sky-50 text-sky-900",
-  pending: "border-amber-200 bg-amber-50 text-amber-900",
-  confirmed: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  completed: "border-slate-300 bg-slate-100 text-slate-800",
+  held: bookingStatusStyle("held").className,
+  pending: bookingStatusStyle("pending").className,
+  confirmed: bookingStatusStyle("confirmed").className,
+  completed: bookingStatusStyle("completed").className,
 };
 const stateColor = (state: string) => stateColors[state] ?? "border-border bg-muted text-foreground";
 
@@ -86,6 +87,6 @@ export default function CalendarLayout({ date, today, revision, busy, onDate, on
       {!loading && loadedKey === `${key}:${revision}` && dates.some(day => days[day] && entries(days[day]!).length > 0) && <div className="flex flex-wrap gap-3 border-t px-4 py-3 text-xs">{Object.entries(stateColors).map(([state, color]) => <span key={state} className={`rounded border px-2 py-1 capitalize ${color}`}>{state}</span>)}</div>}
     </div>
     <Sheet open={panel !== null} onOpenChange={open => { if (!open) setPanel(null); }}><SheetContent className="w-full overflow-y-auto sm:max-w-md"><SheetHeader><SheetTitle>{panel ? dateLabel(panel) : "Day"}</SheetTitle><SheetDescription>Occupancy by court for this operating day.</SheetDescription></SheetHeader><div className="px-4 pb-6">{panel && loadedKey === `${key}:${revision}` && days[panel] ? dayContent(days[panel]!) : <p role="alert">Calendar unavailable for this date. Reload this page to try again.</p>}</div></SheetContent></Sheet>
-    <Dialog open={booking !== null} onOpenChange={open => { if (!open) { bookingRequest.current?.abort(); setBooking(null); } }}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogTitle>Booking summary</DialogTitle><DialogDescription>Read-only booking details.</DialogDescription>{detailError ? <p role="alert">{detailError}</p> : !detail ? <LoadingRows label="Loading booking" /> : <div className="space-y-4 text-sm"><div><h3 className="text-lg font-semibold">{detail.guestName || "Guest"}</h3><p>Status: <span className="capitalize">{detail.status.replaceAll("_", " ")}</span></p><p>Original booking total: ₱{Number(detail.total).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div><section><h3 className="font-semibold">Court schedule</h3><ul className="divide-y">{detail.items.map((item, index) => <li key={`${item.courtId}-${index}`} className="py-2"><strong>{item.courtName}</strong><p>{time(item.startsAt)} – {time(item.endsAt)}</p></li>)}</ul></section></div>}{booking && <Link className="text-sm font-semibold text-primary underline" href={`/admin/bookings/${encodeURIComponent(booking)}`}>Open full booking</Link>}</DialogContent></Dialog>
+    <Dialog open={booking !== null} onOpenChange={open => { if (!open) { bookingRequest.current?.abort(); setBooking(null); } }}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogTitle>Booking summary</DialogTitle><DialogDescription>Read-only booking details.</DialogDescription>{detailError ? <p role="alert">{detailError}</p> : !detail ? <LoadingRows label="Loading booking" /> : <div className="space-y-4 text-sm"><div><h3 className="text-lg font-semibold">{detail.guestName || "Guest"}</h3><p>Status: <BookingStatusBadge state={detail.status} /></p><p>Original booking total: ₱{Number(detail.total).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div><section><h3 className="font-semibold">Court schedule</h3><ul className="divide-y">{detail.items.map((item, index) => <li key={`${item.courtId}-${index}`} className="py-2"><strong>{item.courtName}</strong><p>{time(item.startsAt)} – {time(item.endsAt)}</p></li>)}</ul></section></div>}{booking && <Link className="text-sm font-semibold text-primary underline" href={`/admin/bookings/${encodeURIComponent(booking)}`}>Open full booking</Link>}</DialogContent></Dialog>
   </>;
 }

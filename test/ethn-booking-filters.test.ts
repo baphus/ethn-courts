@@ -9,6 +9,12 @@ test("booking URL filters round trip and reject invalid bounds", () => {
   assert.equal(filters.q, "");
   assert.deepEqual(filters.status, ["confirmed", "pending"]);
   assert.equal(filters.archived, "all");
+  for (const archived of ["true", "include"] as const) {
+    const query = `archived=${archived}&status=pending`;
+    const parsed = parseFilters(new URLSearchParams(query));
+    assert.equal(parsed.archived, archived);
+    assert.equal(serializeFilters(parsed), query);
+  }
   assert.equal(new URLSearchParams(serializeFilters({ ...filters, q: "Jane" })).has("q"), false);
   assert.deepEqual(parseFilters(new URLSearchParams(serializeFilters(filters))), filters);
   assert.deepEqual(parseFilters(new URLSearchParams("status=unknown&from=2026-02-30&to=2026-01-01&page=1001")), { q: "", status: [], from: "", to: "", page: 1, archived: "" });
