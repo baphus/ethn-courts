@@ -13,6 +13,23 @@ type CheckoutInput = {
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const pesos = (value: bigint) => `${value / BigInt(100)}.${(value % BigInt(100)).toString().padStart(2, "0")}`;
 
+export async function releaseCheckout(pool: Pick<Pool, "query">, input: { ownerToken: string; checkoutId: string }): Promise<boolean> {
+  const params = [input.checkoutId, hash(input.ownerToken.toLowerCase())];
+  // Same hold transition as expiry; retain proof and booking history for late evidence.
+  const changed = await pool.query(`WITH released AS (
+    UPDATE ethn.bookings SET status = 'expired'
+    WHERE id = $1 AND owner_hash = $2 AND walk_in_actor IS NULL AND status = 'held'
+    RETURNING id
+  ), allocations AS (
+    UPDATE ethn.court_allocations SET state = 'expired'
+    WHERE state = 'held' AND item_id IN (SELECT i.id FROM ethn.booking_items i JOIN released r ON r.id = i.booking_id)
+  ) SELECT id FROM released`, params);
+  if (changed.rows.length) return true;
+  // A retry after a lost response (or natural expiry) must also succeed.
+  const expired = await pool.query("SELECT id FROM ethn.bookings WHERE id = $1 AND owner_hash = $2 AND walk_in_actor IS NULL AND status = 'expired'", params);
+  return expired.rows.length > 0;
+}
+
 export async function createCheckout(pool: Pick<Pool, "connect">, input: CheckoutInput) {
   if (!input || typeof input.ownerToken !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.ownerToken) || typeof input.idempotencyKey !== "string" || !/^[\x21-\x7e]{1,200}$/.test(input.idempotencyKey) || typeof input.date !== "string" || !Array.isArray(input.ranges) || !input.ranges.length || input.ranges.length > 100 || typeof input.displayedTotal !== "string" || typeof input.displayedVersion !== "string" || !/^[1-9]\d*$/.test(input.displayedVersion) || BigInt(input.displayedVersion) > BigInt("9223372036854775807")) throw new Error("INVALID_INPUT");
   let displayedTotal: string;

@@ -23,8 +23,10 @@ import { VENUE_MAP_EMBED } from "@/lib/venue";
 
 type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
 type Checkout = { checkoutId: string; total: string; expiresAt: string; intervalMinutes?: number; paymentMethods?: {id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[]; acknowledgementRequired: boolean; items: { courtId: string; start: string; end: string; rate: string; minutes: number; amount: string }[] };
-type Draft = { owner: string; checkout: Checkout; date: string; offset: number; reservationId?: string; uploaded?: boolean; proofFile?: string; proofKey?: string; submitHash?: string; submitKey?: string };
-type Result = { slotCount?: number; booked: boolean; status: string; trackingToken?: string; code?: string; message?: string };
+type Progress = { name: string; email: string; phone: string; reference: string; methodId: string; ack: boolean };
+const emptyProgress: Progress = { name: "", email: "", phone: "", reference: "", methodId: "", ack: false };
+type Draft = { owner: string; checkout: Checkout; date: string; progress?: Progress; releaseRequested?: boolean; reservationId?: string; uploaded?: boolean; proofFile?: string; proofKey?: string; submitHash?: string; submitKey?: string };
+type Result = { checkoutId?: string; slotCount?: number; booked: boolean; status: string; trackingToken?: string; code?: string; message?: string };
 type Tracking = { status: string; operatingDate: string; total: string; items: { court: string; startsAt: string; endsAt: string }[]; payments: { status: string; method: string; reviewReason?: string }[] };
 const STORAGE = "ethn-checkout-v1";
 const formatDate = (s: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(s));
@@ -169,7 +171,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const [reviewing, setReviewing] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [restored, setRestored] = useState(false);
-  const [ack, setAck] = useState(false);
+  const [progress, setProgress] = useState(emptyProgress);
+  const { name, email, phone, reference, methodId, ack } = progress;
   const [now, setNow] = useState(0);
   const [clockReady, setClockReady] = useState(false);
   const [feedback, setFeedback] = useState({ message: "", toasted: false });
@@ -177,10 +180,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const observedHold = useRef<ReturnType<typeof holdExpiry>["observation"] | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [phone, setPhone] = useState(""); const [reference, setReference] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [methods, setMethods] = useState<{id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[] | null>(null);
-  const [methodId, setMethodId] = useState("");
   const checkoutMethods = draft ? draft.checkout.paymentMethods ?? [] : methods;
   useEffect(() => { if (!bookingPage) return; const controller = new AbortController(); fetch("/api/ethn/payment-methods", { cache: "no-store", signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(data => setMethods(data.methods)).catch(() => { if (!controller.signal.aborted) setMethods([]); }); return () => controller.abort(); }, [bookingPage]);
   const [result, setResult] = useState<Result | null>(null);
@@ -195,7 +196,19 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const checkoutKeys = useRef<Record<string, string>>({});
 
   const save = (next: Draft) => { setDraft(next); sessionStorage.setItem(STORAGE, JSON.stringify(next)); };
-  const finishCheckout = () => { sessionStorage.removeItem(STORAGE); sessionStorage.removeItem("ethn-checkout-keys-v1"); checkoutKeys.current = {}; setDraft(null); setName(""); setEmail(""); setPhone(""); };
+  const finishCheckout = () => {
+    checkoutKeys.current = {}; setDraft(null); setProgress(emptyProgress); setRestored(false);
+    sessionStorage.removeItem("ethn-checkout-keys-v1"); sessionStorage.removeItem(STORAGE);
+  };
+  function updateProgress(change: Partial<Progress>) {
+    if (lock.current || draft?.releaseRequested) return;
+    const next = { ...progress, ...change };
+    setProgress(next);
+    if (draft) {
+      try { save({ ...draft, progress: next }); }
+      catch { setError("Could not save checkout changes in this tab. Keep this page open."); }
+    }
+  }
   const load = useCallback(async (date?: string, fallback = false, handoff?: { raw: string; date: string | null }) => {
     const seq = ++sequence.current; setLoading(true); setClockReady(false); setError("");
     try {
@@ -216,14 +229,22 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     finally { if (seq === sequence.current) setLoading(false); }
   }, [setError]);
   useEffect(() => {
-    let hasDraft = false;
-    try { const stored = bookingPage ? sessionStorage.getItem(STORAGE) : null; if (stored) { const value = JSON.parse(stored) as Draft; if (value.owner && value.checkout?.checkoutId) { setDraft(value); setRestored(true); hasDraft = true; } } } catch { /* Ignore invalid session draft. */ }
+    let savedDate: string | undefined;
+    try {
+      const stored = bookingPage ? sessionStorage.getItem(STORAGE) : null;
+      if (stored) {
+        const value = JSON.parse(stored) as Draft;
+        if (value.owner && value.checkout?.checkoutId && validDate(value.date)) {
+          setDraft(value); setProgress({ ...emptyProgress, ...value.progress }); setRestored(true); savedDate = value.date;
+        }
+      }
+    } catch { /* Ignore invalid session draft. */ }
     const params = new URLSearchParams(window.location.search);
     const date = params.getAll("date").length === 1 ? params.get("date") : null;
-    const raw = bookingPage && !hasDraft && params.has("ranges") ? params.getAll("ranges").length === 1 ? params.get("ranges")! : "" : null;
+    const raw = bookingPage && !savedDate && params.has("ranges") ? params.getAll("ranges").length === 1 ? params.get("ranges")! : "" : null;
     const defaultDate = manilaDateStr(new Date());
     if (!validDate(date)) setChosenDate(defaultDate);
-    void load(validDate(date) ? date : defaultDate, true, raw !== null ? { raw, date: params.getAll("date").length === 1 ? date : null } : undefined);
+    void load(savedDate ?? (validDate(date) ? date : defaultDate), true, raw !== null ? { raw, date: params.getAll("date").length === 1 ? date : null } : undefined);
     const timer = window.setInterval(() => { if (clock.current.server) setNow(clock.current.server + performance.now() - clock.current.monotonic); }, 1000);
     return () => window.clearInterval(timer);
   }, [load, bookingPage]);
@@ -289,8 +310,9 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       checkoutKeys.current[fingerprint] = idempotencyKey;
       sessionStorage.setItem("ethn-checkout-keys-v1", JSON.stringify({ ...storedKeys, [fingerprint]: idempotencyKey }));
       const checkout = await post<Checkout>("/api/checkout", { ownerToken: owner, idempotencyKey, ...payload });
-      setAck(false); setRestored(false); setReviewing(false);
-      try { save({ owner, checkout, date: chosenDate, offset: now - Date.now() }); }
+      const checkoutProgress = { ...progress, ack: false };
+      setProgress(checkoutProgress); setRestored(false); setReviewing(false);
+      try { save({ owner, checkout, date: chosenDate, progress: checkoutProgress }); }
       catch { setFeedback({ message: "This checkout could not be saved in your browser. Keep this page open.", toasted: true }); }
       const serverNow = clock.current.server + performance.now() - clock.current.monotonic;
       setNow(serverNow);
@@ -302,10 +324,25 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     } catch (e) { reportFailure("Slot hold", e); }
     finally { lock.current = false; setBusy(false); }
   }
-  async function upload() {
-    if (!draft || !file || !clockReady || expired || lock.current || (draft.checkout.acknowledgementRequired && !ack)) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size < 1 || file.size > 5 * 1024 * 1024) { setError("Choose a JPG, PNG or WebP image up to 5 MiB."); return; }
+  async function leaveCheckout() {
+    if (!draft || lock.current) return;
+    if (!draft.releaseRequested && !window.confirm("Release your held times and leave checkout? If you already paid, stay and submit your proof or contact the venue first.")) return;
     lock.current = true; setBusy(true); setError("");
+    try {
+      try { save({ ...draft, releaseRequested: true }); } catch { /* Release is still possible without browser storage. */ }
+      await post("/api/checkout/release", { ownerToken: draft.owner, checkoutId: draft.checkout.checkoutId });
+      try { finishCheckout(); }
+      catch { toast.warning("Hold released, but this browser could not clear the saved checkout."); }
+      await load(draft.date, true);
+    } catch {
+      setError("Could not confirm the hold was released. Retry leaving checkout. If you paid or already submitted proof, contact the venue before paying again.");
+    } finally { lock.current = false; setBusy(false); }
+  }
+
+  async function upload(file: File) {
+    if (!draft || draft.releaseRequested || !clockReady || expired || lock.current || (draft.checkout.acknowledgementRequired && !ack)) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size < 1 || file.size > 5 * 1024 * 1024) { setError("Choose a JPG, PNG or WebP image up to 5 MiB."); return; }
+    lock.current = true; setBusy(true); setUploading(true); setError("");
     try {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL, anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       if (!url || !anon) throw new Error("NOT_CONFIGURED");
@@ -322,12 +359,12 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       catch { setFeedback({ message: "Proof was uploaded, but this browser could not save the latest checkout state. Keep this page open.", toasted: true }); }
       toast.success("Payment proof uploaded.");
     } catch (e) {
-      reportFailure("Payment proof upload", e, e instanceof Error && e.message === "UPLOAD_UNCERTAIN" ? "Upload could not be confirmed. You may submit this proof for verification, or select a new image and upload again before expiry." : friendly(e));
+      reportFailure("Payment proof upload", e, e instanceof Error && e.message === "UPLOAD_UNCERTAIN" ? "Upload could not be confirmed. You may submit this proof for verification, or choose the screenshot again before the hold expires." : friendly(e));
     }
-    finally { lock.current = false; setBusy(false); }
+    finally { lock.current = false; setBusy(false); setUploading(false); }
   }
   async function submit() {
-    if (!draft?.reservationId || lock.current || (draft.checkout.acknowledgementRequired && !ack)) return;
+    if (!draft?.reservationId || draft.releaseRequested || lock.current || (draft.checkout.acknowledgementRequired && !ack)) return;
     if (!validateGuest({ kind: "online", name, email, phone }) || !checkoutMethods?.some(m => m.id === methodId)) { setError("Enter your contact details and choose a payment method."); return; }
     lock.current = true; setBusy(true); setError("");
     try {
@@ -336,12 +373,16 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       const key = draft.submitHash === hash && draft.submitKey ? draft.submitKey : crypto.randomUUID();
       save({ ...draft, submitHash: hash, submitKey: key });
       const submitted = await post<Result>("/api/checkout/submit", { ...payload, idempotencyKey: key });
-      setResult({ ...submitted, slotCount: checkoutSlots ?? undefined });
+      setResult({ ...submitted, checkoutId: draft.checkout.checkoutId, slotCount: checkoutSlots ?? undefined });
       try { finishCheckout(); }
       catch { setError("Your proof was submitted, but this browser could not clear the saved checkout. Do not submit it again."); }
       if (submitted.booked) toast.success("Payment proof submitted for review.");
       else toast.info("Payment proof sent for review. Your court is not booked.");
-    } catch (e) { reportFailure("Payment proof submission", e); }
+    } catch (e) {
+      reportFailure("Payment proof submission", e, e instanceof Error && e.message === "STORAGE_UNAVAILABLE"
+        ? "Could not verify your screenshot. Do not pay again. Retry submission or contact the venue if your hold expires."
+        : friendly(e));
+    }
     finally { lock.current = false; setBusy(false); }
   }
   async function lookup(e: React.FormEvent) {
@@ -355,7 +396,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const tileBtn = "mt-5 inline-flex min-h-9 items-center rounded-md px-3 text-xs font-bold transition-colors public-cta-secondary";
   const card = "rounded-2xl border border-[#dce5e8] bg-white p-5 shadow-sm sm:p-7";
 
-  const contactFields = <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input required maxLength={200} value={name} onChange={e => setName(e.target.value)} autoComplete="name" /></label><label className={field}>Email<Input required type="email" maxLength={254} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" /></label><label className={field}>Contact number<Input required type="tel" maxLength={50} value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" /></label></div>;
+  const contactFields = <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input required maxLength={200} value={name} onChange={e => updateProgress({ name: e.target.value })} autoComplete="name" /></label><label className={field}>Email<Input required type="email" maxLength={254} value={email} onChange={e => updateProgress({ email: e.target.value })} autoComplete="email" /></label><label className={field}>Contact number<Input required type="tel" maxLength={50} value={phone} onChange={e => updateProgress({ phone: e.target.value })} autoComplete="tel" /></label></div>;
 
   const playCards = [
     { href: "/book", label: "Book a court", image: IMAGES.book, caption: "Book a court" },
@@ -421,17 +462,23 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         <div className="mx-auto max-w-7xl space-y-4">
     {feedback.message && (!bookingPage || reviewing || draft || result || !ranges.length || loading) && <p role={feedback.toasted ? undefined : "alert"} className="rounded-2xl border border-destructive/30 bg-white p-4 text-sm text-foreground">{feedback.message}</p>}
     {bookingPage && <p aria-current="step" className={`text-sm font-bold text-white ${(draft && !result) || (reviewing && availability) ? "mx-auto w-full max-w-2xl" : ""}`}>{result ? "Step 4 of 4 - Submission status" : draft ? "Step 3 of 4 - Payment" : reviewing ? "Step 2 of 4 - Review selection" : "Step 1 of 4 - Date and slots"}</p>}
-    {bookingPage && result ? <section className="rounded-2xl border bg-white p-6 text-ink"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your payment evidence requires staff review. Your court is not booked."}</p>{result.slotCount !== undefined && <p className="mt-2 text-sm font-medium">{slotLabel(result.slotCount)} requested</p>}{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-flex min-h-11 items-center rounded-lg public-cta-primary px-4 text-sm font-bold transition-colors" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" className={result.trackingToken ? "public-cta-secondary" : "public-cta-primary"} onClick={() => { setResult(null); void load(manilaDateStr(new Date()), true); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className="mx-auto w-full max-w-2xl space-y-6 rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 shadow-sm sm:p-7">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-3xl font-bold text-[#447244]">Booking summary</h2><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
-      {restored && <p className="rounded-lg bg-[#edf3e8] p-3 text-sm">Checkout restored on this device. Availability and status will be checked by the server; this is not a guarantee.</p>}
-      {!clockReady && <Button variant="outline" className="public-cta-secondary" disabled={loading} onClick={() => void load()}>Refresh server time</Button>}
-      <div className="space-y-3"><p className="text-sm font-semibold text-[#405966]">Booking date: {formatDisplayDate(draft.date)}{checkoutSlots != null && ` · ${slotLabel(checkoutSlots)} selected`}</p><ul className="space-y-2">{draft.checkout.items.map((item, i) => <li key={i} className="flex items-start justify-between gap-4 rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><div className="min-w-0"><strong className="text-[#294d2e]">{availability?.courts.find(c => c.id === item.courtId)?.name ?? `Court ${item.courtId}`}</strong><p className="mt-1 text-[#405966]"><time dateTime={item.start}>{manilaDateStr(new Date(item.start)) !== draft.date && `${formatDisplayDate(manilaDateStr(new Date(item.start)))} · `}{formatTime(Date.parse(item.start))}</time> – <time dateTime={item.end}>{manilaDateStr(new Date(item.end)) !== draft.date && `${formatDisplayDate(manilaDateStr(new Date(item.end)))} · `}{formatTime(Date.parse(item.end))}</time>{slotDetail(item.minutes, draft.checkout.intervalMinutes)}</p></div><strong className="shrink-0 text-right tabular-nums text-[#294d2e]">{money(item.amount)}</strong></li>)}</ul><div className="flex justify-between gap-4 border-t border-[#d5e2ce] pt-4 font-bold text-[#294d2e]"><span>Total due</span><span className="shrink-0 tabular-nums">{money(draft.checkout.total)}</span></div></div>
-      {draft.checkout.acknowledgementRequired && <label className="flex gap-2 rounded-lg border border-primary p-4 text-sm"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} /><span>Price or settings changed. I acknowledge the updated total of {money(draft.checkout.total)}.</span></label>}
-      {expired && <p className="rounded-lg bg-[#edf3e8] p-4 text-sm">This hold expired and the court is not booked. If you paid and already uploaded proof, submit it below for staff review. No new upload can be authorized.</p>}
-      <fieldset className="space-y-3"><legend className="mb-3 text-lg font-bold text-[#294d2e]">Payment method</legend>{checkoutMethods === null ? <p className="text-sm">Loading payment methods…</p> : checkoutMethods.length === 0 ? <p role="alert" className="text-sm">Payment methods are unavailable. Refresh or contact the venue before paying.</p> : <div className="grid gap-2">{checkoutMethods.map(m => <label key={m.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 text-sm font-semibold transition ${methodId === m.id ? "border-[#447244] bg-[#edf3e8] text-[#294d2e]" : "border-[#d5e2ce] bg-white text-[#294d2e]"}`}><input type="radio" name="payment-method" value={m.id} checked={methodId === m.id} onChange={e => setMethodId(e.target.value)} className="size-4 accent-[#447244]" />{m.name}</label>)}</div>}{checkoutMethods?.filter(m => m.id === methodId).map(m => <div key={m.id} className="rounded-xl border border-[#d5e2ce] bg-[#edf3e8] p-4 text-sm text-[#294d2e]"><p className="whitespace-pre-wrap break-words">{m.instructions}</p>{m.qrAvailable && <div className="mt-4 flex flex-col items-center gap-3"><img src={`/api/ethn/payment-methods/${encodeURIComponent(m.id)}/qr?v=${encodeURIComponent(m.version)}`} alt={`${m.name} payment QR code`} className="h-auto w-full max-w-[320px] rounded-lg bg-white p-2" /><a href={`/api/ethn/payment-methods/${encodeURIComponent(m.id)}/qr?v=${encodeURIComponent(m.version)}`} download className="font-bold text-[#294d2e] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Download QR</a></div>}<p className="mt-3">Confirm payment details with the venue before paying.</p></div>)}</fieldset>
-      <section className="space-y-4 rounded-xl border border-[#d5e2ce] bg-white p-4 sm:p-5"><h3 className="text-lg font-bold text-[#294d2e]">Payment proof</h3><label className={`${field} text-left text-[#294d2e]`}>Payment reference (optional)<Input className="min-h-11 border-[#a7c5a0] bg-white focus-visible:ring-[#447244]" maxLength={200} value={reference} onChange={e => setReference(e.target.value)} /></label><label className={`${field} text-left text-[#294d2e]`}>Payment proof (JPG, PNG or WebP, up to 5 MiB)<Input className="min-h-11 border-[#a7c5a0] bg-white focus-visible:ring-[#447244]" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || expired || !clockReady} onChange={e => setFile(e.target.files?.[0] ?? null)} /></label><div className="flex flex-wrap items-center gap-3"><Button variant="outline" className="public-cta-secondary" disabled={busy || !clockReady || expired || !file || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void upload()}>{busy ? "Please wait…" : "Upload proof"}</Button><span className="text-sm text-muted-foreground">{draft.uploaded ? "Proof uploaded." : draft.reservationId ? "Upload not confirmed; submission will check proof." : "After a reload, reattach your file if it was not uploaded."}</span></div></section>
-      <details open={restored} className="rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><summary className="cursor-pointer font-semibold text-[#294d2e]">{restored ? "Re-enter your contact details to finish" : "Contact details (edit if needed)"}</summary>{restored && <p className="mt-2 text-muted-foreground">Contact details are not saved on this device. Enter them again to submit your proof, even if the hold has expired.</p>}<div className="mt-4 text-left [&_input]:min-h-11 [&_input]:border-[#a7c5a0] [&_input]:bg-white [&_label]:text-[#294d2e]">{contactFields}</div></details>
-      <div className="flex flex-wrap gap-3 border-t border-[#d5e2ce] pt-5"><Button className="public-cta-primary" disabled={busy || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => { if (window.confirm("Leave this checkout? Its hold will expire. If you paid, keep your proof and contact the venue.")) { finishCheckout(); setError(""); void load(manilaDateStr(new Date()), true); } }}>Leave checkout</Button></div>
+    {bookingPage && result ? <section className="rounded-2xl border bg-white p-6 text-ink"><h2 className="text-xl font-bold">{result.booked ? "Request pending review" : "Not booked"}</h2><p className="mt-2 text-sm">{result.booked ? "Your reservation is not confirmed until staff verify your payment." : "Your evidence was recorded, but your court is not booked. Do not pay again."}</p>{!result.booked && <p className="mt-2 text-sm"><a className="underline" href="/contact">Contact the venue</a> with your receipt and checkout ID: <strong className="break-all">{result.checkoutId}</strong>.</p>}{result.slotCount !== undefined && <p className="mt-2 text-sm font-medium">{slotLabel(result.slotCount)} requested</p>}{result.code && <p className="mt-4">Tracking code: <strong>{result.code}</strong></p>}{result.trackingToken && <a className="mt-4 inline-flex min-h-11 items-center rounded-lg public-cta-primary px-4 text-sm font-bold transition-colors" href={`/checkout/track/${result.trackingToken}`}>View reservation status</a>}<div className="mt-5"><Button variant="outline" className={result.trackingToken ? "public-cta-secondary" : "public-cta-primary"} onClick={() => { setResult(null); void load(manilaDateStr(new Date()), true); }}>Choose another time</Button></div></section> : bookingPage && draft ? <section className="mx-auto w-full max-w-2xl space-y-6 rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 text-[#17252e] shadow-sm sm:p-7">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-3xl font-bold text-[#17252e]">Booking summary</h2><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
+      {restored && <p className="rounded-lg bg-[#edf3e8] p-3 text-sm">Checkout restored in this tab. Refreshing does not reset your hold timer. If you already paid, do not pay again.</p>}
+      {!clockReady && <Button variant="outline" className="public-cta-secondary mx-auto flex" disabled={loading} onClick={() => void load()}>Refresh server time</Button>}
+      <div className="space-y-3"><p className="text-sm font-semibold text-[#17252e]">Booking date: {formatDisplayDate(draft.date)}{checkoutSlots != null && ` · ${slotLabel(checkoutSlots)} selected`}</p><ul className="space-y-2">{draft.checkout.items.map((item, i) => <li key={i} className="flex items-start justify-between gap-4 rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><div className="min-w-0"><strong className="text-[#17252e]">{availability?.courts.find(c => c.id === item.courtId)?.name ?? `Court ${item.courtId}`}</strong><p className="mt-1 text-[#17252e]"><time dateTime={item.start}>{manilaDateStr(new Date(item.start)) !== draft.date && `${formatDisplayDate(manilaDateStr(new Date(item.start)))} · `}{formatTime(Date.parse(item.start))}</time> – <time dateTime={item.end}>{manilaDateStr(new Date(item.end)) !== draft.date && `${formatDisplayDate(manilaDateStr(new Date(item.end)))} · `}{formatTime(Date.parse(item.end))}</time>{slotDetail(item.minutes, draft.checkout.intervalMinutes)}</p></div><strong className="shrink-0 text-right tabular-nums text-[#17252e]">{money(item.amount)}</strong></li>)}</ul><div className="flex justify-between gap-4 border-t border-[#d5e2ce] pt-4 font-bold text-[#17252e]"><span>Total due</span><span className="shrink-0 tabular-nums">{money(draft.checkout.total)}</span></div></div>
+      {draft.checkout.acknowledgementRequired && <label className="flex gap-2 rounded-lg border border-primary p-4 text-sm"><input type="checkbox" checked={ack} disabled={busy || draft.releaseRequested} onChange={e => updateProgress({ ack: e.target.checked })} /><span>Price or settings changed. I acknowledge the updated total of {money(draft.checkout.total)}.</span></label>}
+      {draft.releaseRequested && <p role="status" className="rounded-lg bg-[#edf3e8] p-4 text-sm">Release not confirmed yet. Retry leaving checkout. Do not send another payment.</p>}
+      {clockReady && !expired && !draft.releaseRequested && <p className="text-sm">Pay, upload your screenshot, and submit it before the hold timer ends. If you don’t have enough time to finish, don’t send payment.</p>}
+      {expired && !draft.releaseRequested && <p className="rounded-lg bg-[#edf3e8] p-4 text-sm">Your hold expired and your slots are no longer reserved. If you already paid, do not pay again. {draft.reservationId && "If your screenshot uploaded, submit it below. "}<a className="underline" href="/contact">Contact the venue</a> with your receipt and checkout ID: <strong className="break-all">{draft.checkout.checkoutId}</strong>.</p>}
+      <fieldset className="space-y-3" disabled={busy || draft.releaseRequested}><legend className="mb-3 text-lg font-bold text-[#17252e]">Payment method</legend>{checkoutMethods === null ? <p className="text-sm">Loading payment methods…</p> : checkoutMethods.length === 0 ? <p role="alert" className="text-sm">Payment methods are unavailable. Refresh or contact the venue before paying.</p> : <div className="grid gap-2">{checkoutMethods.map(m => <label key={m.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 text-sm font-semibold transition ${methodId === m.id ? "border-[#447244] bg-[#edf3e8] text-[#17252e]" : "border-[#d5e2ce] bg-white text-[#17252e]"}`}><input type="radio" name="payment-method" value={m.id} checked={methodId === m.id} onChange={e => updateProgress({ methodId: e.target.value })} className="size-4 accent-[#447244]" />{m.name}</label>)}</div>}{clockReady && !expired && !draft.releaseRequested && checkoutMethods?.filter(m => m.id === methodId).map(m => <div key={m.id} className="rounded-xl border border-[#d5e2ce] bg-[#edf3e8] p-4 text-sm text-[#17252e]"><p className="whitespace-pre-wrap break-words">{m.instructions}</p>{m.qrAvailable && <div className="mt-4 flex flex-col items-center gap-3"><img src={`/api/ethn/payment-methods/${encodeURIComponent(m.id)}/qr?v=${encodeURIComponent(m.version)}`} alt={`${m.name} payment QR code`} className="h-auto w-full max-w-[320px] rounded-lg bg-white p-2" /><a href={`/api/ethn/payment-methods/${encodeURIComponent(m.id)}/qr?v=${encodeURIComponent(m.version)}`} download className="font-bold text-[#17252e] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Download QR</a></div>}<p className="mt-3">Confirm payment details with the venue before paying.</p></div>)}</fieldset>
+      <section className="space-y-4 rounded-xl border border-[#d5e2ce] bg-white p-4 sm:p-5"><h3 className="text-lg font-bold text-[#17252e]">Payment proof</h3><label className={`${field} text-left text-[#17252e]`}>Payment reference (optional)<Input className="min-h-11 border-[#a7c5a0] bg-white focus-visible:ring-[#447244]" maxLength={200} value={reference} disabled={busy || draft.releaseRequested} onChange={e => updateProgress({ reference: e.target.value })} /></label><label className={`${field} text-left text-[#17252e]`}>Payment screenshot (JPG, PNG or WebP, up to 5 MiB)<Input className="min-h-11 border-[#a7c5a0] bg-white focus-visible:ring-[#447244]" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || draft.releaseRequested || expired || !clockReady || (draft.checkout.acknowledgementRequired && !ack)} onChange={e => {
+        const screenshot = e.currentTarget.files?.[0];
+        e.currentTarget.value = "";
+        if (screenshot) void upload(screenshot);
+      }} /></label><p role="status" className="text-sm text-[#17252e]">{uploading ? "Uploading screenshot…" : draft.uploaded ? "Screenshot uploaded." : draft.reservationId ? "Upload not confirmed. You can submit for verification." : expired ? "This hold expired. New screenshots can’t be uploaded." : draft.checkout.acknowledgementRequired && !ack ? "Acknowledge the updated total before choosing a screenshot." : "Choose a screenshot to upload it automatically."}</p></section>
+      <details open={restored} className="rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><summary className="cursor-pointer font-semibold text-[#17252e]">Contact details (edit if needed)</summary><p className="mt-2 text-[#17252e]">Checkout details are saved in this tab so you can refresh and continue.</p><fieldset disabled={busy || draft.releaseRequested} className="mt-4 text-left [&_input]:min-h-11 [&_input]:border-[#a7c5a0] [&_input]:bg-white [&_label]:text-[#17252e]">{contactFields}</fieldset></details>
+      <div className="flex flex-wrap justify-center gap-3 border-t border-[#d5e2ce] pt-5"><Button className="public-cta-primary" disabled={busy || draft.releaseRequested || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => void leaveCheckout()}>{draft.releaseRequested ? "Retry leaving checkout" : "Leave checkout"}</Button></div>
     </section> : bookingPage && reviewing && availability ? <form className="mx-auto w-full max-w-2xl space-y-6 rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 shadow-sm sm:p-7" onSubmit={e => { e.preventDefault(); void beginCheckout(); }}>
       <div><h2 ref={reviewHeading} tabIndex={-1} className="font-display text-3xl font-bold text-[#447244] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Review your selection</h2><p className="mt-2 text-sm text-[#405966]">Your times are not held yet. Confirm below to hold them while you complete payment.</p></div>
       <div className="space-y-3"><p className="text-sm font-semibold text-[#405966]">Booking date: {formatDisplayDate(chosenDate)}{selectionSlots !== undefined && ` · ${slotLabel(selectionSlots)} selected`}</p>

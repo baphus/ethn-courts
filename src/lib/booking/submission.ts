@@ -8,6 +8,17 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const money = (value: string) => { const n = parsePesos(value); return `${n / BigInt(100)}.${(n % BigInt(100)).toString().padStart(2, "0")}`; };
 
+async function inspectProof(storage: Inspector, path: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      storage.inspect(path),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("STORAGE_UNAVAILABLE")), 5_000); }),
+    ]);
+  } catch { throw new Error("STORAGE_UNAVAILABLE"); }
+  finally { clearTimeout(timer); }
+}
+
 export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspector, input: Input) {
   if (!input || typeof input.ownerToken !== "string" || !uuid.test(input.ownerToken) || typeof input.checkoutId !== "string" || !uuid.test(input.checkoutId) || typeof input.reservationId !== "string" || !uuid.test(input.reservationId) || typeof input.idempotencyKey !== "string" || !/^[\x21-\x7e]{1,200}$/.test(input.idempotencyKey) || !input.customer || [input.customer.name, input.customer.email, input.customer.phone].some(v => typeof v !== "string") || (input.reference !== undefined && typeof input.reference !== 'string') || (input.claimedAmount !== undefined && typeof input.claimedAmount !== 'string') || typeof input.paymentMethodId !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(input.paymentMethodId) || (input.acknowledgedTotal !== undefined && typeof input.acknowledgedTotal !== "string")) throw new Error("INVALID_INPUT");
   if (!validateGuest({ kind: "online", ...input.customer })) throw new Error("INVALID_INPUT");
@@ -20,43 +31,28 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
   try { client = await pool.connect(); } catch { throw new Error("SUBMISSION_UNAVAILABLE"); }
   let transaction = false, committing = false, discard = false;
   try {
-    const prior = (await client.query("SELECT fingerprint, result FROM ethn.idempotency WHERE owner_hash = $1 AND operation = 'submission' AND key = $2", [owner, input.idempotencyKey])).rows[0];
-    if (prior) { if (prior.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH"); if (prior.result == null) throw new Error("IDEMPOTENCY_INCOMPLETE"); return prior.result; }
-    const proof = (await client.query("SELECT object_path, mime_type, byte_size, state FROM ethn.proof_reservations WHERE id = $1 AND booking_id = $2 AND owner_hash = $3", [reservation, checkout, owner])).rows[0];
-    if (!proof) throw new Error("CHECKOUT_UNAVAILABLE");
-    if (proof.state !== "reserved") {
-      const completed = (await client.query("SELECT fingerprint, result FROM ethn.idempotency WHERE owner_hash = $1 AND operation = 'submission' AND key = $2", [owner, input.idempotencyKey])).rows[0];
-      if (completed) { if (completed.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH"); if (completed.result == null) throw new Error("IDEMPOTENCY_INCOMPLETE"); return completed.result; }
-      throw new Error("ALREADY_SUBMITTED");
-    }
-    const extension: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-    if (!Object.hasOwn(extension, proof.mime_type) || !new RegExp(`^incoming/[0-9a-f]{64}\\.${extension[proof.mime_type]}$`).test(proof.object_path) || !Number.isSafeInteger(Number(proof.byte_size)) || Number(proof.byte_size) < 1 || Number(proof.byte_size) > 5 * 1024 * 1024) throw new Error("PROOF_METADATA_MISMATCH");
-    let observed: { bytes: number; mimeType: string };
-    try { observed = await storage.inspect(proof.object_path); } catch {
-      const completed = (await client.query("SELECT fingerprint, result FROM ethn.idempotency WHERE owner_hash = $1 AND operation = 'submission' AND key = $2", [owner, input.idempotencyKey])).rows[0];
-      if (completed) { if (completed.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH"); if (completed.result == null) throw new Error("IDEMPOTENCY_INCOMPLETE"); return completed.result; }
-      throw new Error("STORAGE_UNAVAILABLE");
-    }
-    if (!observed || !Number.isSafeInteger(observed.bytes) || observed.bytes < 1 || observed.bytes > 5 * 1024 * 1024 || observed.bytes !== Number(proof.byte_size) || observed.mimeType !== proof.mime_type) throw new Error("PROOF_METADATA_MISMATCH");
     await client.query("BEGIN"); transaction = true;
     const inserted = await client.query("INSERT INTO ethn.idempotency (owner_hash, operation, key, fingerprint, result) VALUES ($1, 'submission', $2, $3, NULL) ON CONFLICT DO NOTHING RETURNING key", [owner, input.idempotencyKey, fingerprint]);
     const row = (await client.query("SELECT fingerprint, result FROM ethn.idempotency WHERE owner_hash = $1 AND operation = 'submission' AND key = $2 FOR UPDATE", [owner, input.idempotencyKey])).rows[0];
     if (!row || row.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
     if (!inserted.rows.length) { if (row.result == null) throw new Error("IDEMPOTENCY_INCOMPLETE"); committing = true; await client.query("COMMIT"); return row.result; }
-    // shortcut: all-court lock serializes small venue inventory; revisit on measured contention.
-    await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
-    const booking = (await client.query("SELECT status, expires_at, total::text, price_acknowledged, merchant_snapshot,payment_methods_snapshot FROM ethn.bookings WHERE id = $1 AND owner_hash = $2 FOR UPDATE", [checkout, owner])).rows[0];
+    // Expiry and release lock this same booking row before changing its allocations.
+    const booking = (await client.query("SELECT status, expires_at, total::text, price_acknowledged, payment_methods_snapshot FROM ethn.bookings WHERE id = $1 AND owner_hash = $2 AND walk_in_actor IS NULL FOR UPDATE", [checkout, owner])).rows[0];
     const locked = (await client.query("SELECT state, object_path, mime_type, byte_size FROM ethn.proof_reservations WHERE id = $1 AND booking_id = $2 AND owner_hash = $3 FOR UPDATE", [reservation, checkout, owner])).rows[0];
     const now = (await client.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
     if (!booking || !locked) throw new Error("CHECKOUT_UNAVAILABLE");
     if (locked.state !== "reserved" || !["held", "expired"].includes(booking.status)) throw new Error("ALREADY_SUBMITTED");
-    if (locked.object_path !== proof.object_path || locked.mime_type !== observed.mimeType || Number(locked.byte_size) !== observed.bytes) throw new Error("PROOF_METADATA_MISMATCH");
     if (!booking.price_acknowledged && acknowledgedTotal !== booking.total) throw new Error("ACKNOWLEDGEMENT_REQUIRED");
     const timely = booking.status === "held" && now.getTime() < new Date(booking.expires_at).getTime();
     if (timely && claimedAmount !== null && claimedAmount !== booking.total) throw new Error("AMOUNT_MISMATCH");
     const methods = booking.payment_methods_snapshot as {id:string;name:string;instructions:string}[] | null;
     const method = Array.isArray(methods) ? methods.find(m => m.id === input.paymentMethodId) : undefined;
     if (!method) throw new Error('INVALID_INPUT');
+    const extension: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+    const bytes = Number(locked.byte_size);
+    if (!Object.hasOwn(extension, locked.mime_type) || !new RegExp(`^incoming/[0-9a-f]{64}\\.${extension[locked.mime_type]}$`).test(locked.object_path) || !Number.isSafeInteger(bytes) || bytes < 1 || bytes > 5 * 1024 * 1024) throw new Error("PROOF_METADATA_MISMATCH");
+    const observed = await inspectProof(storage, locked.object_path);
+    if (!observed || observed.bytes !== bytes || observed.mimeType !== locked.mime_type) throw new Error("PROOF_METADATA_MISMATCH");
     await client.query("UPDATE ethn.proof_reservations SET state = 'attached' WHERE id = $1", [reservation]);
     let result: object;
     if (timely) {
