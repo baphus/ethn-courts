@@ -69,6 +69,7 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, onAno
         <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-black tracking-tight outline-none sm:text-4xl">Request received.</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#405966]">Thank you, {receipt.customerName}. Keep this receipt to check your reservation status.</p>
         <div className="mt-5 flex flex-wrap items-center gap-2 text-sm"><span className="font-semibold">Current status:</span> <BookingStatusBadge state={receipt.status} /></div>
+        <p className="mt-3 text-sm"><a href="/track" className="font-semibold underline">Hosting an Open Play?</a> Use your tracking code and booking email to add a listing.</p>
         {receipt.status.toLowerCase() === "pending" && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">Pending review. Your reservation is not yet confirmed; staff must verify your payment.</p>}
       </div>
     </section>

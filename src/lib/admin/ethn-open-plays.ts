@@ -31,7 +31,29 @@ function validate(value: unknown) {
   return { courtIds: [...b.courtIds] as string[], title: b.title.trim(), description: b.description.trim(), fee: b.fee, start, end };
 }
 
-export async function listPublicOpenPlays(pool: Db) {
+function eventDto(row: { id: string; title: string; description: string; starts_at: Date; ends_at: Date; court_names: string[]; court_ids: string[] }, fee: string | null, version: number) {
+  return { id: row.id, title: row.title, description: row.description, startsAt: row.starts_at.toISOString(), endsAt: row.ends_at.toISOString(), fee, courtNames: row.court_names, courtIds: row.court_ids, version };
+}
+
+export async function hideBookingOpenPlay(pool: Db, verify: StaffVerifier, id: string, body: unknown) {
+  if (!uuid.test(id) || !body || typeof body !== "object" || Object.keys(body).length !== 1 || !("hidden" in body) || typeof body.hidden !== "boolean") throw new Error("INVALID_INPUT");
+  const actor = await actorId(verify), client = await pool.connect();
+  try {
+    const result = (await client.query(`WITH owner_access AS (
+      SELECT user_id FROM ethn.staff_access WHERE user_id=$2 AND enabled AND role='owner' FOR UPDATE
+    ), changed AS (
+      UPDATE ethn.booking_open_plays SET hidden=$3 WHERE id=$1 AND EXISTS (SELECT 1 FROM owner_access) RETURNING id
+    ), logged AS (
+      INSERT INTO ethn.audit(actor,action,detail)
+      SELECT $2,'open_play.moderate',jsonb_build_object('openPlayId',id,'hidden',$3::boolean) FROM changed
+    ) SELECT EXISTS (SELECT 1 FROM owner_access) AS allowed, EXISTS (SELECT 1 FROM changed) AS found`, [id, actor, body.hidden])).rows[0];
+    if (!result.allowed) throw new Error("FORBIDDEN");
+    if (!result.found) throw new Error("OPEN_PLAY_NOT_FOUND");
+    return { ok: true };
+  } catch (error) { serviceError(error); } finally { client.release(); }
+}
+
+export async function listPublicOpenPlays(pool: Db, includeHidden = false): Promise<(ReturnType<typeof eventDto> & { eventUrl?: string; hidden?: boolean })[]> {
   const client = await pool.connect();
   try {
     const rows = (await client.query(`SELECT p.id::text,p.title,p.description,p.starts_at,p.ends_at,p.informational_fee::text,p.version,
@@ -41,7 +63,14 @@ export async function listPublicOpenPlays(pool: Db) {
       JOIN ethn.courts c ON c.id=b.court_id
       WHERE p.removed_at IS NULL
       GROUP BY p.id ORDER BY p.starts_at,p.id LIMIT 100`)).rows;
-    return rows.map(row => ({ id: row.id, title: row.title, description: row.description, startsAt: (row.starts_at as Date).toISOString(), endsAt: (row.ends_at as Date).toISOString(), fee: row.informational_fee, courtNames: row.court_names, courtIds: row.court_ids, version: row.version }));
+    const customerRows = (await client.query(`SELECT p.id::text,p.title,p.description,p.event_url,p.hidden,s.starts_at,s.ends_at,s.court_names,s.court_ids
+      FROM ethn.booking_open_plays p JOIN ethn.bookings b ON b.id=p.booking_id
+      JOIN ethn.booking_open_play_sessions s ON s.booking_id=p.booking_id
+      WHERE NOT p.removed AND b.status='confirmed' AND s.ends_at > clock_timestamp() AND ($1 OR NOT p.hidden)
+      ORDER BY s.starts_at,p.booking_id LIMIT 100`, [includeHidden])).rows;
+    const venueEvents = rows.map(row => eventDto(row, row.informational_fee, row.version));
+    const customerEvents = customerRows.map(row => ({ ...eventDto(row, null, 1), eventUrl: row.event_url as string, ...(includeHidden ? { hidden: row.hidden as boolean } : {}) }));
+    return [...venueEvents, ...customerEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   } catch (error) { serviceError(error); } finally { client.release(); }
 }
 

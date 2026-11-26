@@ -7,7 +7,7 @@ import { openPlayError } from "@/lib/admin/ethn-open-play-error";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET() {
-  try { await getCurrentStaff(); return adminResponse(await listPublicOpenPlays(staffPool)); }
+  try { await getCurrentStaff(); return adminResponse(await listPublicOpenPlays(staffPool, true)); }
   catch (error) { return openPlayError(error); }
 }
 export async function POST(request: Request) {
