@@ -88,6 +88,7 @@ async function post<T>(url: string, body: unknown, signal?: AbortSignal): Promis
 const friendly = (e: unknown) => {
   const code = e instanceof Error ? e.message : "";
   if (code === "SLOT_TAKEN" || code === "COURT_UNAVAILABLE" || code === "CLOSED") return "Those times are no longer available. Refresh availability and select again.";
+  if (code === "TOO_CLOSE_TO_START") return "There is not enough time to pay and upload proof before the first slot. Choose a later time or contact the venue.";
   if (code === "CHECKOUT_UNAVAILABLE") return "This checkout is unavailable or expired. If you paid, contact the venue for help.";
   if (code === "NOT_CONFIGURED") return "Booking or payment is not configured yet. Please try again later.";
   if (code === "NOT_FOUND") return "No reservation found for that code and email.";
@@ -153,9 +154,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     const timeout = window.setTimeout(() => setShowUploadSuccess(false), 4000);
     return () => window.clearTimeout(timeout);
   }, [showUploadSuccess]);
-  const [methods, setMethods] = useState<{id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[] | null>(null);
-  const checkoutMethods = draft ? draft.checkout.paymentMethods ?? [] : methods;
-  useEffect(() => { if (!bookingPage) return; const controller = new AbortController(); fetch("/api/ethn/payment-methods", { cache: "no-store", signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(data => setMethods(data.methods)).catch(() => { if (!controller.signal.aborted) setMethods([]); }); return () => controller.abort(); }, [bookingPage]);
+  const checkoutMethods = draft?.checkout.paymentMethods ?? [];
   const [result, setResult] = useState<Result | null>(null);
   const [receiptRef, setReceiptRef] = useState<ReceiptRef | null>(null);
   const [receiptState, setReceiptState] = useState<"loading" | "error" | null>(null);
@@ -463,7 +462,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
 
   const contactFields = <div className="grid gap-4 sm:grid-cols-2"><label className={field}>Full name<Input required maxLength={200} value={name} onChange={e => updateProgress({ name: e.target.value })} autoComplete="name" /></label><label className={field}>Email<Input required type="email" maxLength={254} value={email} onChange={e => updateProgress({ email: e.target.value })} autoComplete="email" /></label><label className={field}>Contact number<Input required type="tel" maxLength={50} value={phone} onChange={e => updateProgress({ phone: e.target.value })} autoComplete="tel" /></label></div>;
 
-  return <div className={`min-h-screen bg-[#447244] text-[#17252e]${ranges.length && !reviewing && !draft && !result ? " max-lg:[&+footer]:pb-[calc(9rem+env(safe-area-inset-bottom))] max-lg:[&+footer_.developer-promo]:hidden" : ""}`}>
+  return <div className={`min-h-screen bg-[#447244] text-[#17252e]${ranges.length && !reviewing && !draft && !result ? " max-lg:[&+footer]:pb-[calc(9rem+env(safe-area-inset-bottom))]" : ""}`}>
     <style>{`
       @keyframes ethn-court{from{transform:translateY(45%);opacity:0}to{transform:none;opacity:1}}
       @keyframes ethn-fade{from{opacity:0}to{opacity:1}}
@@ -674,13 +673,9 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
           <iframe title="Google map of ETHN Courts" src={VENUE_MAP_EMBED} className="mt-3 min-h-[300px] w-full flex-1 rounded-xl border-0" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
         </section>
             <div className="grid gap-4">
-              <div className="flex flex-col justify-end rounded-2xl bg-[#0f2938] p-4 text-white shadow-xl">
-                <div className="flex items-start justify-between gap-3"><p className="text-base font-semibold leading-tight">How booking<br />works</p><span className="grid h-9 w-9 place-items-center rounded-full bg-white text-[#447244]"><Ball className="h-5 w-5" /></span></div>
-                <div className="mt-5 flex items-end justify-between"><p className="font-display text-4xl font-black text-[#ffad4c]">3 steps</p><p className="text-right text-xs leading-4 text-white/70">Reserve, pay,<br />get confirmed</p></div>
-                <div aria-hidden="true" className="mt-3 flex h-12 items-end gap-[3px]">{Array.from({ length: 24 }, (_, i) => <span key={i} className={`flex-1 rounded-full ${i < 16 ? "bg-[#ffad4c]" : "bg-white/15"}`} style={{ height: "100%" }} />)}</div>
-              </div>
+
               <div className="rounded-2xl bg-[#cfe3ec] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pay and upload</h3><p className="mt-3 text-xs leading-5">Pay using a listed method, upload your proof, and staff confirm your booking.</p><a href="/track" className={tileBtn}>Track booking <span aria-hidden="true" className="ml-2">→</span></a></div>
-              <div className="rounded-2xl bg-[#ffad4c] p-6 text-[#447244]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pick your time</h3><p className="mt-3 text-xs leading-5">Select any available times. Gaps between selected times are not booked.</p><a href="/book" className={tileBtn}>See open times <span aria-hidden="true" className="ml-2">→</span></a></div>
+              <div className="rounded-2xl bg-[#ffad4c] p-6 text-[#17252e]"><Ball className="h-8 w-8" /><h3 className="font-display mt-4 text-2xl font-black uppercase leading-none">Pick your time</h3><p className="mt-3 text-xs leading-5">Select any available times. Gaps between selected times are not booked.</p><a href="/book" className={tileBtn}>See open times <span aria-hidden="true" className="ml-2">→</span></a></div>
             </div>
         </div>
       </section>

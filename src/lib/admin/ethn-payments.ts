@@ -43,15 +43,15 @@ export async function paymentDetail(pool: Db, verify: StaffVerifier, bookingId: 
   } finally { client.release(); }
 }
 
-export async function paymentProof(pool: Db, verify: StaffVerifier, bookingId: string, sign: Signer) {
+export async function paymentProof(pool: Db, verify: StaffVerifier, bookingId: string, sign: Signer, paymentId?: string) {
   await getStaff(pool, verify);
-  if (!uuid.test(bookingId)) throw new Error("INVALID_INPUT");
+  if (!uuid.test(bookingId) || (paymentId !== undefined && !uuid.test(paymentId))) throw new Error("INVALID_INPUT");
   const client = await pool.connect();
   let path: string | undefined;
   try {
     const { rows } = await client.query(`SELECT r.object_path FROM ethn.bookings b JOIN ethn.payments p ON p.booking_id = b.id
       JOIN ethn.proof_reservations r ON r.id = p.proof_id AND r.booking_id = b.id AND r.owner_hash = b.owner_hash
-      WHERE b.id = $1 AND r.state = 'attached' ORDER BY p.id LIMIT 1`, [bookingId]);
+      WHERE b.id = $1 AND r.state = 'attached' AND ($2::uuid IS NULL OR p.id=$2) ORDER BY p.id LIMIT 1`, [bookingId, paymentId ?? null]);
     path = rows[0]?.object_path;
   } finally { client.release(); }
   if (!path) return null;

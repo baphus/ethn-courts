@@ -33,7 +33,7 @@ export function validateInternalBooking(body:unknown) {
  const guestEmail = typeof b.guestEmail === 'string' ? b.guestEmail.trim() : b.guestEmail;
  if (guestEmail != null && guestEmail !== '' && !isEthnMailAddress(guestEmail)) throw new Error('INVALID_INPUT');
  if(b.guestPhone!=null&&(typeof b.guestPhone!=='string'||b.guestPhone.length>30||!/^[0-9+()\-\s]*$/.test(b.guestPhone)))throw new Error('INVALID_INPUT');
- if(b.reference!=null&&(typeof b.reference!=='string'||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
+ if(b.method !== 'cash' && (typeof b.reference !== 'string' || !b.reference.trim() || b.reference.trim().length > 200 || b.reference.includes('\0')))throw new Error('INVALID_INPUT');
  const receivedAt=b.receivedAt?new Date(b.receivedAt as string):null;
  if(receivedAt&&(!Number.isFinite(receivedAt.getTime())||typeof b.receivedAt!=='string'||!/(?:Z|[+-]\d\d:\d\d)$/.test(b.receivedAt)))throw new Error('INVALID_INPUT');
  let displayedTotal:string;try{displayedTotal=money(parsePesos(b.displayedTotal as string));}catch{throw new Error('INVALID_INPUT');}
@@ -79,5 +79,5 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   const result={bookingId:id,status:'confirmed',total,method:input.method};
   await c.query("UPDATE ethn.idempotency SET result=$3::jsonb WHERE owner_hash=$1 AND operation='internal.create' AND key=$2",[owner,idempotencyKey,JSON.stringify(result)]);
   committing=true;await c.query('COMMIT');return result;
- }catch(e){if(committing)discard=true;else try{await c.query('ROLLBACK');}catch{discard=true;}if((e as {code?:string})?.code==='23P01')throw new Error('SLOT_TAKEN');throw e;}finally{c.release(discard?new Error('discard transaction'):undefined);}
+ }catch(e){if(committing)discard=true;else try{await c.query('ROLLBACK');}catch{discard=true;}if ((e as {code?:string;constraint?:string})?.code === '23505' && ['payments_unique_method_transfer','payments_accepted_reference'].includes((e as {constraint?:string}).constraint ?? '')) throw new Error('REFERENCE_TAKEN');if((e as {code?:string})?.code==='23P01')throw new Error('SLOT_TAKEN');throw e;}finally{c.release(discard?new Error('discard transaction'):undefined);}
 }

@@ -24,10 +24,14 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   const oldVersion=(await listPaymentMethods(pool)).methods.find(m=>m.id==='metrobank')!.version;
   await savePaymentMethod(pool,verify,{id:'metrobank',name:'Metrobank',instructions:'Bank account',enabled:true},Buffer.from('new-qr'));
   assert.equal((await paymentMethodQr(pool,'metrobank',undefined,oldVersion))?.toString(),'old-qr');
+  await savePaymentMethod(pool,verify,{id:'metrobank',name:'Metrobank',instructions:'Changed recipient',enabled:true});
+  assert.equal(await paymentMethodQr(pool,'metrobank'),undefined);
+  await savePaymentMethod(pool,verify,{id:'metrobank',name:'Metrobank',instructions:'Bank account',enabled:true},Buffer.from('current-qr'));
+  assert.equal((await paymentMethodQr(pool,'metrobank'))?.toString(),'current-qr');
   const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()+2*86400000));
   const start=`${date}T00:00:00.000Z`,end=`${date}T01:00:00.000Z`;
   const first={courtId:'1',start,end},second={courtId:'2',start,end:`${date}T02:00:00.000Z`};
-  const input={ranges:[first,second],date,guestName:'Test guest',guestEmail:'guest@example.test',method:'metrobank',displayedTotal:'600.00',settingsVersion:'1',paymentReceived:true,idempotencyKey:randomUUID()};
+  const input={ranges:[first,second],date,guestName:'Test guest',guestEmail:'guest@example.test',method:'metrobank',reference:'desk-ref',displayedTotal:'600.00',settingsVersion:'1',paymentReceived:true,idempotencyKey:randomUUID()};
   const booking=await createInternalBooking(pool,verify,input);
   assert.equal(booking.status,'confirmed');
   assert.deepEqual(await createInternalBooking(pool,verify,{...input,ranges:[second,first]}),booking);
@@ -79,17 +83,8 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   await savePaymentMethod(pool,verify,{id:'metrobank',name:'Changed bank',instructions:'Changed account',enabled:false});
   await savePaymentMethod(pool,verify,{id:'gcash',name:'GCash',instructions:'Backup payment method',enabled:true});
    const proof=await reserveProof(pool,{ownerToken,checkoutId:checkout.checkoutId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
-  await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()+interval '1 second' WHERE id=$1",[checkout.checkoutId]);
-  let competitor: Promise<string> | undefined;
-  const submitted=await submitBooking(pool,{inspect:async()=>{
-   await admin.query('SELECT pg_sleep(1.1)');
-    competitor=createCheckout(pool,{...onlineInput,ownerToken:randomUUID(),idempotencyKey:randomUUID()}).then(()=> 'ACQUIRED',e=>e.message);
-   // Let the competing transaction reach the held booking while proof inspection is still in progress.
-   await admin.query('SELECT pg_sleep(0.2)');
-   return {bytes:10,mimeType:'image/png'};
-  }},{ownerToken,checkoutId:checkout.checkoutId,reservationId:proof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Online guest',email:'test@example.test',phone:'123'}});
-  assert.equal(submitted.booked,true);
-  assert.equal(await competitor,'SLOT_TAKEN');
+   const submitted=await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:checkout.checkoutId,reservationId:proof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Online guest',email:'test@example.test',phone:'123'}});
+   assert.equal(submitted.booked,true);
   assert.equal(await releaseCheckout(pool,{ownerToken,checkoutId:checkout.checkoutId}),false);
   await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-online-transfer'});
   const online=(await admin.query('SELECT method,claimed_reference,collected_amount::text,received_at,merchant_snapshot FROM ethn.payments WHERE booking_id=$1',[checkout.checkoutId])).rows[0];
@@ -115,8 +110,15 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
     UPDATE ethn.booking_items SET starts_at=starts_at-interval '7 days',ends_at=ends_at-interval '7 days'
     WHERE booking_id=$1 AND starts_at=$2 RETURNING id,starts_at,ends_at
    ) UPDATE ethn.court_allocations a SET starts_at=m.starts_at,ends_at=m.ends_at FROM moved m WHERE a.item_id=m.id`,[pending.checkoutId,slot.start]);
+  const freeSlot={...first,start:end,end:second.end};
+  const duplicate=await Promise.allSettled([
+   decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-online-transfer'}),
+   createInternalBooking(pool,verify,{...input,ranges:[freeSlot],displayedTotal:'200.00',reference:'VERIFIED-ONLINE-TRANSFER',idempotencyKey:randomUUID()}),
+  ]);
+  assert.match(String((duplicate[0] as PromiseRejectedResult).reason),/REFERENCE_ALREADY_USED/);
+  assert.match(String((duplicate[1] as PromiseRejectedResult).reason),/REFERENCE_TAKEN/);
+  assert.equal((await pool.query("SELECT count(*)::int n FROM ethn.payments WHERE method='metrobank' AND lower(accepted_reference)='verified-online-transfer'")).rows[0].n,1);
   await movePast(early);
-  await movePast(late);
   await assert.rejects(decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-ended-transfer'}),/DECISION_ALREADY_FINAL/);
   const overdue=(await admin.query(`SELECT b.status,p.status AS payment_status,p.proof_id,
     ARRAY(SELECT a.state FROM ethn.court_allocations a JOIN ethn.booking_items i ON i.id=a.item_id WHERE i.booking_id=b.id) AS allocations,
@@ -125,6 +127,26 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   assert.deepEqual(overdue,{status:'pending',payment_status:'unverified',proof_id:pendingProof.reservationId,allocations:['pending','pending'],audits:0});
   assert.equal((await listInbox(pool,verify)).filter(item=>item.link===`/admin/bookings/${pending.checkoutId}` && item.kind==='booking_cancelled').length,0);
   assert.equal((await decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'reject',reason:'Payment could not be verified'})).status,'rejected');
+  const lateHold=await createCheckout(pool,{...onlineInput,idempotencyKey:randomUUID(),ranges:[freeSlot],displayedTotal:'200.00'});
+  const lateInput={ownerToken,checkoutId:lateHold.checkoutId,mimeType:'image/png',byteSize:10};
+  const reserved=await Promise.all([1,2].map(()=>reserveProof(pool,{...lateInput,idempotencyKey:randomUUID()})));
+  await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",[lateHold.checkoutId]);
+  const sendLate=(reservationId:string)=>submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:lateHold.checkoutId,reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Late guest',email:'late@example.test',phone:'123'}});
+  assert.equal((await sendLate(reserved[0].reservationId)).booked,false);
+  await assert.rejects(sendLate(reserved[1].reservationId),/ALREADY_SUBMITTED/);
+  const raceHold=await createCheckout(pool,{...onlineInput,idempotencyKey:randomUUID()});
+  const raceProof=await reserveProof(pool,{ownerToken,checkoutId:raceHold.checkoutId,mimeType:'image/png',byteSize:10,idempotencyKey:randomUUID()});
+  await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:raceHold.checkoutId,reservationId:raceProof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Race guest',email:'race@example.test',phone:'123'}});
+  const beforeRace=await getFinance(pool,verify,null,null);
+  const race=await Promise.allSettled([
+   decidePayment(pool,verify,{bookingId:raceHold.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'race-transfer'}),
+   createInternalBooking(pool,verify,{...input,ranges:[freeSlot],displayedTotal:'200.00',reference:'RACE-TRANSFER',idempotencyKey:randomUUID()}),
+  ]);
+  assert.equal(race.filter(result=>result.status==='fulfilled').length,1);
+  const rejected=race.find(result=>result.status==='rejected');
+  assert.match(String(rejected?.reason),/REFERENCE_(TAKEN|ALREADY_USED)/);
+  const expectedIncrease=race[0].status==='fulfilled'?400:200;
+  assert.equal(Number((await getFinance(pool,verify,null,null)).totals.other)-Number(beforeRace.totals.other),expectedIncrease);
   await admin.query('UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1',[actor]);
   await assert.rejects(bookingAction(pool,verify,next.bookingId,'archive',{key:randomUUID()}),/FORBIDDEN/);
  }finally{await pool.end();await admin.end();}

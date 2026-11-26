@@ -71,6 +71,13 @@
       "when": 1795684112900,
       "tag": "0009_productive_moondragon",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795686875621,
+      "tag": "0010_unique_payment_transfer",
+      "breakpoints": true
     }
   ]
 }

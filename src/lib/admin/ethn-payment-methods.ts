@@ -12,7 +12,7 @@ export async function listPaymentMethods(pool: Db, verify?: StaffVerifier) {
     return { methods: rows };
   } finally { c.release(); }
 }
-export async function savePaymentMethod(pool: Db, verify: StaffVerifier, body: unknown, qr?: Buffer) {
+export async function savePaymentMethod(pool: Db, verify: StaffVerifier, body: unknown, qr?: Buffer | null) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('INVALID_INPUT');
   const b = body as Record<string, unknown>;
   if (Object.keys(b).some(k => !['id','name','instructions','enabled'].includes(k))) throw new Error('INVALID_INPUT');
@@ -24,7 +24,7 @@ export async function savePaymentMethod(pool: Db, verify: StaffVerifier, body: u
     await c.query('BEGIN');
     if (!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor.userId])).rowCount) throw new Error('FORBIDDEN');
     await c.query(`INSERT INTO ethn.payment_methods(id,name,instructions,enabled,qr) VALUES($1,$2,$3,$4,$5)
-      ON CONFLICT(id) DO UPDATE SET name=excluded.name,instructions=excluded.instructions,enabled=excluded.enabled,qr=coalesce(excluded.qr,ethn.payment_methods.qr),version=ethn.payment_methods.version+1,updated_at=clock_timestamp()`, [id,b.name.trim(),b.instructions.trim(),b.enabled,qr ?? null]);
+      ON CONFLICT(id) DO UPDATE SET name=excluded.name,instructions=excluded.instructions,enabled=excluded.enabled,qr=CASE WHEN $6 THEN excluded.qr WHEN excluded.instructions = ethn.payment_methods.instructions AND excluded.name = ethn.payment_methods.name THEN ethn.payment_methods.qr ELSE NULL END,version=ethn.payment_methods.version+1,updated_at=clock_timestamp()`, [id,b.name.trim(),b.instructions.trim(),b.enabled,qr ?? null,qr !== undefined]);
     await c.query('INSERT INTO ethn.payment_method_qr_versions(method_id,version,qr) SELECT id,version,qr FROM ethn.payment_methods WHERE id=$1 AND qr IS NOT NULL ON CONFLICT DO NOTHING',[id]);
     await c.query("INSERT INTO ethn.audit(actor,action,detail) VALUES($1,'payment_method.save',$2::jsonb)", [actor.userId,JSON.stringify({id,qrUpdated:!!qr})]);
     committing = true; await c.query('COMMIT'); return { id };

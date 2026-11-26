@@ -21,7 +21,7 @@ export default function OwnerPayment() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dialogError, setDialogError] = useState("");
-  const [qrRetryId, setQrRetryId] = useState<string | null>(null);
+  const [qrAction, setQrAction] = useState<"keep" | "remove">("remove");
   const [uncertain, setUncertain] = useState(false);
 
   async function load() {
@@ -38,53 +38,30 @@ export default function OwnerPayment() {
   function showForm(method?: Method) {
     setMode(method ? "edit" : "add");
     setForm(method ? { id: method.id, name: method.name, instructions: method.instructions, enabled: method.enabled } : blank);
-    setFile(null); setDialogError(""); setQrRetryId(null); setUncertain(false); setOpen(true);
+    setFile(null); setDialogError(""); setQrAction(method?.qrAvailable ? "keep" : "remove"); setUncertain(false); setOpen(true);
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (saving || uncertain || !form.name.trim() || (qrRetryId && !file)) return;
+    if (saving || uncertain || !form.name.trim()) return;
     if (file && (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 1048576 || file.size === 0)) {
       setDialogError("Choose a JPG, PNG or WebP QR image up to 1 MiB."); return;
     }
     setSaving(true); setDialogError("");
-    let id = qrRetryId;
-    if (!id) {
-      try {
-        const r = await fetch("/api/ethn/admin/payment-methods", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-        if (r.status >= 500) throw new Error();
-        if (!r.ok) {
-          if (r.status !== 400) toast.error("Payment method was not saved.");
-          setDialogError("Payment method was not saved. Check details and access before retrying.");
-          setSaving(false); return;
-        }
-        id = (await r.json()).id;
-        if (!id) throw new Error();
-      } catch {
-        toast.warning("Payment method save could not be confirmed.");
-        setDialogError("Save could not be confirmed. Close this dialog and reload this page before retrying; the method may already have been saved.");
-        setUncertain(true); setSaving(false); return;
-      }
-    }
-    if (file) {
-      try {
-        const body = new FormData(); body.set("file", file);
-        const qr = await fetch(`/api/ethn/admin/payment-methods/${encodeURIComponent(id!)}/qr`, { method: "POST", body });
-        if (qr.status >= 500) throw new Error();
-        if (!qr.ok) {
-          setQrRetryId(id); toast.warning("Payment method saved; QR image was not saved.");
-          setDialogError("Method saved, but the QR image was not accepted. Check the image and retry the QR upload only.");
-          setSaving(false); return;
-        }
-      } catch {
-        toast.warning("Payment method saved; QR upload could not be confirmed.");
-        setQrRetryId(id);
-        setDialogError("Method saved, but the QR upload could not be confirmed. Retry the QR upload for this method, or close and reload this page to check it.");
-        setSaving(false); return;
-      }
-    }
-    setOpen(false); setSaving(false); toast.success(qrRetryId ? "Payment QR image saved." : file ? "Payment method and QR image saved." : "Payment method saved.");
-    await load();
+    try {
+      const body = new FormData();
+      body.set("method", JSON.stringify(form));
+      body.set("qrAction", file ? "replace" : qrAction);
+      if (file) body.set("file", file);
+      const r = await fetch("/api/ethn/admin/payment-methods", { method: "POST", body });
+      if (r.status >= 500) throw new Error();
+      if (!r.ok) { setDialogError("Method and QR were not saved. Check the details and access before retrying."); return; }
+      setOpen(false); toast.success("Payment method saved.");
+      await load();
+    } catch {
+      setDialogError("Save could not be confirmed. Close and reload before trying again.");
+      setUncertain(true);
+    } finally { setSaving(false); }
   }
 
   return <div className="w-full space-y-5 pb-24">
@@ -105,18 +82,19 @@ export default function OwnerPayment() {
         <footer><Button variant="outline" disabled={loading} onClick={() => showForm(m)}>Edit<span className="sr-only"> {m.name}</span></Button></footer>
       </article>)}</div>}
     </section>
-    <Dialog open={open} onOpenChange={next => { if (!saving) { setOpen(next); if (!next && (qrRetryId || uncertain)) void load(); } }}>
+    <Dialog open={open} onOpenChange={next => { if (!saving) { setOpen(next); if (!next && (uncertain)) void load(); } }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg" showCloseButton={!saving}>
         <DialogHeader><DialogTitle>{mode === "add" ? "Add payment method" : "Edit payment method"}</DialogTitle><DialogDescription>Verify recipient details before making this method available for online booking.</DialogDescription></DialogHeader>
         <form onSubmit={save} className="space-y-4">
           {dialogError && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{dialogError}</p>}
-          <fieldset disabled={saving || !!qrRetryId || uncertain} className="space-y-4 disabled:opacity-70">
+          <fieldset disabled={saving || !!uncertain} className="space-y-4 disabled:opacity-70">
             <label className="grid gap-1 text-sm font-medium">Method name<input autoFocus required maxLength={100} className="rounded-md border bg-background p-2" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
-            <label className="grid gap-1 text-sm font-medium">Payment instructions<textarea maxLength={4000} rows={4} className="rounded-md border bg-background p-2" value={form.instructions} onChange={e => setForm({ ...form, instructions: e.target.value })} /></label>
+            <label className="grid gap-1 text-sm font-medium">Payment instructions<textarea maxLength={4000} rows={4} className="rounded-md border bg-background p-2" value={form.instructions} onChange={e => { setForm({ ...form, instructions: e.target.value }); setQrAction("remove"); }} /></label>
+            <label className="grid gap-1 text-sm font-medium">Without a replacement image<select className="rounded-md border bg-background p-2" value={qrAction} onChange={e => setQrAction(e.target.value === "keep" ? "keep" : "remove")}><option value="keep">Keep existing QR</option><option value="remove">Save without a QR</option></select></label>
             <label className="grid gap-1 text-sm font-medium">QR code (optional, JPG, PNG or WebP up to 1 MiB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />Available for online booking</label>
           </fieldset>
-          <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => { setOpen(false); if (qrRetryId || uncertain) void load(); }}>Cancel</Button><Button disabled={saving || uncertain} type="submit">{saving ? "Saving…" : qrRetryId ? "Retry QR upload" : "Save method"}</Button></div>
+          <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => { setOpen(false); if (uncertain) void load(); }}>Cancel</Button><Button disabled={saving || uncertain} type="submit">{saving ? "Saving…" : "Save method"}</Button></div>
         </form>
       </DialogContent>
     </Dialog>

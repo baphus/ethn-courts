@@ -4,7 +4,7 @@ import type { Pool } from "pg";
 import { createCheckout } from "../src/lib/booking/checkout";
 
 const input = { ownerToken: "123e4567-e89b-42d3-a456-426614174000", idempotencyKey: "key", date: "2026-11-20", ranges: [{ courtId: "1", start: "2026-11-20T00:00:00.000Z", end: "2026-11-20T00:30:00.000Z" }], displayedTotal: "50.51", displayedVersion: "1" };
-function fake(options: { replay?: unknown; mismatch?: boolean; incomplete?: boolean; merchant?: string | null; rate?: string | null; fail?: string; failSecondAllocation?: boolean; failRollback?: boolean } = {}) {
+function fake(options: { replay?: unknown; mismatch?: boolean; incomplete?: boolean; merchant?: string | null; rate?: string | null; now?: string; fail?: string; failSecondAllocation?: boolean; failRollback?: boolean } = {}) {
   const calls: { sql: string; params: unknown[] }[] = [];
   let fingerprint = "", released = false, discarded = false, allocations = 0;
   const client = { release(discard?: boolean) { released = true; discarded = !!discard; }, async query(sql: string, params: unknown[] = []) {
@@ -20,7 +20,7 @@ function fake(options: { replay?: unknown; mismatch?: boolean; incomplete?: bool
     if (sql.startsWith("SELECT id::text")) return { rows: [{ id: "1", active: true }, { id: "2", active: true }] };
     if (sql.startsWith("SELECT court_id::text")) return { rows: [{ court_id: "1", weekday: 5, opens: "07:00:00", closes: "03:00:00", hourly_rate: options.rate === undefined ? "101.01" : options.rate }, { court_id: "2", weekday: 5, opens: "07:00:00", closes: "03:00:00", hourly_rate: "120.00" }] };
     if (sql.startsWith("SELECT DISTINCT")) return { rows: [{ id: "123e4567-e89b-42d3-a456-426614174001" }] };
-    if (sql.startsWith("SELECT clock_timestamp() AS")) return { rows: [{ now: new Date("2026-11-19T23:00:00.000Z") }] };
+    if (sql.startsWith("SELECT clock_timestamp() AS")) return { rows: [{ now: new Date(options.now ?? "2026-11-19T23:00:00.000Z") }] };
     if (sql.startsWith("UPDATE ethn.bookings")) return { rows: [{ id: "123e4567-e89b-42d3-a456-426614174001" }] };
     if (sql.startsWith("SELECT clock_timestamp() +")) return { rows: [{ expires_at: new Date("2026-11-19T23:10:00.000Z") }] };
     return { rows: [] };
@@ -90,4 +90,12 @@ test("replay returns exact frozen result without new deadline", async () => {
   const original = await createCheckout(fake().pool, twoCourts);
   const f = fake({ replay: original }); assert.deepEqual(await createCheckout(f.pool, twoCourts), original);
   assert(!f.calls.some(c => c.sql.startsWith("SELECT clock_timestamp"))); assert(!f.discarded());
+});
+
+test("paid checkout rejects zero prices and starts inside the payment window", async () => {
+  for (const [options, error] of [[{ rate: "0.00" }, /INVALID_RATE/], [{ now: "2026-11-19T23:55:00.000Z" }, /TOO_CLOSE_TO_START/]] as const) {
+    const f = fake(options);
+    await assert.rejects(createCheckout(f.pool, input), error);
+    assert(!f.calls.some(call => call.sql.startsWith("INSERT INTO ethn.bookings")));
+  }
 });

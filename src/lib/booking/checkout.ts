@@ -71,9 +71,14 @@ export async function createCheckout(pool: Pick<Pool, "connect">, input: Checkou
     await client.query("UPDATE ethn.court_allocations SET state = 'expired' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = ANY($1::uuid[]))", [expired]);
     const resolved = resolveSchedule({ date: input.date, now, anchorMinutes: settings.anchor_minutes, interval: settings.interval_minutes, minimum: settings.minimum_minutes, horizonDays: settings.horizon_days, courts, hours, requests: ranges.map(r => ({ courtId: r.courtId, start: new Date(r.start), end: new Date(r.end) })) });
     if ("error" in resolved) throw new Error(resolved.error);
-    const total = pesos(priceItems(resolved.ranges));
+    const amount = priceItems(resolved.ranges);
+    if (amount <= BigInt(0)) throw new Error("INVALID_RATE");
+    const total = pesos(amount);
     const changed = total !== displayedTotal || settings.version !== input.displayedVersion;
-    const deadline = (await client.query("SELECT clock_timestamp() + $1::integer * interval '1 minute' AS expires_at", [settings.hold_minutes])).rows[0].expires_at as Date;
+    const firstStart = Math.min(...resolved.ranges.map(range => range.start.getTime()));
+    const windowMs = settings.hold_minutes * 60_000;
+    if (firstStart - now.getTime() < windowMs) throw new Error("TOO_CLOSE_TO_START");
+    const deadline = new Date(now.getTime() + windowMs);
     const bookingId = randomUUID();
     const items = resolved.ranges.map(r => ({ courtId: r.courtId, start: r.start.toISOString(), end: r.end.toISOString(), rate: pesos(parsePesos(r.rate)), minutes: r.minutes, amount: pesos(priceItems([r])) }));
     const result = { checkoutId: bookingId, items, total, intervalMinutes: settings.interval_minutes as number, expiresAt: deadline.toISOString(), settingsVersion: settings.version as string, merchant: settings.merchant as string, paymentMethods, priceChanged: changed, acknowledgementRequired: changed };

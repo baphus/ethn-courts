@@ -2,7 +2,6 @@ import Image from "next/image";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
 import { VENUE_ADDRESS, VENUE_EMAIL, VENUE_FACEBOOK_LINK, VENUE_MAP_LINK } from "@/lib/venue";
-import DeveloperPromo from "@/components/landing/developer-promo";
 
 const SEPHUS_PORTFOLIO_URL = "https://www.sephus.tech";
 
@@ -134,7 +133,6 @@ export default function Footer() {
           </nav>
         </div>
       </div>
-      <DeveloperPromo />
     </footer>
   );
 }

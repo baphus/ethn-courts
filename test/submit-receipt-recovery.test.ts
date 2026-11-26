@@ -16,5 +16,5 @@ test("ETHN submission replays committed result before proof preflight and checks
   const proof = service.indexOf('SELECT state, object_path, mime_type, byte_size FROM ethn.proof_reservations');
   assert.ok(replay >= 0 && proof > replay);
   assert.ok(service.indexOf('FOR UPDATE') < service.indexOf('SELECT clock_timestamp() AS now'));
-  assert.match(service, /now\.getTime\(\) < new Date\(booking\.expires_at\)\.getTime\(\)/);
+  assert.match(service, /now < booking\.expires_at && now < booking\.first_start/);
 });

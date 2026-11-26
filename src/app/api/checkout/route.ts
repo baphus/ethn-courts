@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (["INVALID_INPUT"].includes(message)) return fail(message, 400);
-    if (["SLOT_TAKEN", "IDEMPOTENCY_MISMATCH", "COURT_UNAVAILABLE", "CLOSED"].includes(message)) return fail(message, 409);
+    if (["SLOT_TAKEN", "IDEMPOTENCY_MISMATCH", "COURT_UNAVAILABLE", "CLOSED", "TOO_CLOSE_TO_START"].includes(message)) return fail(message, 409);
     if (["NOT_CONFIGURED", "INVALID_RATE", "INVALID_SCHEDULE"].includes(message)) return fail("NOT_CONFIGURED", 503);
     return fail("INTERNAL", 500);
   }

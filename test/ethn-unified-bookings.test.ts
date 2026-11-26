@@ -6,9 +6,9 @@ import { bookingAction, validateBookingAction } from '../src/lib/admin/ethn-book
 import { methodId } from '../src/lib/admin/ethn-payment-methods';
 const first={courtId:'1',start:'2026-12-01T00:00:00.000Z',end:'2026-12-01T01:00:00.000Z'};
 const second={...first,courtId:'2',end:'2026-12-01T02:00:00.000Z'};
-const input={ranges:[first,second],date:'2026-12-01',guestName:' Guest ',method:'metrobank',displayedTotal:'500.00',settingsVersion:'1',paymentReceived:true,idempotencyKey:'create-one'};
+const input={ranges:[first,second],date:'2026-12-01',guestName:' Guest ',method:'metrobank',reference:'desk-ref',displayedTotal:'500.00',settingsVersion:'1',paymentReceived:true,idempotencyKey:'create-one'};
 test('internal booking needs no hold or reference/time; retains chosen method',()=>{
- const parsed=validateInternalBooking(input);assert.equal(parsed.method,'metrobank');assert.equal(parsed.reference,null);assert.equal(parsed.receivedAt,null);assert.equal(parsed.guestName,'Guest');
+ const parsed=validateInternalBooking(input);assert.equal(parsed.method,'metrobank');assert.equal(parsed.reference,'desk-ref');assert.equal(parsed.receivedAt,null);assert.equal(parsed.guestName,'Guest');
  assert.deepEqual(validateInternalBooking({...input,guestEmail:null}),parsed);
  assert.equal(validateInternalBooking({...input,guestEmail:' guest@example.test '}).guestEmail,'guest@example.test');
  for(const guestEmail of ['guest', 'one,two@example.test','guest@example.test\r\nBCC:x@y.test',123]) assert.throws(()=>validateInternalBooking({...input,guestEmail}),/INVALID_INPUT/);

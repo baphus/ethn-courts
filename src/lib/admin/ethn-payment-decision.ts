@@ -51,7 +51,7 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
     if (payment.method === "cash" || !proof || !payment.merchant_snapshot) throw new Error("DECISION_INCOMPATIBLE");
     const now = (await client.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
     if (decision.action === "approve") {
-      const { ended } = (await client.query("SELECT max(ends_at) <= clock_timestamp() AS ended FROM ethn.booking_items WHERE booking_id=$1", [bookingId])).rows[0];
+      const { ended } = (await client.query("SELECT min(starts_at) <= clock_timestamp() AS ended FROM ethn.booking_items WHERE booking_id=$1", [bookingId])).rows[0];
       if (ended) throw new Error("DECISION_ALREADY_FINAL");
       if (!decision.attested && decision.reference !== payment.claimed_reference?.trim()) throw new Error("REFERENCE_MISMATCH");
       if (decision.amount !== null && decision.amount !== booking.total) throw new Error("AMOUNT_MISMATCH");
@@ -77,7 +77,7 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
   } catch (error) {
     if (committing) discard = true;
     else if (transaction) { try { await client.query("ROLLBACK"); } catch { discard = true; } }
-    if (error && typeof error === "object" && "code" in error && error.code === "23505" && "constraint" in error && error.constraint === "payments_accepted_reference") throw new Error("REFERENCE_ALREADY_USED");
+    if (error && typeof error === "object" && "code" in error && error.code === "23505" && "constraint" in error && ["payments_accepted_reference", "payments_unique_method_transfer"].includes(String(error.constraint))) throw new Error("REFERENCE_ALREADY_USED");
     if (error instanceof Error && /^(FORBIDDEN|IDEMPOTENCY_MISMATCH|IDEMPOTENCY_INCOMPLETE|DECISION_ALREADY_FINAL|DECISION_INCOMPATIBLE|REFERENCE_MISMATCH|REFERENCE_ALREADY_USED|AMOUNT_MISMATCH|INVALID_INPUT)$/.test(error.message)) throw error;
     throw new Error("DECISION_UNAVAILABLE");
   } finally { client.release(discard); }
