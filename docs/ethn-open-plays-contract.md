@@ -1,6 +1,6 @@
 # Open Plays backend contract
 
-Current booking-backed behavior: Reclub links are optional for both customer and venue listings; when present, only direct HTTPS Reclub meet links are accepted. Customer listings publish when the booking is confirmed and eligible, unless staff hides them. The landing page reads the first three current or upcoming public events; `/open-plays` is the full public page.
+Current booking-backed behavior: Reclub links are optional for both customer and venue listings; when present, only direct HTTPS Reclub meet links are accepted. Customer listings publish when the booking is confirmed and eligible, unless staff hides them. The landing page reads the first three current or upcoming public events. `/open-plays` features the next upcoming session with a countdown, lists sessions in progress and later sessions, and shows the five most recently ended venue sessions when nothing is upcoming. Ended customer-hosted sessions are not shown in history.
 
 A checkout with a saved Open Play queues an Open Play–specific customer receipt and Owner notification instead of the ordinary submission alerts. The first add through tracking queues distinct notices once; edits and re-adds do not. When approval publishes the listing, the existing approval email links to the public page. Email still depends on the ETHN outbox and mail configuration.
 

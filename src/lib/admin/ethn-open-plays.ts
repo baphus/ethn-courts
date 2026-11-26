@@ -55,16 +55,21 @@ export async function hideBookingOpenPlay(pool: Db, verify: StaffVerifier, id: s
   } catch (error) { serviceError(error); } finally { client.release(); }
 }
 
-export async function listPublicOpenPlays(pool: Db, includeHidden = false, upcomingOnly = false): Promise<(ReturnType<typeof eventDto> & { eventUrl?: string; hidden?: boolean })[]> {
+export async function listPublicOpenPlays(pool: Db, includeHidden = false, window: "all" | "current" | "schedule" = "all"): Promise<(ReturnType<typeof eventDto> & { eventUrl?: string; hidden?: boolean })[]> {
   const client = await pool.connect();
   try {
-    const rows = (await client.query(`SELECT p.id::text,p.title,p.description,p.starts_at,p.ends_at,p.informational_fee::text,p.version,p.event_url,
+    const venueQuery = `SELECT p.id::text,p.title,p.description,p.starts_at,p.ends_at,p.informational_fee::text,p.version,p.event_url,
       array_agg(c.name ORDER BY c.id) AS court_names, array_agg(c.id::text ORDER BY c.id) AS court_ids
       FROM ethn.open_plays p JOIN ethn.court_blocks b ON b.open_play_id=p.id AND b.removed_at IS NULL
       JOIN ethn.court_allocations a ON a.block_id=b.id AND a.state='confirmed'
       JOIN ethn.courts c ON c.id=b.court_id
-      WHERE p.removed_at IS NULL
-      GROUP BY p.id ORDER BY p.starts_at,p.id LIMIT 100`, [upcomingOnly])).rows;
+      WHERE p.removed_at IS NULL${window === "current" ? " AND p.ends_at > clock_timestamp()" : ""}
+      GROUP BY p.id`;
+    const rows = (await client.query(window === "schedule" ? `WITH venue AS (${venueQuery})
+      (SELECT * FROM venue WHERE ends_at > statement_timestamp() ORDER BY starts_at,id LIMIT 100)
+      UNION ALL
+      (SELECT * FROM venue WHERE ends_at <= statement_timestamp() ORDER BY ends_at DESC,id LIMIT 5)`
+      : `${venueQuery} ORDER BY p.starts_at,p.id LIMIT 100`)).rows;
     const customerRows = (await client.query(`SELECT p.id::text,p.title,p.description,p.event_url,p.hidden,s.starts_at,s.ends_at,s.court_names,s.court_ids
       FROM ethn.booking_open_plays p JOIN ethn.bookings b ON b.id=p.booking_id
       JOIN ethn.booking_open_play_sessions s ON s.booking_id=p.booking_id
@@ -77,7 +82,7 @@ export async function listPublicOpenPlays(pool: Db, includeHidden = false, upcom
 }
 
 export async function listUpcomingOpenPlays(pool: Db, limit = 3) {
-  return (await listPublicOpenPlays(pool, false, true)).slice(0, limit);
+  return (await listPublicOpenPlays(pool, false, "current")).slice(0, limit);
 }
 
 async function allocateOpenPlay(client: PoolClient, playId: string, actor: string, input: ReturnType<typeof validate>) {

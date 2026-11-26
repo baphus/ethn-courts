@@ -64,7 +64,7 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
     <section className="overflow-hidden rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] shadow-sm">
       <div className="h-2 bg-[#447244]" />
       <div className="p-5 sm:p-6">
-        <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-black tracking-tight outline-none sm:text-4xl">Request received.</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-black tracking-tight outline-none sm:text-4xl">{receipt.status.toLowerCase() === "pending" ? "Payment proof submitted" : "Request received"}</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#405966]">Thank you, {receipt.customerName}. Keep this receipt to check your reservation status.</p>
         <div className="mt-5 flex flex-wrap items-center gap-2 text-sm"><span className="font-semibold">Current status:</span> <BookingStatusBadge state={receipt.status} /></div>
         <p className="mt-3 text-sm">{openPlaySaved === true ? "Open Play details saved. Your listing stays private until your booking is confirmed. " : openPlaySaved === false ? "Your booking request was received, but your Open Play listing could not be added because the court times no longer qualify. " : null}<a href="/track" className="font-semibold underline">{openPlaySaved === true ? "Manage your Open Play" : "Hosting an Open Play?"}</a> Use your tracking code and booking email.</p>
@@ -73,8 +73,6 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
     </section>
 
     <div className="space-y-4">
-      <BookingInvoice date={receipt.operatingDate} items={receipt.items} paymentMethod={receipt.paymentMethod} email={receipt.maskedEmail} total={receipt.total} />
-
     <section aria-labelledby="private-status" className="@container rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 shadow-sm sm:p-6">
       <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#e7f0e3] text-[#447244]"><QrCode className="size-5" aria-hidden="true" /></span><div><h2 id="private-status" className="text-xl font-bold">Your private status link</h2><p className="mt-1 text-sm leading-relaxed text-[#405966]">Scan to view your reservation status. This is not a check-in pass. Keep the QR and link private; do not share them widely.</p></div></div>
       <div className="mt-6 flex flex-col items-center gap-5 text-center @lg:flex-row @lg:items-start @lg:gap-6 @lg:text-left">
@@ -92,6 +90,7 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
       </div>
     </section>
 
+      <BookingInvoice date={receipt.operatingDate} items={receipt.items} paymentMethod={receipt.paymentMethod} email={receipt.maskedEmail} total={receipt.total} />
     </div><section aria-labelledby="venue-location" className="rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 shadow-sm sm:p-6"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#e7f0e3] text-[#447244]"><MapPin className="size-5" aria-hidden="true" /></span><div><h2 id="venue-location" className="text-xl font-bold">Find ETHN Courts</h2><p className="mt-2 text-sm leading-relaxed text-[#405966]">{VENUE_ADDRESS}</p></div></div><iframe title="Map showing ETHN Courts" src={VENUE_MAP_EMBED} loading="lazy" referrerPolicy="no-referrer" className="mt-5 h-56 w-full rounded-xl border border-[#dce5dc]" /><div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-bold"><a href={VENUE_MAP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-[#315f35] underline underline-offset-2">Get directions <ExternalLink className="size-4" aria-hidden="true" /></a><a href={VENUE_PHONE_LINK} className="text-[#315f35] underline underline-offset-2">{VENUE_PHONE_DISPLAY}</a><a href={VENUE_FACEBOOK_LINK} target="_blank" rel="noopener noreferrer" className="text-[#315f35] underline underline-offset-2">Message on Facebook</a></div></section>
     <button type="button" onClick={onAnotherBooking} className={`${button} w-full border border-[#b9cbb6] bg-[#fffdf7] hover:bg-[#eef5eb] sm:w-auto`}>Book another time</button>
   </div>;

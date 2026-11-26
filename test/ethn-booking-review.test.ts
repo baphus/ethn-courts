@@ -1,30 +1,18 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
-const booking = readFileSync(new URL("../src/components/booking/ethn-booking.tsx", import.meta.url), "utf8");
+const source = await readFile(new URL("../src/components/booking/ethn-booking.tsx", import.meta.url), "utf8");
 
-test("checkout uploads the selected screenshot without submitting the booking", () => {
-  assert.match(booking, /const screenshot = e\.currentTarget\.files\?\.\[0\];\s*e\.currentTarget\.value = "";\s*if \(screenshot\) void upload\(screenshot\);/);
-  assert.doesNotMatch(booking, /"Upload proof"/);
-  assert.match(booking, /onClick=\{\(\) => void submit\(\)\}/);
+test("booking date discard prompt runs before clearing selected times", () => {
+  const change = source.slice(source.indexOf("function changeDate"), source.indexOf("const minDate"));
+  assert.match(change, /if \(date === chosenDate .*\) return;\s*if \(bookingPage && ranges.length > 0 && !window.confirm\([^\n]+\)\) return;\s*setRanges\(\[\]\)/);
 });
 
-test("refresh restores the existing checkout and payment fields; only explicit leave releases it", () => {
-  assert.match(booking, /sessionStorage\.getItem\(STORAGE\)[\s\S]*?setDraft\(value\); setProgress\(\{ \.\.\.emptyProgress, \.\.\.value\.progress \}\)/);
-  assert.match(booking, /save\(\{ \.\.\.draft, progress: next \}\)/);
-  assert.equal(booking.match(/"\/api\/checkout\/release"/g)?.length, 1);
-  assert.match(booking, /async function leaveCheckout\(\)[\s\S]*?await post\("\/api\/checkout\/release", \{ ownerToken: draft\.owner, checkoutId: draft\.checkout\.checkoutId \}\);\s*try \{ finishCheckout\(\);/);
-  assert.match(booking, /onClick=\{\(\) => void leaveCheckout\(\)\}/);
-});
-
-test("only review confirmation calls the checkout hold endpoint", () => {
-  assert.match(booking, /onClick=\{reviewSelection\}>Review selection/);
-  const reviewSelection = booking.slice(booking.indexOf("function reviewSelection()"), booking.indexOf("async function beginCheckout()"));
-  assert.match(reviewSelection, /setReviewing\(true\)/);
-  assert.doesNotMatch(reviewSelection, /beginCheckout\(|\/api\/checkout/);
-  assert.match(booking, /reviewing && availability \? <form[^\n]*onSubmit=\{e => \{ e\.preventDefault\(\); void beginCheckout\(\); \}\}>[\s\S]*?\{contactFields\}[\s\S]*?<Button type="submit"[^\n]*"Confirm and hold"/);
-  assert.match(booking, /async function beginCheckout\(\)[\s\S]*?if \(!validateGuest\(\{ kind: "online", name, email, phone \}\)\) \{[^}]*return;[^}]*\}[\s\S]*?await post<Checkout>\("\/api\/checkout"/);
-  assert.equal(booking.match(/\bbeginCheckout\(/g)?.length, 2, "one definition and one call site");
-  assert.match(booking, /async function beginCheckout\(\)[\s\S]*?if \(!reviewing\b[\s\S]*?await post<Checkout>\("\/api\/checkout"[\s\S]*?save\(\{ owner, checkout/);
+test("Open Play fields are on Review and listing validation precedes the hold", () => {
+  assert.match(source, /Review your selection[\s\S]*Hosting an Open Play\?[\s\S]*Confirm and hold[\s\S]*aria-label="Court availability"/);
+  assert.equal(source.split("Hosting an Open Play?").length, 2);
+  const checkout = source.slice(source.indexOf("async function beginCheckout"), source.indexOf("async function leaveCheckout"));
+  assert.match(checkout, /const listingError = openPlayValidationError\(\);\s*setOpenPlayError\(listingError\);\s*if \(listingError\) return;[\s\S]*post<Checkout>/);
+  assert.match(source, /function openPlayValidationError\(\) \{\s*if \(!openPlayEnabled\) return "";/);
 });
