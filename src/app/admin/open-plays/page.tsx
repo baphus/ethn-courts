@@ -14,7 +14,7 @@ type Court = { id: string; name: string; active: boolean };
 const toIso = (date: string, time: string) => { const value = new Date(`${date}T${time.length === 5 ? `${time}:00` : time}+08:00`); return Number.isFinite(value.getTime()) ? value.toISOString() : null; };
 const manilaParts = (value: string) => { const instant=new Date(value); return [manilaDateStr(instant), new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).format(instant)] as const; };
 const format = (date: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(date));
-const message = (status: number) => status === 400 ? "Check the event details and court hours. Events must be future and within the booking horizon." : status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Staff access is unavailable or has been revoked." : status === 404 ? "Event not found. Refresh and try again." : status === 409 ? "A selected court is already occupied at this time." : "Service unavailable. Try again later.";
+const message = (status: number) => status === 400 ? "Check the event details and court hours. Events must be future and within the booking horizon." : status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : status === 404 ? "Event not found. Refresh and try again." : status === 409 ? "A selected court is already occupied at this time." : "Service unavailable. Try again later.";
 
 export default function AdminOpenPlaysPage() {
   const [events, setEvents] = useState<Event[] | null>(null), [courts, setCourts] = useState<Court[] | null>(null);

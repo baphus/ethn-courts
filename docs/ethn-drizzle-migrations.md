@@ -15,6 +15,7 @@ Drizzle manages SQL-first custom migrations in `db/ethn-migrations/`:
 6. `0005_nonconsecutive_customer_slots.sql`: permits multiple non-overlapping booking items per court. Apply before deploying customer checkout with separated time blocks; the allocation exclusion constraint stays in place.
 7. `0006_ambiguous_maximus.sql`: permits the operations cron to cancel pending bookings and allocations. Apply before deploying automatic pending cancellation.
 8. `0007_fine_sugar_man.sql`: adds customer-hosted Open Play listings and a view of eligible booking schedules. Apply before deploying changes to booking tracking and Open Plays.
+9. `0008_owner_access_cutover.sql`: blocks migration if an enabled Owner was promoted by `0003` and has no later audited regrant. Keeps the existing database constraint that prohibits enabled non-Owners.
 
 Separate history: `ethn_migrations.__drizzle_migrations`. Legacy `drizzle/`, `drizzle.config.ts`, `src/db/schema.ts` and `supabase/` are not used. Never run default drizzle-kit push/migrate against ETHN. ETHN custom schema is deliberately empty; never use push with it. Runtime remains server-side SQL, not ORM queries. Old db/ethn files remain reference/fresh-test fixtures; do not run both chains on the same database.
 
@@ -36,9 +37,16 @@ npm run db:migrate
 npm run db:status
 ```
 
-Fresh expected result: applied=8, pending=0. For an existing target, review the exact enabled Staff roster before cutover: every promoted account gains full Owner privileges, including exports, refund recording and membership management. Confirm a restorable backup and review the `owner.cutover` audit roster after execution. If rolling back, stop admin writes and restore the reviewed backup or authorize a compensating migration scoped to the recorded promotions; do not silently demote previously existing Owners. Do not deploy the new Finance code ahead of its schema migration. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
+Fresh expected result: applied=9, pending=0. Do not deploy the new Finance code ahead of its schema migration. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
 
 Verify effective grants/RLS with restricted login and test owner access, booking availability and picture replacement. Fresh SQL seeds courts/settings but does not provision actual Auth users or owner access, proof Storage, GCash instructions, live rates, mail or scheduler. Configure separately. Browser Auth and private Storage must target same ETHN Supabase project. Moving to another Supabase project requires updating Auth/Storage environment and provisioning private proof bucket/policies; SQL migrations do not move identities, proofs or old bookings.
+
+## Owner roster review
+
+Applied migration `0003` is immutable. Its historical behavior was to promote enabled Staff. The pending migrations run in one transaction: if `0003` and `0008` are both pending, the review gate rolls back any promotions before they can confer access. Stop admin writes for the cutover and confirm a restorable backup first.
+
+- **If `0003` is pending on an existing target:** review the enabled Staff roster and have an authorized operator disable those memberships before migrating. Verify at least one enabled Owner remains. Do not delete membership rows or Auth accounts. If no enabled Owner exists, stop and arrange approved Owner recovery before proceeding; setup does not reopen.
+- **If `0003` already ran:** use its `owner.cutover` audit records to identify promoted accounts. Disable their Owner access. If an account should retain access, explicitly regrant it through Owner access management after revocation; the subsequent `staff.update` audit establishes review. If a promoted account is the only enabled Owner, stop and arrange approved recovery or a separately verified Owner before revoking it. Verify the roster before retrying. Do not insert synthetic audit records to bypass the gate.
 
 ## Future custom migrations
 

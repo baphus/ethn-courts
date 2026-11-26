@@ -1,4 +1,5 @@
 import { expireExtensionHolds } from '@/lib/booking/extension-expiry';
+import { lockBookingAlertOwners } from '@/lib/booking/ethn-booking-alerts';
 import { getCheckoutPool } from "@/db/checkout-client";
 import { cancelPastPendingBookings, completeDueBookingsFromCron } from "@/lib/admin/ethn-outcomes";
 import { isCronAuthorized } from "@/lib/cron/auth";
@@ -16,9 +17,10 @@ export async function GET(request: Request) {
     let cancelled: number, discard = false, committing = false;
     try {
       await c.query('BEGIN');
+      const owners = await lockBookingAlertOwners(c);
       await c.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
       await expireExtensionHolds(c);
-      cancelled = await cancelPastPendingBookings(c);
+      cancelled = await cancelPastPendingBookings(c, owners);
       committing = true;
       await c.query('COMMIT');
     } catch (error) {

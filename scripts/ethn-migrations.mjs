@@ -60,7 +60,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       ENETUNREACH: "Database network unreachable (ENETUNREACH). Direct Supabase connections may require IPv6; use a supported session connection on port 5432 if needed.",
       "28P01": "Database authentication failed (28P01). Check migration-owner username and password.",
     };
-    console.error(connectionErrors[error?.code] ?? (error instanceof Error && safe.some(prefix => error.message.startsWith(prefix)) ? error.message : "ETHN migration command failed. Check connection, permissions and migration SQL; raw errors suppressed to protect credentials. See docs/ethn-drizzle-migrations.md."));
+    if (error?.code === "P0001" && error.message === "ETHN_OWNER_ROSTER_REVIEW_REQUIRED") {
+      console.error("ETHN Owner roster review required. No pending schema changes committed. See docs/ethn-drizzle-migrations.md.");
+    } else {
+      console.error(connectionErrors[error?.code] ?? (error instanceof Error && safe.some(prefix => error.message.startsWith(prefix)) ? error.message : "ETHN migration command failed. Check connection, permissions and migration SQL; raw errors suppressed to protect credentials. See docs/ethn-drizzle-migrations.md."));
+    }
     process.exitCode = 1;
   });
 }

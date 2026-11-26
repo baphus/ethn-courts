@@ -34,9 +34,22 @@ test("base64url public key decodes with padding", () => {
   assert.deepEqual(Array.from(decode("-_8")), [251, 255]);
 });
 
-test("permission and worker registration require explicit enable handler", () => {
-  const effect = controls.slice(controls.indexOf("useEffect(() =>"), controls.indexOf("async function enable()"));
-  assert.doesNotMatch(effect, /requestPermission|serviceWorker\.register/);
-  assert.match(controls, /onClick=\{\(\) => void enable\(\)\}/);
-  assert.match(controls, /permission === "denied"/);
+test("push distinguishes lookup errors from subscription errors and reuses a current subscription", async () => {
+  const source = controls.match(/export async function getOrCreateSubscription[\s\S]*?\n}/)?.[0];
+  assert.ok(source);
+  const subscribe = runInNewContext(`(${source.replace("export async function", "async function").replace(": PushManager", "").replace(": Uint8Array", "").replace(": PushSubscription | null", "").replace(" as BufferSource", "")})`, { Uint8Array });
+  const key = Uint8Array.of(1, 2);
+  const error = new Error("Error retrieving push subscription");
+  await assert.rejects(subscribe({ getSubscription: async () => { throw error; }, subscribe: () => assert.fail("must not overwrite an unknown subscription") }, key), /could not look up/);
+  await assert.rejects(subscribe({ getSubscription: async () => null, subscribe: async () => { throw error; } }, key), /could not create/);
+  const current = { options: { applicationServerKey: key.buffer } };
+  assert.equal(await subscribe({ getSubscription: async () => current }, key), current);
+  const outdated = { options: { applicationServerKey: Uint8Array.of(3).buffer }, unsubscribe: async () => true };
+  assert.equal(await subscribe({ getSubscription: async () => outdated, subscribe: async () => current }, key), current);
+});
+
+test("push auto-connects only with permission and respects device pause", () => {
+  assert.match(controls, /permission !== "granted" \|\| paused/);
+  assert.match(controls, /connect\(worker, publicKey, false\)/);
+  assert.match(controls, /manual && Notification.permission === "default" \? await Notification.requestPermission\(\)/);
 });

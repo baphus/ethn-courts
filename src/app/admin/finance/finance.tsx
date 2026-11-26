@@ -23,7 +23,8 @@ import { formatDisplayDate } from "@/lib/display-date";
 import { Button } from "@/components/ui/button";
 import { FinanceInfo } from "./finance-info";
 import { addDaysManilaStr, manilaTodayStr } from "@/lib/courts";
-import { buildFinanceSheet, type FinanceExportInput } from "@/lib/admin/finance-export";
+import { buildCashWorkbook } from "@/lib/admin/finance-cash-workbook";
+import type { CashFinanceExport } from "@/lib/admin/finance-cash";
 import { ExpenseActions, ExpenseFields, type Expense } from "./expense-actions";
 type Expenses = { rows: Expense[]; page: number; limit: number; total: number };
 type Payload = { title: string; category: string; amount: string; paidDate: string; idempotencyKey: string; description?: string; vendor?: string; notes?: string };
@@ -43,9 +44,8 @@ export default function Finance() {
   const [pagination, setPagination] = useState({ key: filterKey, page: 1 });
   const page = pagination.key === filterKey ? pagination.page : 1;
   const setPage = (page: number) => setPagination({ key: filterKey, page });
-  const { data: report, loading, error, retry: retryReport } = useDashboardResource<FinanceReport & { from: string; to: string }>(`/api/ethn/admin/finance?${new URLSearchParams({ from, to, basis: "approval" })}`);
-  const currentRange = useRef(filters);
-  currentRange.current = filters;
+  const currentRange = useRef({ from, to });
+  currentRange.current = { from, to };
   const { data: fetchedExpenses, loading: listLoading, error: listError, retry: retryExpenses } = useDashboardResource<Expenses>(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`);
   const previousExpenses = useRef<Expenses | null>(null);
   useEffect(() => { if (fetchedExpenses) previousExpenses.current = fetchedExpenses; }, [fetchedExpenses]);
@@ -61,20 +61,19 @@ export default function Finance() {
   const [announceSaveMessage, setAnnounceSaveMessage] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [view, setView] = useState<"cash" | "approval">("cash");
 
   async function exportReport() {
-    if (!report || report.from !== filters.from || report.to !== filters.to || loading || error || exporting) return;
+    if (exporting) return;
     setExporting(true); setExportError("");
     try {
-      const range = filters;
-      const response = await fetch(`/api/ethn/admin/finance/export?${new URLSearchParams(range)}`, { cache: "no-store" });
+      const response = await fetch(`/api/ethn/admin/finance/export?${new URLSearchParams({ from, to })}`, { cache: "no-store" });
       if (!response.ok) throw new Error();
-      const exported: Pick<FinanceExportInput, "bookings" | "expenses"> & { from: string; to: string; generated: string } = await response.json();
+      const exported: CashFinanceExport = await response.json();
       const { default: writeXlsxFile } = await import("write-excel-file/browser");
-      if (exported.from !== range.from || exported.to !== range.to || Object.keys(range).some(key => currentRange.current[key as keyof typeof range] !== range[key as keyof typeof range])) throw new Error();
-      const { rows, columns } = buildFinanceSheet({ ...exported, period: `${formatDisplayDate(range.from)} ? ${formatDisplayDate(range.to)}`, generated: formatDisplayDate(exported.generated) });
-      await writeXlsxFile(rows, { sheet: "Finance", columns, stickyRowsCount: 3 }).toFile(`finance-${range.from}_${range.to}.xlsx`);
-    } catch { setExportError("Could not export report. Please try again."); }
+      if (exported.from !== from || exported.to !== to || currentRange.current.from !== from || currentRange.current.to !== to) return;
+      await writeXlsxFile(buildCashWorkbook(exported)).toFile(`finance-cash-${from}_${to}.xlsx`);
+    } catch { setExportError("Could not export cash activity. Try again or choose a shorter date range."); }
     finally { setExporting(false); }
   }
 
@@ -137,7 +136,6 @@ export default function Finance() {
   return <main className="space-y-5 pb-24">
     <header className="flex items-center gap-2">
       <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
-      <FinanceInfo label="How Finance totals are calculated">Booking revenue is counted on the original payment approval date in Manila; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</FinanceInfo>
     </header>
     <div className="flex flex-wrap items-center gap-3">
       <Sheet open={rangeOpen} onOpenChange={open => { setRangeOpen(open); if (open) { setDraft(filters); setFilterError(""); } }}>
@@ -157,33 +155,29 @@ export default function Finance() {
           </form>
         </SheetContent>
       </Sheet>
-      <p className="text-sm text-muted-foreground">{formatDisplayDate(from)} to {formatDisplayDate(to)}{filters.category && ` ? ${filters.category}`}{filters.q && ` ? Title: ${filters.q}`}</p>
-      <button type="button" className={button} disabled={loading || !!error || !report || report.from !== filters.from || report.to !== filters.to || exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Export to Sheets"}</button>
-      {exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
+      <p className="text-sm text-muted-foreground">{formatDisplayDate(from)} to {formatDisplayDate(to)}</p>
+      {view === "cash" && <Button type="button" disabled={exporting} onClick={() => void exportReport()}>{exporting ? "Exporting…" : "Download cash XLSX"}</Button>}
+      {view === "cash" && exportError && <p role="alert" className="text-sm text-red-700">{exportError}</p>}
     </div>
-    <CashActivity from={from} to={to} />
-    <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Approval-based reporting</h2><FinanceInfo label="About approval-based reporting">Booking revenue is counted on the original payment approval date. Expenses use their paid date. Extensions and manual sales are excluded.</FinanceInfo></div>
-    <section aria-label="Finance summary" aria-busy={loading}>
-      {loading ? <ReportStats /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={retryReport}>Retry</button></p> : report && <ReportStats report={report} />}
-    </section>
-    <section className="rounded-xl border bg-card p-5 shadow-sm" aria-label="Revenue and profit trend" aria-busy={loading}>
-      <div className="mb-5"><div className="flex items-center gap-2"><h2 className="font-semibold">Revenue and profit trend</h2><FinanceInfo label="About the revenue and profit trend">Daily, weekly, or monthly totals based on the selected range.</FinanceInfo></div></div>
-      {loading ? <Skeleton role="status" aria-label="Loading revenue and profit trend" className="h-64 w-full motion-reduce:animate-none" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
-    </section>
+    <nav aria-label="Finance report view" className="flex gap-2 border-b">
+      <Button variant={view === "cash" ? "secondary" : "ghost"} aria-pressed={view === "cash"} onClick={() => setView("cash")}>Cash activity</Button>
+      <Button variant={view === "approval" ? "secondary" : "ghost"} aria-pressed={view === "approval"} onClick={() => setView("approval")}>Approval report</Button>
+    </nav>
+    {view === "cash" ? <CashActivity from={from} to={to} /> : <ApprovalReport from={from} to={to} />}
     <Sales from={from} to={to} onSaved={invalidate} />
     {!expenseOpen && saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
     {pending && !expenseOpen && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Review or retry the saved expense request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
     <div>
       <section className="rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="font-semibold">Recorded expenses</h2><FinanceInfo label="About recorded expenses">Paid expenses in the selected period. Edits and deletes are audited.</FinanceInfo></div></div>
-          <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Record an expense already paid.</DialogDescription>
-      <section className="rounded-xl border bg-card p-5 shadow-sm"><h2 className="font-semibold">Record paid expense</h2><p className="mt-1 text-sm leading-6 text-slate-600">Expenses are recorded on the date paid.</p>
+          <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Expenses are recorded on the date paid.</DialogDescription>
+
         <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) { const fields = new FormData(e.currentTarget); const get = (key: string) => String(fields.get(key) ?? ""); void save({ title: get("title"), category: get("category"), amount: get("amount"), paidDate: get("paidDate"), description: get("description"), vendor: get("vendor"), notes: get("notes"), idempotencyKey: crypto.randomUUID() }); } }}>
           <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} className={input} /><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
           {saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
           {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {formatDisplayDate(pending.paidDate)}</p><p>Retry only while signed in to the same account that recorded this expense.</p><button type="button" disabled={saving} className={button} onClick={() => void save(pending)}>Retry same expense</button><button type="button" disabled={saving} className="block underline" onClick={() => { if (window.confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?")) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</button></div>}
         </form>
-      </section></DialogContent></Dialog>
+      </DialogContent></Dialog>
         </div>
         <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); applyFilters({ ...filters, q: searchDraft.trim() }); }}><label className="grid min-w-0 flex-1 basis-56 gap-1 text-sm font-medium">Search expense title<input className={input} type="search" maxLength={100} value={searchDraft} onChange={e => setSearchDraft(e.target.value)} /></label><Button variant="outline" type="submit">Search</Button><label className="grid gap-1 text-sm font-medium">Category<select className={input} value={filters.category} onChange={e => applyFilters({ ...filters, category: e.target.value })}><option value="">All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select></label></form>
         {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div role="region" aria-label="Expense results table" tabIndex={0} className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && <div className="mt-4"><TablePager page={expenses.page} pageSize={expenses.limit} total={expenses.total} onPageChange={setPage} busy={listLoading} /></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
@@ -191,4 +185,18 @@ export default function Finance() {
 
     </div>
   </main>;
+}
+
+function ApprovalReport({ from, to }: { from: string; to: string }) {
+  const { data: report, loading, error, retry: retryReport } = useDashboardResource<FinanceReport & { from: string; to: string }>(`/api/ethn/admin/finance?${new URLSearchParams({ from, to, basis: "approval" })}`);
+  return <>
+    <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Approval report</h2><FinanceInfo label="How approval totals are calculated">Booking revenue is counted on the original payment approval date in Manila; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</FinanceInfo></div>
+    <section aria-label="Finance summary" aria-busy={loading}>
+      {loading ? <ReportStats /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={retryReport}>Retry</button></p> : report && <ReportStats report={report} />}
+    </section>
+    <section className="rounded-xl border bg-card p-5 shadow-sm" aria-label="Revenue and profit trend" aria-busy={loading}>
+      <div className="mb-5"><h2 className="font-semibold">Revenue and profit trend</h2></div>
+      {loading ? <Skeleton role="status" aria-label="Loading revenue and profit trend" className="h-64 w-full motion-reduce:animate-none" /> : error ? <p className="text-sm text-slate-600">Trend unavailable. Retry the report above.</p> : report && <>{report.days.every(day => day.revenueCents === 0 && day.expenseCents === 0 && day.bookings === 0) && <p className="mb-4 text-sm text-slate-600">No activity in this date range.</p>}<FinanceChart days={report.days} /></>}
+    </section>
+  </>;
 }

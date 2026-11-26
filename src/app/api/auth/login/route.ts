@@ -8,7 +8,7 @@ import { loginBodySchema } from "@/lib/admin/validation";
 
 export const runtime = "nodejs";
 
-// Sign-in verifies current ETHN staff access, not legacy editable client input.
+// Sign-in verifies current ETHN Owner access, not legacy editable client input.
 // Failed authorization/configuration signs the newly created session back out.
 export async function POST(request: Request) {
   try {
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     } catch (error) {
       await supabase.auth.signOut();
       if (error instanceof Error && error.message === "FORBIDDEN") {
-        return err("FORBIDDEN", "This account does not have staff access.", 403);
+        return err("FORBIDDEN", "This account does not have Owner access.", 403);
       }
       return err("NOT_CONFIGURED", "Staff sign-in is unavailable.", 503);
     }

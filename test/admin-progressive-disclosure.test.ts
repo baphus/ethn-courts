@@ -6,7 +6,7 @@ test('bounded admin creation tasks have labelled dialog entry points',()=>{
  for(const [file,label] of [
  ['src/app/admin/event-dialog.tsx','Create event'],
  ['src/app/admin/courts/court-setup.tsx','Add court'],
- ['src/app/admin/staff/staff-manager.tsx','Grant access'],
+ ['src/app/admin/owner-access/owner-access-manager.tsx','Grant access'],
  ['src/app/admin/finance/sales.tsx','Add sale'],
  ['src/app/admin/open-plays/page.tsx','Create open play'],
  ] as const){const text=source(file);assert.match(text,/DialogContent/,file);assert.match(text,/DialogTitle/,file);assert.ok(text.includes(label),file);assert.match(text,/onOpenChange/,file);}

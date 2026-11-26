@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import { manilaDateStr, manilaWallClock } from "../booking/slots";
 import { addDaysManilaStr } from "../courts";
 import type { StaffVerifier } from "./ethn-payments";
-import { cashCents, type CashReport } from "./finance-cash";
+import { cashCents, type CashFinanceExport, type CashLedgerEntry, type CashReport, type CashTotals } from "./finance-cash";
 import { expenseCategories as categories, newExpenseCategories } from "./finance-filters";
 
 type Db = Pick<Pool, "connect">;
@@ -23,6 +23,38 @@ async function owner(pool: Db, actor: string) {
   try { if (!(await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN"); }
   finally { c.release(); }
 }
+// Shared source for the cash overview and itemized export. Costs are positive outflows; corrections are signed deltas.
+const cashLedgerSource = `entries AS (
+  SELECT (coalesce(p.received_at,p.verified_at) AT TIME ZONE 'Asia/Manila')::date AS day,
+    CASE WHEN p.extension_id IS NULL THEN 'Booking receipt' ELSE 'Extension receipt' END AS kind,
+    p.id, coalesce(b.tracking_code,b.id::text) AS reference, p.method, NULL::text AS category,
+    p.collected_amount AS amount, NULL::numeric AS cash_delta, NULL::numeric AS gcash_delta
+  FROM ethn.payments p JOIN ethn.bookings b ON b.id=p.booking_id
+  WHERE p.status='accepted' AND coalesce(p.received_at,p.verified_at) >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')
+    AND coalesce(p.received_at,p.verified_at) < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+  UNION ALL
+  SELECT (s.received_at AT TIME ZONE 'Asia/Manila')::date,'Other sale',s.id,s.id::text,s.method,NULL,s.amount,NULL,NULL
+  FROM ethn.sales s WHERE s.received_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND s.received_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+  UNION ALL
+  SELECT (x.created_at AT TIME ZONE 'Asia/Manila')::date,'Sale correction',x.id,x.sale_id::text,NULL,NULL,x.amount_delta,x.cash_delta,x.gcash_delta
+  FROM ethn.sale_corrections x WHERE x.created_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND x.created_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+  UNION ALL
+  SELECT e.paid_date,'Expense',e.id,e.id::text,NULL,e.category,e.amount,NULL,NULL
+  FROM ethn.expenses e WHERE e.paid_date BETWEEN $1 AND $2
+  UNION ALL
+  SELECT x.correction_date,'Expense correction',x.id,x.expense_id::text,NULL,e.category,x.amount_delta,NULL,NULL
+  FROM ethn.expense_corrections x JOIN ethn.expenses e ON e.id=x.expense_id
+  WHERE e.revision IS NULL AND x.correction_date BETWEEN $1 AND $2
+  UNION ALL
+  SELECT (r.recorded_at AT TIME ZONE 'Asia/Manila')::date,'Recorded refund',r.booking_id,coalesce(b.tracking_code,b.id::text),r.method,NULL,r.amount,NULL,NULL
+  FROM ethn.booking_refunds r JOIN ethn.bookings b ON b.id=r.booking_id
+  WHERE r.recorded_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND r.recorded_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')
+)`;
+
+function cashTotals(booking: bigint, sales: bigint, expenses: bigint, refunds: bigint): CashTotals {
+  return { bookingPayments: peso(booking), otherSales: peso(sales), expenses: peso(expenses), refunds: peso(refunds), net: peso(booking + sales - expenses - refunds) };
+}
+
 export async function getFinance(pool: Db, verify: StaffVerifier, from: string | null, to: string | null, cashOverview = false) {
   const actor = actorId(await verify()); await owner(pool, actor);
   const c = await pool.connect();
@@ -33,17 +65,15 @@ export async function getFinance(pool: Db, verify: StaffVerifier, from: string |
     const today = manilaDateStr(now), [a,b] = range(from,to,today);
     const priorEnd = cashOverview ? addDaysManilaStr(a, -1) : a;
     const start = cashOverview ? addDaysManilaStr(priorEnd, -(Date.parse(b) - Date.parse(a)) / 86400000) : a;
-    const { rows: ledger } = await c.query(`WITH days AS (SELECT d::date AS day FROM generate_series($1::date,$2::date,interval '1 day') d),
-      collections AS (SELECT (coalesce(p.received_at,p.verified_at) AT TIME ZONE 'Asia/Manila')::date AS day,
-        sum(p.collected_amount) FILTER (WHERE p.method='cash') cash,
-        sum(p.collected_amount) FILTER (WHERE p.method='gcash') gcash,
-        sum(p.collected_amount) FILTER (WHERE p.method NOT IN ('cash','gcash')) other
-        FROM ethn.payments p WHERE p.status='accepted' AND coalesce(p.received_at,p.verified_at) >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND coalesce(p.received_at,p.verified_at) < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Manila') GROUP BY 1),
-      refunds AS (SELECT (recorded_at AT TIME ZONE 'Asia/Manila')::date AS day,sum(amount) AS amount FROM ethn.booking_refunds WHERE recorded_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila') AND recorded_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila') GROUP BY 1),
-      sales_ledger AS (SELECT (received_at AT TIME ZONE 'Asia/Manila')::date AS day, CASE WHEN method='cash' THEN amount ELSE 0 END cash,CASE WHEN method='gcash' THEN amount ELSE 0 END gcash FROM ethn.sales UNION ALL SELECT (created_at AT TIME ZONE 'Asia/Manila')::date,cash_delta,gcash_delta FROM ethn.sale_corrections),
-      sales_totals AS (SELECT day,sum(cash) cash,sum(gcash) gcash FROM sales_ledger WHERE day BETWEEN $1 AND $2 GROUP BY day),
-      expense_ledger AS (SELECT paid_date AS day,amount FROM ethn.expenses UNION ALL SELECT x.correction_date,x.amount_delta FROM ethn.expense_corrections x JOIN ethn.expenses e ON e.id=x.expense_id WHERE e.revision IS NULL),
-      costs AS (SELECT day,sum(amount) expenses FROM expense_ledger WHERE day BETWEEN $1 AND $2 GROUP BY day)
+    const { rows: ledger } = await c.query(`WITH ${cashLedgerSource},
+      days AS (SELECT d::date AS day FROM generate_series($1::date,$2::date,interval '1 day') d),
+      collections AS (SELECT day,sum(amount) FILTER (WHERE method='cash') cash,
+        sum(amount) FILTER (WHERE method='gcash') gcash,sum(amount) FILTER (WHERE method NOT IN ('cash','gcash')) other
+        FROM entries WHERE kind IN ('Booking receipt','Extension receipt') GROUP BY day),
+      refunds AS (SELECT day,sum(amount) AS amount FROM entries WHERE kind='Recorded refund' GROUP BY day),
+      sales_totals AS (SELECT day,sum(CASE WHEN method='cash' THEN amount ELSE cash_delta END) cash,
+        sum(CASE WHEN method='gcash' THEN amount ELSE gcash_delta END) gcash FROM entries WHERE kind IN ('Other sale','Sale correction') GROUP BY day),
+      costs AS (SELECT day,sum(amount) expenses FROM entries WHERE kind IN ('Expense','Expense correction') GROUP BY day)
       SELECT days.day::text date,coalesce(collections.cash,0)::numeric(30,2)::text bookingCash,coalesce(collections.gcash,0)::numeric(30,2)::text bookingGCash,coalesce(sales_totals.cash,0)::numeric(30,2)::text salesCash,coalesce(sales_totals.gcash,0)::numeric(30,2)::text salesGCash,(coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))::numeric(30,2)::text cash,(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0))::numeric(30,2)::text gcash,
         coalesce(collections.other,0)::numeric(30,2)::text other,coalesce(refunds.amount,0)::numeric(30,2)::text refunds,
         ((coalesce(collections.cash,0)+coalesce(sales_totals.cash,0))+(coalesce(collections.gcash,0)+coalesce(sales_totals.gcash,0))+coalesce(collections.other,0))::numeric(30,2)::text collected,coalesce(costs.expenses,0)::numeric(30,2)::text expenses
@@ -65,7 +95,7 @@ async function buildCashOverview(c: PoolClient, from: string, to: string, priorF
     const booking = cash + gcash + other;
     const sales = sum(rows, "salescash") + sum(rows, "salesgcash");
     const expenses = sum(rows, "expenses"), refunds = sum(rows, "refunds");
-    return { bookingPayments: peso(booking), otherSales: peso(sales), expenses: peso(expenses), refunds: peso(refunds), net: peso(booking + sales - expenses - refunds) };
+    return cashTotals(booking, sales, expenses, refunds);
   };
   const sum = (rows: Record<string, string>[], key: string) => rows.reduce((total, row) => total + cashCents(row[key]), BigInt(0));
   const { rows } = await c.query<{ category: string; amount: string }>(`WITH ledger AS (
@@ -214,36 +244,32 @@ export async function changeExpense(pool: Db, verify: StaffVerifier, id: string,
   } finally { c.release(discard); }
 }
 
-export async function getFinanceExport(pool: Db, verify: StaffVerifier, from: string | null, to: string | null, category: string, q: string) {
+export async function getFinanceExport(pool: Db, verify: StaffVerifier, from: string | null, to: string | null): Promise<CashFinanceExport> {
   const actor = actorId(await verify());
-  q = q.trim();
-  if (!from || !to || q.length > 100 || q.includes('\0') || (category && !categories.some(value => value === category))) throw new Error('INVALID_INPUT');
+  if (!from || !to) throw new Error('INVALID_INPUT');
   const c = await pool.connect();
   try {
     await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
     if (!(await c.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'",[actor])).rowCount) throw new Error('FORBIDDEN');
     const today = manilaDateStr((await c.query('SELECT transaction_timestamp() AS now')).rows[0].now);
     const [a,b] = range(from,to,today);
-    const bookings = (await c.query(`SELECT (p.verified_at AT TIME ZONE 'Asia/Manila')::date::text AS approved,
-      coalesce(b.guest_name,'') AS customer,coalesce(b.guest_email,'') AS email,b.operating_date::text AS "playDate",b.total::text AS amount,
-      coalesce((SELECT string_agg(k.name,', ' ORDER BY i.starts_at,i.id) FROM ethn.booking_items i JOIN ethn.courts k ON k.id=i.court_id WHERE i.booking_id=b.id),'') AS courts,
-      coalesce((SELECT string_agg(to_char(i.starts_at AT TIME ZONE 'Asia/Manila','HH24:MI') || '–' || to_char(i.ends_at AT TIME ZONE 'Asia/Manila','HH24:MI'),', ' ORDER BY i.starts_at,i.id) FROM ethn.booking_items i WHERE i.booking_id=b.id),'') AS slots
-      ${approvedBookingSource} ORDER BY p.verified_at,b.id LIMIT 50001`,[a,b])).rows;
-    const expenses = (await c.query(`SELECT title,category,paid_date::text AS "paidDate",
-      (amount+coalesce((SELECT sum(x.amount_delta) FROM ethn.expense_corrections x WHERE x.expense_id=e.id AND e.revision IS NULL),0))::numeric(30,2)::text AS amount
-      FROM ethn.expenses e WHERE ${expenseFilter} ORDER BY paid_date DESC,created_at DESC,id DESC LIMIT 50001`,[a,b,category,q])).rows;
-    if (bookings.length > 50000 || expenses.length > 50000) throw new Error('INVALID_INPUT');
-    const cents = (amount: string) => {
-      const value = Number(amount.replace('.',''));
-      if (!Number.isSafeInteger(value)) throw new Error('FINANCE_UNAVAILABLE');
-      return value;
-    };
+    const { rows: entries } = await c.query<CashLedgerEntry>(`WITH ${cashLedgerSource}
+      SELECT day::text AS date,kind,id,reference,method,category,amount::numeric(30,2)::text,
+        cash_delta::numeric(30,2)::text AS "cashDelta",gcash_delta::numeric(30,2)::text AS "gcashDelta"
+      FROM entries ORDER BY day,kind,id LIMIT 50001`,[a,b]);
+    if (entries.length > 50000) throw new Error('INVALID_INPUT');
+    let booking = BigInt(0), sales = BigInt(0), expenses = BigInt(0), refunds = BigInt(0);
+    for (const { kind, amount } of entries) {
+      const cents = cashCents(amount);
+      switch (kind) {
+        case 'Booking receipt': case 'Extension receipt': booking += cents; break;
+        case 'Other sale': case 'Sale correction': sales += cents; break;
+        case 'Expense': case 'Expense correction': expenses += cents; break;
+        case 'Recorded refund': refunds += cents; break;
+      }
+    }
     await c.query('COMMIT');
-    return {
-      from:a,to:b,generated:today,
-      bookings: bookings.map(({amount,...row}) => ({ ...row, approved: String(row.approved), customer: String(row.customer), email: String(row.email), courts: String(row.courts), slots: String(row.slots), playDate: String(row.playDate), courtCents: cents(amount), rentalCents:0,totalCents:cents(amount) })),
-      expenses: expenses.map(row => ({ title:String(row.title),category:String(row.category),paidDate:String(row.paidDate),amountCentavos:cents(row.amount) })),
-    };
+    return { from:a,to:b,generated:today,totals:cashTotals(booking,sales,expenses,refunds),entries };
   } catch (error) { try { await c.query('ROLLBACK'); } catch {} throw error; }
   finally { c.release(); }
 }

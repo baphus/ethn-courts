@@ -49,7 +49,7 @@ export default function LoginForm() {
             <img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-auto w-40" />
             <h1 className="font-display text-4xl font-black uppercase leading-none tracking-tight text-[#447244]">Welcome back</h1>
             <p className="text-sm text-balance text-muted-foreground">
-              Sign in to your ETHN Courts staff account
+              Sign in to your ETHN Courts Owner account
             </p>
           </div>
 

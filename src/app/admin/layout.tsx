@@ -11,7 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     staff = await getCurrentStaff();
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login?next=/admin/bookings");
-    if (error instanceof Error && error.message === "FORBIDDEN") return <main className="p-8">Staff access is not enabled for this account.</main>;
+    if (error instanceof Error && error.message === "FORBIDDEN") return <main className="p-8">Owner access is not enabled for this account.</main>;
     return <main role="alert" className="p-8">Staff services are unavailable. Please try again later.</main>;
   }
   return <AdminShell email={staff.email} name={staff.name}>{staff.role === "owner" ? <DashboardCacheProvider key={staff.userId}>{children}</DashboardCacheProvider> : children}</AdminShell>;

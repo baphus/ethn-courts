@@ -54,9 +54,10 @@ test("finance reads and immutable expense entries on fresh restricted database",
     assert.equal(entry.effectiveAmount, "100.25");
     const correction = randomUUID();
     await admin.query("INSERT INTO ethn.expense_corrections(id,expense_id,amount_delta,correction_date,reason,created_by) VALUES($1,$2,-0.25,'2026-11-21','fixture',$3)", [correction,saved.id,owner]);
-    const workbook = await getFinanceExport(pool, verify, "2026-11-20", "2026-11-21", "Utilities", "UTIL");
-    assert.equal(workbook.bookings.length, 1);
-    assert.equal(workbook.expenses[0].amountCentavos, 10000);
+    const saleId = randomUUID(), saleCorrectionId = randomUUID();
+    await admin.query("INSERT INTO ethn.sales(id,description,amount,method,received_at,created_by) VALUES($1,'Not exported',25,'cash','2026-11-20T16:00:00Z',$2)", [saleId,owner]);
+    await admin.query("INSERT INTO ethn.sale_corrections(id,sale_id,amount_delta,cash_delta,gcash_delta,reason,created_by,created_at) VALUES($1,$2,-5,-25,20,'Not exported',$3,'2026-11-20T17:00:00Z')", [saleCorrectionId,saleId,owner]);
+    await admin.query("INSERT INTO ethn.booking_refunds(booking_id,payment_id,amount,method,reason,reference,recorded_by,recorded_at) SELECT p.booking_id,p.id,p.collected_amount,p.method,'Not exported','Private bank reference',$1,'2026-11-21T15:59:59Z' FROM ethn.payments p JOIN ethn.bookings b ON b.id=p.booking_id WHERE b.owner_hash='finance-fixture' AND b.total=900.00 AND p.status='accepted'", [owner]);
     await admin.query("UPDATE ethn.payments SET method='metrobank' WHERE booking_id IN (SELECT id FROM ethn.bookings WHERE owner_hash='finance-fixture' AND total=900.00)");
     const { overview } = await getFinance(pool, verify, "2026-11-21", "2026-11-21", true);
     assert.ok(overview);
@@ -64,10 +65,23 @@ test("finance reads and immutable expense entries on fresh restricted database",
     assert.deepEqual(overview.paymentMethods.find(method => method.id === "cash"), { id: "cash", name: "Cash", amount: "0.00" });
     assert.ok(!overview.paymentMethods.some(method => method.id === "other"));
     assert.deepEqual(overview.expenseCategories, [{ category: "Utilities", amount: "-0.25" }]);
-    assert.deepEqual(overview.current, { bookingPayments: "900.00", otherSales: "0.00", expenses: "-0.25", refunds: "0.00", net: "900.25" });
+    assert.deepEqual(overview.current, { bookingPayments: "900.00", otherSales: "20.00", expenses: "-0.25", refunds: "900.00", net: "20.25" });
+    const workbook = await getFinanceExport(pool, verify, "2026-11-21", "2026-11-21");
+    assert.deepEqual(workbook.totals, overview.current);
+    assert.deepEqual(workbook.entries.map(({ kind, amount }) => [kind, amount]), [
+      ["Booking receipt", "900.00"], ["Expense correction", "-0.25"], ["Other sale", "25.00"],
+      ["Recorded refund", "900.00"], ["Sale correction", "-5.00"],
+    ]);
+    assert.ok(workbook.entries.every(row => row.date === "2026-11-21"));
+    assert.equal(workbook.entries[0].method, "metrobank");
+    assert.equal(workbook.entries[0].reference, workbook.entries[3].reference);
+    assert.equal(workbook.entries[4].reference, saleId);
+    assert.equal(workbook.entries[4].cashDelta, "-25.00");
+    assert.equal(workbook.entries[4].gcashDelta, "20.00");
+    assert.doesNotMatch(JSON.stringify(workbook), /Not exported|Private bank reference|customer|email|tracking/i);
     assert.deepEqual(overview.previous, { from: "2026-11-20", to: "2026-11-20", bookingPayments: "0.30", otherSales: "0.00", expenses: "100.30", refunds: "0.00", net: "-100.00" });
     assert.equal(overview.daily.length, 1);
-    await assert.rejects(getFinanceExport(pool, async () => staff, "2026-11-20", "2026-11-21", "", ""), /FORBIDDEN/);
+    await assert.rejects(getFinanceExport(pool, async () => staff, "2026-11-20", "2026-11-21"), /FORBIDDEN/);
     const original = { revision: entry.revision, lastCorrectionId: correction };
     await changeExpense(pool, verify, saved.id, "edit", { ...original, title: "Utilities", category: "Utilities", amount: "12.30", paidDate: "2026-11-20", vendor: "Vendor" });
     await assert.rejects(changeExpense(pool, verify, saved.id, "delete", original), /STALE_CORRECTION/);
@@ -78,5 +92,5 @@ test("finance reads and immutable expense entries on fresh restricted database",
     assert.equal((await getFinance(pool, verify, "2026-11-21", "2026-11-21")).totals.expenses, "0.00");
     await changeExpense(pool, verify, saved.id, "delete", { revision: edited.revision, lastCorrectionId: edited.lastCorrectionId });
     assert.equal((await listExpenses(pool, verify, "2026-11-20", "2026-11-20", 1, 20, "Utilities", "UTIL")).total, 0);
-  } finally { await admin.query("DELETE FROM ethn.payments WHERE booking_id IN (SELECT id FROM ethn.bookings WHERE owner_hash='finance-fixture')"); await admin.query("DELETE FROM ethn.bookings WHERE owner_hash='finance-fixture'"); await admin.query("DELETE FROM ethn.audit WHERE actor=$1",[owner]); await admin.query("DELETE FROM ethn.expenses WHERE created_by=$1",[owner]); await admin.query("DELETE FROM ethn.idempotency WHERE owner_hash=$1 AND operation='expense.create'",[createHash("sha256").update(owner).digest("hex")]).catch(()=>{}); await admin.query("DELETE FROM ethn.staff_access WHERE user_id=ANY($1::uuid[])",[[owner,staff]]); await pool.end(); await admin.end(); }
+  } finally { await admin.query("DELETE FROM ethn.booking_refunds WHERE recorded_by=$1",[owner]); await admin.query("DELETE FROM ethn.sale_corrections WHERE created_by=$1",[owner]); await admin.query("DELETE FROM ethn.sales WHERE created_by=$1",[owner]); await admin.query("DELETE FROM ethn.payments WHERE booking_id IN (SELECT id FROM ethn.bookings WHERE owner_hash='finance-fixture')"); await admin.query("DELETE FROM ethn.bookings WHERE owner_hash='finance-fixture'"); await admin.query("DELETE FROM ethn.audit WHERE actor=$1",[owner]); await admin.query("DELETE FROM ethn.expenses WHERE created_by=$1",[owner]); await admin.query("DELETE FROM ethn.idempotency WHERE owner_hash=$1 AND operation='expense.create'",[createHash("sha256").update(owner).digest("hex")]).catch(()=>{}); await admin.query("DELETE FROM ethn.staff_access WHERE user_id=ANY($1::uuid[])",[[owner,staff]]); await pool.end(); await admin.end(); }
 });

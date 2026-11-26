@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { isEthnMailAddress } from '../mail/ethn-address';
 import type { Pool } from 'pg';
 import type { StaffVerifier } from './ethn-payments';
+import { lockBookingAlertOwners, recordBookingAlert } from '../booking/ethn-booking-alerts';
 export type BookingAction='cancel'|'refund'|'archive';
 export function validateBookingAction(action:BookingAction,body:unknown){
  if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('INVALID_INPUT');const b=body as Record<string,unknown>;
@@ -18,7 +19,8 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
  const c=await pool.connect();let discard=false,committing=false;
  try{
   await c.query('BEGIN');
-  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
+  const owners = await lockBookingAlertOwners(c);
+  if (!owners.includes(actor.toLowerCase())) throw new Error('FORBIDDEN');
   const operation=`booking.${action}`;
   const inserted=await c.query('INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,$2,$3,$4,NULL) ON CONFLICT DO NOTHING RETURNING key',[actor,operation,input.key,fingerprint]);
   const prior=(await c.query('SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation=$2 AND key=$3 FOR UPDATE',[actor,operation,input.key])).rows[0];
@@ -44,6 +46,7 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
    const status=action==='refund'?'refunded':'cancelled';
    await c.query('UPDATE ethn.bookings SET status=$2 WHERE id=$1',[id,status]);
    await c.query("UPDATE ethn.court_allocations SET state=$2 WHERE state='confirmed' AND starts_at>$3 AND item_id IN(SELECT id FROM ethn.booking_items WHERE booking_id=$1)",[id,status,now]);
+   await recordBookingAlert(c, id, action === 'refund' ? 'refund_recorded' : 'booking_cancelled', owners);
    if (isEthnMailAddress(b.guest_email)) {
     let trackingToken: string | undefined;
     if (b.tracking_code) {

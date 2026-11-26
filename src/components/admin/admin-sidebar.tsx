@@ -27,7 +27,7 @@ const management: NavItem[] = [
   { href: "/admin/finance", label: "Finance", icon: CreditCard },
   { href: "/admin/payment-instructions", label: "Payment Setup", icon: Settings },
   { href: "/admin/activity", label: "Activity history", icon: ScrollText },
-  { href: "/admin/staff", label: "Owner access", icon: Users },
+  { href: "/admin/owner-access", label: "Owner access", icon: Users },
 ];
 
 export default function AdminSidebar({ email, name, counts }: { email: string; name: string | null; counts: { pendingBookings: number; unreadNotifications: number } | null }) {

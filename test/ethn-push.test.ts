@@ -58,8 +58,11 @@ test("push ownership, recipient isolation, dedupe, concurrent claims, retry and 
     assert.equal(same.subscriptionId, created.subscriptionId);
     await assert.rejects(addPushSubscription(db, async () => b, subscription("a")), /SUBSCRIPTION_IN_USE/);
     subIds.push((await addPushSubscription(db, verifyA, subscription("b"))).subscriptionId);
-    for (const [id,user,key] of [[n1,a,"push-1"],[n2,a,"push-2"],[n3,b,"push-3"]]) await admin.query(
-      "INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link) VALUES($1,$2,$3,'Pending payment','Generic review notice.','/admin/bookings/cccccccc-cccc-4ccc-8ccc-cccccccccccc')", [id,user,key]);
+    const addNotice = async (id: string, user: string, kind: string, status = "pending") => {
+      await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'push-test',current_date,$2,now(),10,1)", [id,status]);
+      await admin.query("INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link) VALUES($1,$2,$3,'Booking update','Generic review notice.',$4)", [id,user,`${kind}:${id}`,`/admin/bookings/${id}`]);
+    };
+    for (const [id,user] of [[n1,a],[n2,a],[n3,b]]) await addNotice(id,user,"proof_submitted");
 
     const sent: { payload: string; endpoint: string }[] = [];
     let release!: () => void, entered!: () => void;
@@ -79,7 +82,11 @@ test("push ownership, recipient isolation, dedupe, concurrent claims, retry and 
     assert.equal((await admin.query("SELECT count(*)::int AS n FROM ethn.push_deliveries WHERE notification_id=$1", [n3])).rows[0].n, 0);
 
     const retryId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
-    await admin.query("INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link) VALUES($1,$2,'push-retry','Private PII title','Private body','/admin/bookings/cccccccc-cccc-4ccc-8ccc-cccccccccccc')", [retryId,a]);
+    await addNotice(retryId,a,"booking_confirmed","confirmed");
+    assert.equal((await drainPush(db, vapid, async () => assert.fail("FYI must not push"))).processed, 0);
+    await admin.query("UPDATE ethn.notifications SET event_key=$2 WHERE id=$1", [retryId,`proof_submitted:${retryId}`]);
+    assert.equal((await drainPush(db, vapid, async () => assert.fail("Reviewed proof must not push"))).processed, 0);
+    await admin.query("UPDATE ethn.bookings SET status='pending' WHERE id=$1", [retryId]);
     await drainPush(db, vapid, async () => { throw Object.assign(new Error("temporary"), { statusCode: 503 }); });
     const retry = await admin.query("SELECT status,attempts,claimed_at FROM ethn.push_deliveries WHERE notification_id=$1", [retryId]);
     assert.equal(retry.rows.length, 2);
@@ -91,6 +98,7 @@ test("push ownership, recipient isolation, dedupe, concurrent claims, retry and 
   } finally {
     await admin.query("DELETE FROM ethn.push_subscriptions WHERE user_id IN ($1,$2)", [a,b]);
     await admin.query("DELETE FROM ethn.notifications WHERE id IN ($1,$2,$3,$4)", [n1,n2,n3,"ffffffff-ffff-4fff-8fff-ffffffffffff"]);
+    await admin.query("DELETE FROM ethn.bookings WHERE id IN ($1,$2,$3,$4)", [n1,n2,n3,"ffffffff-ffff-4fff-8fff-ffffffffffff"]);
     await admin.query("DELETE FROM ethn.staff_access WHERE user_id IN ($1,$2)", [a,b]);
     await staff.end(); await admin.end();
   }

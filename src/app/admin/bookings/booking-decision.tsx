@@ -31,7 +31,7 @@ export default function BookingDecision({id,status,proof,internal,archived,befor
      if(!r.ok){
        setPending(null);
        setAnnounceError(r.status===400);
-       setError(r.status===409?"Booking changed or action is no longer available. Reload before retrying.":"Action unavailable. Check details and staff access.");
+       setError(r.status===409?"Booking changed or action is no longer available. Reload before retrying.":"Action unavailable. Check details and Owner access.");
        if(r.status!==400)toast.error("Booking action rejected.", { description: "Check booking details before retrying." });
        return;
      }

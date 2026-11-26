@@ -9,6 +9,26 @@ export type CashReport = {
   daily: ({ date: string } & Omit<CashTotals, "net">)[];
 };
 
+export type CashLedgerEntry = {
+  date: string;
+  kind: "Booking receipt" | "Extension receipt" | "Other sale" | "Sale correction" | "Expense" | "Expense correction" | "Recorded refund";
+  id: string;
+  reference: string;
+  method: string | null;
+  category: string | null;
+  amount: string;
+  cashDelta: string | null;
+  gcashDelta: string | null;
+};
+
+export type CashFinanceExport = {
+  from: string;
+  to: string;
+  generated: string;
+  totals: CashTotals;
+  entries: CashLedgerEntry[];
+};
+
 export const cashCents = (value: string) => BigInt(value.replace(".", ""));
 
 export function formatCashAmount(value: string): string {

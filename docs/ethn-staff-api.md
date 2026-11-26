@@ -1,27 +1,17 @@
-# Owner staff management API
+# Owner Access API
 
-`GET /api/ethn/admin/staff` requires an enabled owner and returns every `ethn.staff_access` row:
+`/admin/owner-access` replaces `/admin/staff`, which redirects to the new page. The former `GET` and `PUT /api/ethn/admin/staff` return `410 Gone`.
 
-```json
-{"staff":[{"userId":"00000000-0000-4000-8000-000000000001","role":"owner","enabled":true}]}
-```
-
-Only `userId`, `role` and `enabled` are exposed; the API never lists Auth users, emails or other profile data.
-
-`PUT /api/ethn/admin/staff` creates or updates one existing Auth user. Send JSON of at most 4096 UTF-8 bytes, with exactly these fields:
+`GET /api/ethn/admin/owner-access` requires an enabled Owner and lists Owner memberships, including disabled Owners. It does not list former Staff, Auth profiles, or email addresses.
 
 ```json
-{"userId":"00000000-0000-4000-8000-000000000001","role":"staff","enabled":true}
+{"owners":[{"userId":"00000000-0000-4000-8000-000000000001","enabled":true}]}
 ```
 
-`role` is `owner` or `staff`. The user must already exist in the same ETHN Auth project; this endpoint does not create users, invite them, change passwords or delete membership. Disable with `enabled:false` instead. Success returns the stored record. Sending the current role and enabled state returns the record without writing or auditing.
+`PUT /api/ethn/admin/owner-access` accepts JSON up to 4096 UTF-8 bytes with exactly `userId` and `enabled`. It returns the stored `{userId, enabled}` record. The user must exist in the same ETHN Auth project. The route does not create accounts, send invites, change passwords, or delete memberships. Granting access to a former Staff account is an explicit Owner grant; revoking a former Staff membership leaves its historical row unchanged.
 
-An enabled owner must remain. Demoting or disabling the last enabled owner returns 409 `LAST_OWNER`, including a self-change. Self-changes are allowed while another enabled owner remains. Every real change writes one `staff.update` audit row with actor, target UUID, and old/new role and enabled state; no email or profile data.
+At least one enabled Owner must remain. Owners may disable their own access only if another enabled Owner remains. Identical writes are no-ops; each actual change retains the `staff.update` audit action for continuity, with actor, target and old/new role and enabled state. All responses are private/no-store. PUT checks Origin, authenticates and authorizes before looking up the target in Auth, and checks authorization again inside the transaction. Errors: 400 `INVALID_INPUT`, 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `TARGET_NOT_FOUND`, 409 `LAST_OWNER`, 503 service unavailable.
 
-Both operations require an enabled owner, use `private, no-store` responses, and PUT rejects a mismatched Origin. Errors: 400 `INVALID_INPUT`; 401 `UNAUTHENTICATED`; 403 `FORBIDDEN`; 404 `TARGET_NOT_FOUND`; 409 `LAST_OWNER`; 503 `Service unavailable`. Target existence is checked through the server-only Supabase Auth admin lookup backed by `ETHN_STORAGE_URL` and `ETHN_STORAGE_SERVICE_ROLE_KEY` (same ETHN project as private Storage); no new configuration or fallback is used.
+Membership writes lock access rows by ascending `user_id` before the settings singleton, then re-read membership under that mutex. The settings version is unchanged. A new-row lock can race another writer after the initial scan; the service retries one PostgreSQL deadlock and never commits a zero-Owner state.
 
-## Transaction lock protocol
-
-Membership writes take `ethn.staff_access` rows in ascending `user_id` order `FOR UPDATE` first, then the `ethn.settings` singleton `FOR UPDATE`, then re-read staff from a fresh snapshot under that mutex. Existing writers (`putSettings`, `putEthnHours`, owner pricing, payment decision) lock their own actor staff row before settings, so this order cannot form the settings-first cycle. The settings mutex is what serializes concurrent membership inserts (including the same new target), and it is held through the last-owner check, upsert and audit commit. It is not bumped, because staff changes do not alter the settings snapshot version.
-
-A target row inserted by another membership after the initial locking scan can only be locked after settings, so a pricing edit racing that brand-new account can still deadlock. PostgreSQL aborts one side safely; this service retries a deadlock once, and a rejected attempt cannot commit a zero-owner state. Revisit if account creation becomes frequent.
+See [migration instructions](ethn-drizzle-migrations.md#owner-roster-review) for the prior Staff promotion migration and forward-only review gate.

@@ -57,6 +57,13 @@
       "when": 1795651806937,
       "tag": "0007_fine_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795679408485,
+      "tag": "0008_owner_access_cutover",
+      "breakpoints": true
     }
   ]
 }

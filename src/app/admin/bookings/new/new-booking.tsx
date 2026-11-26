@@ -39,8 +39,8 @@ export default function NewBooking() {
           setError("Booking conflict. Review the refreshed selection, total and payment details before saving.", false);
           toast.error("Booking not created.", { description: "Review the selection and payment details." });
         } else {
-          setError("Booking could not be saved. Check details and staff access.", r.status === 400);
-          if (r.status !== 400) toast.error("Booking creation rejected.", { description: "Check details and staff access." });
+          setError("Booking could not be saved. Check details and Owner access.", r.status === 400);
+          if (r.status !== 400) toast.error("Booking creation rejected.", { description: "Check details and Owner access." });
         }
         return;
       }

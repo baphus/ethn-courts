@@ -10,7 +10,7 @@ export default async function FinancePage() {
     if (staff.role !== "owner") return <div role="alert">Owner access is required for finance.</div>;
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") redirect("/login?next=/admin/finance");
-    if (error instanceof Error && error.message === "FORBIDDEN") return <div role="alert">Staff access is not enabled for this account.</div>;
+    if (error instanceof Error && error.message === "FORBIDDEN") return <div role="alert">Owner access is not enabled for this account.</div>;
     return <div role="alert">Finance is unavailable. Please try again later.</div>;
   }
   return <Finance />;

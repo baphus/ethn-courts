@@ -14,7 +14,7 @@ export default function CourtGallery() {
         <header className="px-4 pb-5 sm:px-6">
           <div className="flex items-center gap-5">
             <div aria-hidden="true" className="size-[76px] shrink-0 rounded-full bg-gradient-to-tr from-[#ffad4c] via-[#ed5b63] to-[#8b55c8] p-[3px] sm:size-20">
-              <div className="grid size-full place-items-center rounded-full bg-white p-1"><img src="/ethn-courts-mark.png" alt="" className="size-full rounded-full object-cover" /></div>
+              <div className="grid size-full place-items-center rounded-full bg-white p-1"><img src="/ethn_courts_logo-3.svg" alt="" className="size-full rounded-full object-cover" /></div>
             </div>
             <div className="min-w-0 flex-1">
               <h2 id="court-gallery-title" className="font-display text-lg font-bold leading-tight">ethn.courts</h2>

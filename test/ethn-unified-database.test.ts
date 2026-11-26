@@ -10,6 +10,8 @@ import {reserveProof} from '../src/lib/booking/proof-reservation';
 import {submitBooking} from '../src/lib/booking/submission';
 import {decidePayment} from '../src/lib/admin/ethn-payment-decision';
 import {cancelPastPendingBookings} from '../src/lib/admin/ethn-outcomes';
+import {lockBookingAlertOwners} from '../src/lib/booking/ethn-booking-alerts';
+import {listInbox} from '../src/lib/admin/ethn-notifications';
 import {getFinance} from '../src/lib/admin/ethn-finance';
 const url=process.env.ETHN_UNIFIED_TEST_DATABASE_URL,adminUrl=process.env.ETHN_UNIFIED_TEST_ADMIN_URL;
 test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async()=>{
@@ -99,8 +101,11 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   assert.deepEqual(onlineNotices.map(n=>n.kind),['booking_approved','booking_owner_alert','booking_refunded','booking_submission']);
   const [approved, alert, refunded, submission]=onlineNotices;
    assert.deepEqual(alert, ownerAlert('online'));
-   const inbox = (await pool.query('SELECT recipient,title,body FROM ethn.notifications WHERE link=$1',[`/admin/bookings/${checkout.checkoutId}`])).rows;
-   assert.deepEqual(inbox, [{recipient:actor,title:'New booking',body:'A customer submitted a booking. Payment needs review.'}]);
+   const inbox = (await listInbox(pool,verify)).filter(item=>item.link===`/admin/bookings/${checkout.checkoutId}`);
+   assert.deepEqual(inbox.map(item=>item.kind).sort(), ['booking_confirmed','proof_submitted','refund_recorded']);
+   assert.ok(inbox.every(item=>item.booking?.customerName==='Online guest' && item.booking.reference===submission.payload.code && item.booking.amount==='400.00' && item.booking.slots.length===2));
+   assert.equal(inbox.find(item=>item.kind==='refund_recorded')?.booking?.amountKind,'refund_amount');
+   assert.ok(!JSON.stringify(inbox).includes('test@example.test'));
   assert.match(submission.payload.trackingToken,/^[0-9a-f]{64}$/);
   assert.deepEqual(refunded.payload,{email:'test@example.test',total:'400.00',code:submission.payload.code,trackingToken:submission.payload.trackingToken});
   assert.equal(approved.payload.trackingToken,refunded.payload.trackingToken);
@@ -112,8 +117,9 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
    const client=await pool.connect();
    try {
     await client.query('BEGIN');
+    const owners=await lockBookingAlertOwners(client);
     await client.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
-    const cancelled=await cancelPastPendingBookings(client);
+    const cancelled=await cancelPastPendingBookings(client,owners);
     await client.query('COMMIT');
     return cancelled;
    } catch(error) {
@@ -136,6 +142,7 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
     (SELECT count(*)::int FROM ethn.audit WHERE booking_id=b.id AND action='booking.cancel' AND actor='system:cancellation') AS audits
     FROM ethn.bookings b JOIN ethn.payments p ON p.booking_id=b.id WHERE b.id=$1`,[pending.checkoutId])).rows[0];
   assert.deepEqual(cancelled,{status:'cancelled',payment_status:'unverified',proof_id:pendingProof.reservationId,allocations:['cancelled','cancelled'],audits:1});
+  assert.equal((await listInbox(pool,verify)).filter(item=>item.link===`/admin/bookings/${pending.checkoutId}` && item.kind==='booking_cancelled').length,1);
   await admin.query('UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1',[actor]);
   await assert.rejects(bookingAction(pool,verify,next.bookingId,'archive',{key:randomUUID()}),/FORBIDDEN/);
  }finally{await pool.end();await admin.end();}

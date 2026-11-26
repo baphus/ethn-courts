@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { gcashReference, parsePesos } from "../booking/core";
+import { lockBookingAlertOwners, recordBookingAlert } from "../booking/ethn-booking-alerts";
 import type { StaffVerifier } from "./ethn-payments";
 
 type Input = { bookingId: string; key: string } & ({ action: "approve"; paymentReceived?: true; acceptedReference?: string; collectedAmount?: string; receivedAt?: string } | { action: "reject"; reason: string });
@@ -31,10 +32,10 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
   let transaction = false, committing = false, discard = false;
   try {
     await client.query("BEGIN"); transaction = true;
+    const owners = await lockBookingAlertOwners(client);
+    if (!owners.includes(actor)) throw new Error("FORBIDDEN");
     const inserted = await client.query("INSERT INTO ethn.idempotency (owner_hash, operation, key, fingerprint, result) VALUES ($1,'payment_decision',$2,$3,NULL) ON CONFLICT DO NOTHING RETURNING key", [actor, input.key, fingerprint]);
     const prior = (await client.query("SELECT fingerprint, result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='payment_decision' AND key=$2 FOR UPDATE", [actor, input.key])).rows[0];
-    const staff = (await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE", [actor])).rows[0];
-    if (!staff) throw new Error("FORBIDDEN");
     if (!prior || prior.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
     if (!inserted.rows.length) {
       if (prior.result == null) throw new Error("IDEMPOTENCY_INCOMPLETE");
@@ -65,6 +66,7 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
     const payload = { email: booking.guest_email, name: booking.guest_name, code: booking.tracking_code, total: booking.total, ...(typeof token === "string" && /^[0-9a-f]{64}$/.test(token) && hash(token) === booking.tracking_hash ? { trackingToken: token } : {}), ...(decision.action === "reject" ? { reason: decision.reason } : {}) };
     await client.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,$3,$4::jsonb)", [randomUUID(), bookingId, decision.action === "approve" ? "booking_approved" : "booking_rejected", JSON.stringify(payload)]);
     await client.query("INSERT INTO ethn.audit (booking_id,actor,action,detail) VALUES ($1,$2,$3,$4::jsonb)", [bookingId, actor, `payment.${decision.action}`, JSON.stringify({ paymentId: payment.id })]);
+    if (decision.action === "approve") await recordBookingAlert(client, bookingId, "booking_confirmed", owners);
     const result = { bookingId, status, paymentStatus };
     await client.query("UPDATE ethn.idempotency SET result=$3::jsonb WHERE owner_hash=$1 AND operation='payment_decision' AND key=$2", [actor, input.key, JSON.stringify(result)]);
     committing = true; await client.query("COMMIT"); return result;

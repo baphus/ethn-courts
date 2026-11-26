@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import type { StaffVerifier } from "./ethn-payments";
+import { recordBookingAlerts } from "../booking/ethn-booking-alerts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail = (code: string): never => { throw new Error(code); };
@@ -25,8 +26,8 @@ export async function completeDueBookingsFromCron(pool: Pick<Pool, "connect">) {
   return completeDue(pool, "system:completion", "cron");
 }
 
-// Caller holds the ordered court locks in the operations transaction.
-export async function cancelPastPendingBookings(client: PoolClient) {
+// Caller locks alert recipients before taking ordered court locks.
+export async function cancelPastPendingBookings(client: PoolClient, owners: string[]) {
   const result = await client.query(`WITH due AS (
     SELECT b.id FROM ethn.bookings b
     WHERE b.status='pending'
@@ -42,7 +43,8 @@ export async function cancelPastPendingBookings(client: PoolClient) {
   )
   INSERT INTO ethn.audit(booking_id,actor,action,detail)
   SELECT id,'system:cancellation','booking.cancel','{"reason":"scheduled court time ended before approval"}'::jsonb
-  FROM cancelled`);
+  FROM cancelled RETURNING booking_id`);
+  await recordBookingAlerts(client, result.rows.map(row => row.booking_id), "booking_cancelled", owners);
   return result.rowCount ?? 0;
 }
 

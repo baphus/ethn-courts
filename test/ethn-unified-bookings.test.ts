@@ -66,9 +66,10 @@ test('booking actions queue one customer notice with no staff notes or refund re
  for(const scenario of [{action:'cancel',email,token:null},{action:'cancel',email:null,token:null},{action:'refund',email,token:trackingToken},{action:'refund',email,token:'b'.repeat(64)}] as const){
   const input={key:'test',reason:'Private note',...(scenario.action==='refund'?{reference:'Private reference'}:{})};
   const fingerprint=createHash('sha256').update(JSON.stringify({id,action:scenario.action,reason:input.reason,reference:input.reference??null})).digest('hex');
-  const sent:unknown[]=[];let result:unknown;
+  const sent:unknown[]=[], alerts:unknown[]=[];let result:unknown;
   const client={async query(sql:string,args?:unknown[]){
-   if(sql.startsWith('SELECT user_id'))return{rowCount:1};
+   if(sql.startsWith('SELECT user_id'))return{rows:[{user_id:actor}]};
+   if(sql.includes('INSERT INTO ethn.notifications'))alerts.push(args?.[4]);
    if(sql.startsWith('INSERT INTO ethn.idempotency'))return{rowCount:result?0:1};
    if(sql.startsWith('SELECT fingerprint'))return{rows:[{fingerprint,result}]};
    if(sql.includes('FROM ethn.bookings WHERE id='))return{rows:[{status:'confirmed',walk_in_actor:scenario.action==='cancel'?actor:null,total,guest_email:scenario.email,tracking_code:scenario.token?'ABCDE':null,tracking_hash:createHash('sha256').update(trackingToken).digest('hex')}]};
@@ -85,5 +86,6 @@ test('booking actions queue one customer notice with no staff notes or refund re
   assert.deepEqual(await bookingAction(pool,async()=>actor,id,scenario.action,input),first);
   const tracking=scenario.token?{code:'ABCDE',...(scenario.token===trackingToken?{trackingToken}:{})}:{staff:true};
   assert.deepEqual(sent,scenario.email?[[`booking_${first.status}`,{email,total,...tracking}]]:[]);
+  assert.deepEqual(alerts, [scenario.action === 'refund' ? 'refund_recorded' : 'booking_cancelled']);
  }
 });

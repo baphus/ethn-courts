@@ -8,11 +8,11 @@ type Role = "owner" | "staff";
 type Access = { user_id: string; role: Role; enabled: boolean };
 export type TargetLookup = (userId: string) => Promise<boolean>;
 
-const current = (row: Access) => ({ userId: row.user_id, role: row.role, enabled: row.enabled });
+const current = (row: Pick<Access, "user_id" | "enabled">) => ({ userId: row.user_id, enabled: row.enabled });
 
 function validate(body: unknown) {
-  if (!keys(body, ["userId", "role", "enabled"]) || typeof body.userId !== "string" || !uuid.test(body.userId) || body.role !== "owner" || typeof body.enabled !== "boolean") throw new Error("INVALID_INPUT");
-  return { userId: body.userId.toLowerCase(), role: body.role as Role, enabled: body.enabled };
+  if (!keys(body, ["userId", "enabled"]) || typeof body.userId !== "string" || !uuid.test(body.userId) || typeof body.enabled !== "boolean") throw new Error("INVALID_INPUT");
+  return { userId: body.userId.toLowerCase(), enabled: body.enabled };
 }
 
 async function identity(verify: StaffVerifier) {
@@ -21,14 +21,14 @@ async function identity(verify: StaffVerifier) {
   return actor.toLowerCase();
 }
 
-export async function listStaff(pool: Pick<Pool, "connect">, verify: StaffVerifier) {
+export async function listOwners(pool: Pick<Pool, "connect">, verify: StaffVerifier) {
   const actor = await identity(verify), client = await pool.connect();
   let transaction = false, committing = false, discard = false;
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); transaction = true;
     if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
-    const rows = (await client.query("SELECT user_id::text, role, enabled FROM ethn.staff_access ORDER BY user_id")).rows as Access[];
-    committing = true; await client.query("COMMIT"); return { staff: rows.map(current) };
+    const rows = (await client.query("SELECT user_id::text, enabled FROM ethn.staff_access WHERE role='owner' ORDER BY user_id")).rows as Pick<Access, "user_id" | "enabled">[];
+    committing = true; await client.query("COMMIT"); return { owners: rows.map(current) };
   } catch (error) {
     if (committing) discard = true; else if (transaction) { try { await client.query("ROLLBACK"); } catch { discard = true; } }
     if (error instanceof Error && error.message === "FORBIDDEN") throw error;
@@ -41,7 +41,7 @@ export async function listStaff(pool: Pick<Pool, "connect">, verify: StaffVerifi
 // shortcut: a row inserted after the locking scan is locked after settings and can
 // deadlock with a pricing edit racing that new account; PostgreSQL aborts one side
 // safely and the single retry below re-reads state. Revisit if inserts get frequent.
-async function write(pool: Pick<Pool, "connect">, actor: string, input: { userId: string; role: Role; enabled: boolean }) {
+async function write(pool: Pick<Pool, "connect">, actor: string, input: { userId: string; enabled: boolean }) {
   const client: PoolClient = await pool.connect();
   let transaction = false, committing = false, discard = false;
   try {
@@ -54,7 +54,8 @@ async function write(pool: Pick<Pool, "connect">, actor: string, input: { userId
     const actorRow = rows.find(row => row.user_id === actor);
     if (!actorRow?.enabled || actorRow.role !== "owner") throw new Error("FORBIDDEN");
     const existing = rows.find(row => row.user_id === input.userId);
-    const next: Access = { user_id: input.userId, role: input.role, enabled: input.enabled };
+    if (!input.enabled && existing?.role !== "owner") throw new Error("TARGET_NOT_FOUND");
+    const next: Access = { user_id: input.userId, role: "owner", enabled: input.enabled };
     const result = existing ? rows.map(row => row.user_id === input.userId ? next : row) : [...rows, next];
     if (!result.some(row => row.enabled && row.role === "owner")) throw new Error("LAST_OWNER");
     if (existing && existing.role === next.role && existing.enabled === next.enabled) {
@@ -69,7 +70,7 @@ async function write(pool: Pick<Pool, "connect">, actor: string, input: { userId
   } finally { client.release(discard); }
 }
 
-export async function putStaff(pool: Pick<Pool, "connect">, verify: StaffVerifier, targetExists: TargetLookup, body: unknown) {
+export async function putOwnerAccess(pool: Pick<Pool, "connect">, verify: StaffVerifier, targetExists: TargetLookup, body: unknown) {
   const input = validate(body), actor = await identity(verify);
   if ((await getStaff(pool, async () => actor)).role !== "owner") throw new Error("FORBIDDEN");
   let exists: boolean;
@@ -79,7 +80,7 @@ export async function putStaff(pool: Pick<Pool, "connect">, verify: StaffVerifie
     try { return await write(pool, actor, input); }
     catch (error) {
       if (attempt === 0 && error && typeof error === "object" && "code" in error && error.code === "40P01") continue;
-      if (error instanceof Error && /^(FORBIDDEN|LAST_OWNER|SETTINGS_UNAVAILABLE)$/.test(error.message)) throw error;
+      if (error instanceof Error && /^(FORBIDDEN|LAST_OWNER|TARGET_NOT_FOUND|SETTINGS_UNAVAILABLE)$/.test(error.message)) throw error;
       throw new Error("STAFF_UNAVAILABLE");
     }
   }
