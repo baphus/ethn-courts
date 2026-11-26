@@ -1,4 +1,3 @@
-import { expireExtensionHolds } from '../booking/extension-expiry';
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { manilaDateStr, manilaWallClock } from "../booking/slots";
@@ -73,7 +72,6 @@ async function createBlocks(pool: Pick<Pool,"connect">,verify:StaffVerifier,inpu
     if (!(await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rows.length) throw new Error("FORBIDDEN");
     const settings=(await client.query("SELECT anchor_minutes,horizon_days,clock_timestamp() AS now FROM ethn.settings WHERE singleton FOR UPDATE")).rows[0]; if(!settings) throw new Error("CALENDAR_UNAVAILABLE");
     await client.query("SELECT id FROM ethn.courts ORDER BY id FOR UPDATE");
-    await expireExtensionHolds(client);
     const courts=await client.query("SELECT active FROM ethn.courts WHERE id=ANY($1::bigint[])",[input.courtIds]); if(courts.rows.length!==input.courtIds.length||courts.rows.some(c=>!c.active)) throw new Error("COURT_NOT_FOUND");
     const candidates=(await client.query("SELECT DISTINCT bi.booking_id FROM ethn.court_allocations a JOIN ethn.booking_items bi ON bi.id=a.item_id JOIN ethn.bookings x ON x.id=bi.booking_id WHERE a.court_id=ANY($1::bigint[]) AND a.state='held' AND a.starts_at<$3 AND a.ends_at>$2 AND x.status='held' ORDER BY bi.booking_id",[input.courtIds,input.start,input.end])).rows.map(r=>r.booking_id);
     await client.query("SELECT id FROM ethn.bookings WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE",[candidates]);

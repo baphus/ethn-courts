@@ -3,7 +3,6 @@ import type { Pool } from "pg";
 import { parsePesos, priceItems } from "../booking/core";
 import { resolveSchedule } from "../booking/schedule";
 import { getStaff, type StaffVerifier } from "./ethn-payments";
-import { expireExtensionHolds } from "../booking/extension-expiry";
 
 type Db = Pick<Pool, "connect">;
 const iso = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
@@ -63,7 +62,6 @@ export async function reserveWalkIn(pool: Db, verify: StaffVerifier, body: unkno
     const settings = (await client.query("SELECT version::text, interval_minutes, minimum_minutes, anchor_minutes, horizon_days, hold_minutes, merchant FROM ethn.settings WHERE singleton=true FOR UPDATE")).rows[0];
     if (!settings) throw new Error("WALK_IN_UNAVAILABLE");
     const courts = (await client.query("SELECT id::text,name,active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
-    await expireExtensionHolds(client);
     const hours = (await client.query("SELECT court_id::text,weekday,opens::text,closes::text,hourly_rate::text FROM ethn.court_hours")).rows;
     const candidates=(await client.query("SELECT DISTINCT b.id FROM ethn.bookings b JOIN ethn.booking_items i ON i.booking_id=b.id JOIN ethn.court_allocations a ON a.item_id=i.id WHERE b.status='held' AND a.state='held' AND a.court_id=$1 AND a.starts_at<$3 AND a.ends_at>$2 ORDER BY b.id",[input.courtId,input.start,input.end])).rows.map(row=>row.id);
     await client.query("SELECT id FROM ethn.bookings WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE",[candidates]);

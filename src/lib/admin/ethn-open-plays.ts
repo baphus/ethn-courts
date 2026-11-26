@@ -1,4 +1,3 @@
-import { expireExtensionHolds } from '../booking/extension-expiry';
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { manilaDateStr, manilaWallClock } from "../booking/slots";
@@ -90,7 +89,6 @@ async function allocateOpenPlay(client: PoolClient, playId: string, actor: strin
 }
 
 async function validateAllocation(client: PoolClient, input: ReturnType<typeof validate>, settings: {anchor_minutes:number;horizon_days:number}, allCourts: Array<{id:string;active:boolean}>, ignorePlayId?:string) {
-  await expireExtensionHolds(client);
   const selected=allCourts.filter(c=>input.courtIds.includes(c.id));
   if(selected.length!==input.courtIds.length||selected.some(c=>!c.active)) throw new Error("INVALID_INPUT");
   const hours=(await client.query("SELECT court_id::text,weekday,opens::text,closes::text,hourly_rate::text FROM ethn.court_hours WHERE court_id=ANY($1::bigint[])",[input.courtIds])).rows;

@@ -2,7 +2,6 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { parsePesos, priceItems } from '../booking/core';
 import { resolveSchedule } from '../booking/schedule';
-import { expireExtensionHolds } from '../booking/extension-expiry';
 import { lockBookingAlertOwners, recordNewBookingAlerts } from '../booking/ethn-booking-alerts';
 import type { StaffVerifier } from './ethn-payments';
 import { isEthnMailAddress } from '../mail/ethn-address';
@@ -54,7 +53,6 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   if(!inserted.rowCount){if(!prior.result)throw new Error('IDEMPOTENCY_INCOMPLETE');committing=true;await c.query('COMMIT');return prior.result;}
   const settings=(await c.query('SELECT version::text,interval_minutes,minimum_minutes,anchor_minutes,horizon_days FROM ethn.settings WHERE singleton FOR UPDATE')).rows[0];if(!settings)throw new Error('NOT_CONFIGURED');
   const courts=(await c.query('SELECT id::text,name,active FROM ethn.courts ORDER BY id FOR UPDATE')).rows;
-  await expireExtensionHolds(c);
   const expired=(await c.query("UPDATE ethn.bookings SET status='expired' WHERE status='held' AND expires_at<=clock_timestamp() RETURNING id")).rows.map(r=>r.id);
   await c.query("UPDATE ethn.court_allocations SET state='expired' WHERE state='held' AND item_id IN(SELECT id FROM ethn.booking_items WHERE booking_id=ANY($1::uuid[]))",[expired]);
   const hours=(await c.query('SELECT court_id::text,weekday,opens::text,closes::text,hourly_rate::text FROM ethn.court_hours')).rows;

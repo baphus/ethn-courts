@@ -1,4 +1,3 @@
-import { expireExtensionHolds } from '../booking/extension-expiry';
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { parsePesos, priceItems } from "../booking/core";
@@ -45,7 +44,6 @@ export async function createExtensionHold(pool: Db, verify: StaffVerifier, body:
     if (!prior || prior.fingerprint !== fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
     if (!ins.rows.length) { if (!prior.result) throw new Error("IDEMPOTENCY_INCOMPLETE"); committing = true; await client.query("COMMIT"); return prior.result; }
     if (settings.version !== input.settingsVersion) throw new Error("PRICE_CHANGED");
-    await expireExtensionHolds(client);
     const booking = (await client.query("SELECT id,status,operating_date::text FROM ethn.bookings WHERE id=$1 FOR UPDATE", [input.bookingId])).rows[0];
     if (!booking || booking.status !== "confirmed") throw new Error("BOOKING_INELIGIBLE");
     const priorExt = (await client.query("SELECT id,status,expires_at FROM ethn.extensions WHERE booking_id=$1 AND status IN ('held','pending') FOR UPDATE", [input.bookingId])).rows[0];
