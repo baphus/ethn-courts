@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
-import { completeDueBookings, completeDueBookingsFromCron, setNoShow } from "../src/lib/admin/ethn-outcomes";
+import { completeBooking, setNoShow } from "../src/lib/admin/ethn-outcomes";
 
 const url=process.env.ETHN_OUTCOMES_TEST_DATABASE_URL;
-test("ETHN due completion and correctable no-show use staff transactions",{skip:!url},async()=>{
+test("ETHN single-booking completion and correctable no-show use Owner transactions",{skip:!url},async()=>{
   const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:process.env.ETHN_OUTCOMES_TEST_ADMIN_URL});
   const owner="00000000-0000-4000-8000-000000000081",staff="00000000-0000-4000-8000-000000000082",outsider="00000000-0000-4000-8000-000000000083";
   const ids={due:randomUUID(),future:randomUUID(),pending:randomUUID(),notlast:randomUUID(),done:randomUUID()};
@@ -23,16 +23,18 @@ test("ETHN due completion and correctable no-show use staff transactions",{skip:
     const secondCourt=(await admin.query("INSERT INTO ethn.courts(name) VALUES('Outcomes fixture court') RETURNING id")).rows[0].id;
     await admin.query("INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) SELECT $1,$2,$3,starts_at,ends_at+interval '1 hour',0,EXTRACT(EPOCH FROM (ends_at+interval '1 hour'-starts_at))::int/60,0,30,30 FROM ethn.booking_items WHERE booking_id=$2",[randomUUID(),ids.notlast,secondCourt]);
     await booking(ids.done,'completed','2020-01-05T00:00:00Z','2020-01-05T01:00:00Z');
-    assert.deepEqual((await completeDueBookings(pool,async()=>staff)).completed.sort(),[ids.due,ids.notlast].sort());
+    assert.equal((await completeBooking(pool,async()=>staff,ids.due)).changed,true);
+    assert.equal((await completeBooking(pool,async()=>staff,ids.due)).changed,false);
+    await assert.rejects(completeBooking(pool,async()=>staff,ids.future),/NOT_READY_TO_COMPLETE/);
+    await assert.rejects(completeBooking(pool,async()=>staff,ids.pending),/NOT_READY_TO_COMPLETE/);
     const state=await admin.query("SELECT b.id,b.status,a.state FROM ethn.bookings b JOIN ethn.booking_items i ON i.booking_id=b.id JOIN ethn.court_allocations a ON a.item_id=i.id WHERE b.id=ANY($1::uuid[]) ORDER BY b.id",[Object.values(ids)]);
-    assert.equal(state.rows.find(r=>r.id===ids.future).status,'confirmed');assert.equal(state.rows.find(r=>r.id===ids.pending).status,'pending');assert.equal(state.rows.find(r=>r.id===ids.notlast).status,'completed');
+    assert.equal(state.rows.find(r=>r.id===ids.future).status,'confirmed');assert.equal(state.rows.find(r=>r.id===ids.pending).status,'pending');assert.equal(state.rows.find(r=>r.id===ids.notlast).status,'confirmed');
     assert.equal(state.rows.find(r=>r.id===ids.due).status,'completed');assert.equal(state.rows.find(r=>r.id===ids.due).state,'completed');
-    await assert.rejects(completeDueBookings(pool,async()=>outsider),/FORBIDDEN/);
+    await assert.rejects(completeBooking(pool,async()=>outsider,ids.notlast),/FORBIDDEN/);
     const revoke=await admin.connect(); await revoke.query("BEGIN"); await revoke.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 FOR UPDATE",[staff]);
-    const inFlight=completeDueBookings(pool,async()=>staff); await new Promise(resolve=>setTimeout(resolve,50)); await revoke.query("UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1",[staff]); await revoke.query("COMMIT"); revoke.release();
+    const inFlight=completeBooking(pool,async()=>staff,ids.notlast); await new Promise(resolve=>setTimeout(resolve,50)); await revoke.query("UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1",[staff]); await revoke.query("COMMIT"); revoke.release();
     await assert.rejects(inFlight,/FORBIDDEN/); await admin.query("UPDATE ethn.staff_access SET enabled=true WHERE user_id=$1",[staff]);
-    const cronResult=await completeDueBookingsFromCron(pool); assert.deepEqual(cronResult.completed,[]);
-    assert.equal((await admin.query("SELECT count(*)::int AS n FROM ethn.audit WHERE booking_id=$1 AND action='booking_completed' AND actor='system:completion'",[ids.future])).rows[0].n,0);
+    assert.equal((await admin.query("SELECT count(*)::int AS n FROM ethn.audit WHERE booking_id=$1 AND action='booking_completed'",[ids.due])).rows[0].n,1);
     assert.equal((await setNoShow(pool,async()=>staff,ids.due,{noShow:true,expectedNoShow:false,reason:'Absent'})).changed,true);
     await assert.rejects(setNoShow(pool,async()=>staff,ids.due,{noShow:false,expectedNoShow:false,reason:'Stale'}),/STALE_OUTCOME/);
     assert.equal((await setNoShow(pool,async()=>staff,ids.due,{noShow:false,expectedNoShow:true,reason:'Corrected'})).changed,true);

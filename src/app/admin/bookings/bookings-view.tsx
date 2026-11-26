@@ -94,6 +94,6 @@ export default function BookingsView() {
       {!error && result && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={result.page} pageSize={result.limit} total={result.total} onPageChange={page => update({ ...filters, page })} busy={loading} /></div>}
     </section>
     <StaffOccupancy revision={refresh} onBooking={setSelected} />
-    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="max-h-[90vh] gap-2 overflow-y-auto sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
+    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="max-h-[90vh] gap-2 overflow-y-auto sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded allowCompletion onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
   </div>;
 }

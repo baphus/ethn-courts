@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CalendarDays, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, TriangleAlert, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, Clock, CreditCard, ExternalLink, LayoutDashboard, LogOut, ScrollText, Settings, TriangleAlert, UserRound, Users, ClipboardList, CirclePlay, Building2, type LucideIcon } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger } from "@/components/ui/sidebar";
 import Image from "next/image";
 import AdminClock from "./admin-topbar";
@@ -16,18 +16,21 @@ type NavItem = { href: string; label: string; icon: LucideIcon; };
 const operations: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
-  { href: "/admin/open-plays", label: "Open Plays", icon: CalendarDays },
+  { href: "/admin/bookings", label: "Bookings", icon: ClipboardList },
+  { href: "/admin/open-plays", label: "Open Plays", icon: CirclePlay },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ];
 
-const management: NavItem[] = [
-  { href: "/admin/courts", label: "Court setup", icon: CalendarDays },
-  { href: "/admin/timing", label: "Timing policy", icon: Clock },
+const payments: NavItem[] = [
   { href: "/admin/finance", label: "Finance", icon: CreditCard },
-  { href: "/admin/payment-instructions", label: "Payment Setup", icon: Settings },
-  { href: "/admin/activity", label: "Activity history", icon: ScrollText },
+  { href: "/admin/payment-instructions", label: "Payment instructions", icon: Settings },
+];
+
+const venueSettings: NavItem[] = [
+  { href: "/admin/courts", label: "Courts", icon: Building2 },
+  { href: "/admin/timing", label: "Timing policy", icon: Clock },
   { href: "/admin/owner-access", label: "Owner access", icon: Users },
+  { href: "/admin/activity", label: "Activity history", icon: ScrollText },
 ];
 
 export default function AdminSidebar({ email, name, counts }: { email: string; name: string | null; counts: { pendingBookings: number; unreadNotifications: number } | null }) {
@@ -70,9 +73,13 @@ export default function AdminSidebar({ email, name, counts }: { email: string; n
         <SidebarGroupLabel>Operations</SidebarGroupLabel>
         <SidebarGroupContent><SidebarMenu className="gap-0.5">{operations.map(renderItem)}</SidebarMenu></SidebarGroupContent>
       </SidebarGroup>
-      <SidebarGroup className="pt-0">
-        <SidebarGroupLabel>Management &amp; finance</SidebarGroupLabel>
-        <SidebarGroupContent><SidebarMenu className="gap-0.5">{management.map(renderItem)}</SidebarMenu></SidebarGroupContent>
+      <SidebarGroup className="pt-0 group-data-[collapsible=icon]:-mt-2">
+        <SidebarGroupLabel>Payments</SidebarGroupLabel>
+        <SidebarGroupContent><SidebarMenu className="gap-0.5">{payments.map(renderItem)}</SidebarMenu></SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarGroup className="pt-0 group-data-[collapsible=icon]:-mt-2">
+        <SidebarGroupLabel>Venue settings</SidebarGroupLabel>
+        <SidebarGroupContent><SidebarMenu className="gap-0.5">{venueSettings.map(renderItem)}</SidebarMenu></SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup className="pt-0">
         <SidebarGroupContent><SidebarMenu className="gap-0.5">

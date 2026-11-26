@@ -13,7 +13,7 @@ Drizzle manages SQL-first custom migrations in `db/ethn-migrations/`:
 4. `0003_owner_only_admin.sql`: promotes enabled Staff to Owner, records each promotion in audit history, and prohibits enabled non-Owner memberships.
 5. `0004_finance_expense_actions.sql`: adds expense metadata and revisions, and permits audited Owner edits/deletes through the active service.
 6. `0005_nonconsecutive_customer_slots.sql`: permits multiple non-overlapping booking items per court. Apply before deploying customer checkout with separated time blocks; the allocation exclusion constraint stays in place.
-7. `0006_ambiguous_maximus.sql`: permits the operations cron to cancel pending bookings and allocations. Apply before deploying automatic pending cancellation.
+7. `0006_ambiguous_maximus.sql`: historical pending-cancellation guard change. Retain in migration history; automatic pending cancellation is retired.
 8. `0007_fine_sugar_man.sql`: adds customer-hosted Open Play listings and a view of eligible booking schedules. Apply before deploying changes to booking tracking and Open Plays.
 9. `0008_owner_access_cutover.sql`: blocks migration if an enabled Owner was promoted by `0003` and has no later audited regrant. Keeps the existing database constraint that prohibits enabled non-Owners.
 

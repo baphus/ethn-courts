@@ -152,7 +152,8 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
   let discard: Error | undefined;
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const b = (await client.query(`SELECT id, operating_date::text, status, no_show, expires_at, total::text, guest_name, guest_email, guest_phone, created_at, walk_in_actor, archived_at
+    const b = (await client.query(`SELECT id, operating_date::text, status, no_show, expires_at, total::text, guest_name, guest_email, guest_phone, created_at, walk_in_actor, archived_at,
+      statement_timestamp() AS now, EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending')) AS unresolved_extension
       FROM ethn.bookings b WHERE b.id = $1 AND ${visibleBooking}`, [id])).rows[0];
     if (!b) { await client.query("COMMIT"); return null; }
     const [items, payments] = await Promise.all([
@@ -172,7 +173,8 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
     ]);
     await client.query("COMMIT");
     const paymentMethod = [...new Set(payments.rows.filter(p => p.extension_id === null).map(p => p.method_name))].join(", ") || null;
-    return { id: b.id, paymentMethod, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
+    const canComplete = b.status === 'confirmed' && !b.unresolved_extension && items.rows.length > 0 && items.rows.every(item => item.ends_at <= b.now);
+    return { id: b.id, canComplete, paymentMethod, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
   } catch (error) { await client.query("ROLLBACK").catch(() => { discard = error instanceof Error ? error : new Error("DB_ERROR"); }); if (discard) (client as typeof client & { release(error?: Error): void }).release(discard); throw error; }
   finally { if (!discard) client.release(); }
 }

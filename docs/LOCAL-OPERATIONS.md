@@ -11,7 +11,8 @@ Use the complete numbered chain in `db/ethn/`, not `supabase/` or `drizzle/`. Se
 All ETHN workers require an explicitly configured `CRON_SECRET`, including local use:
 
 - `/api/cron/ethn-outbox`: opt-in bounded email retry.
-- `/api/cron/ethn-operations`: bounded held-extension expiry and ended-confirmed-booking completion. Pending booking/payment review is never auto-approved. Pending extension evidence delays parent completion until staff decide it.
+- `/api/cron/keepalive`: restricted ETHN database connectivity check, Sundays at 02:10 UTC.
+- Booking operations, legacy retention, and legacy proof pruning are unscheduled and return `410 RETIRED`. Owners complete bookings individually or reconcile ended pending payments in payment review. Existing inline extension hold cleanup remains until [extension reconciliation](ethn-extension-refund-retirement.md) is confirmed.
 - New-booking inbox alerts are recorded with the booking; no inbox cron is needed.
 - `/api/cron/ethn-push`: optional push delivery/retry after VAPID configuration.
 

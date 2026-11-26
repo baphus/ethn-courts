@@ -9,8 +9,6 @@ import {createCheckout,releaseCheckout} from '../src/lib/booking/checkout';
 import {reserveProof} from '../src/lib/booking/proof-reservation';
 import {submitBooking} from '../src/lib/booking/submission';
 import {decidePayment} from '../src/lib/admin/ethn-payment-decision';
-import {cancelPastPendingBookings} from '../src/lib/admin/ethn-outcomes';
-import {lockBookingAlertOwners} from '../src/lib/booking/ethn-booking-alerts';
 import {listInbox} from '../src/lib/admin/ethn-notifications';
 import {getFinance} from '../src/lib/admin/ethn-finance';
 const url=process.env.ETHN_UNIFIED_TEST_DATABASE_URL,adminUrl=process.env.ETHN_UNIFIED_TEST_ADMIN_URL;
@@ -113,36 +111,20 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   const pending=await createCheckout(pool,{...onlineInput,idempotencyKey:randomUUID()});
   const pendingProof=await reserveProof(pool,{ownerToken,checkoutId:pending.checkoutId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
   await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:pending.checkoutId,reservationId:pendingProof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Pending guest',email:'pending@example.test',phone:'123'}});
-  const sweep=async()=>{
-   const client=await pool.connect();
-   try {
-    await client.query('BEGIN');
-    const owners=await lockBookingAlertOwners(client);
-    await client.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
-    const cancelled=await cancelPastPendingBookings(client,owners);
-    await client.query('COMMIT');
-    return cancelled;
-   } catch(error) {
-    await client.query('ROLLBACK');
-    throw error;
-   } finally {client.release();}
-  };
   const movePast=(slot:typeof early)=>admin.query(`WITH moved AS (
     UPDATE ethn.booking_items SET starts_at=starts_at-interval '7 days',ends_at=ends_at-interval '7 days'
     WHERE booking_id=$1 AND starts_at=$2 RETURNING id,starts_at,ends_at
    ) UPDATE ethn.court_allocations a SET starts_at=m.starts_at,ends_at=m.ends_at FROM moved m WHERE a.item_id=m.id`,[pending.checkoutId,slot.start]);
   await movePast(early);
-  assert.equal(await sweep(),0,'keep pending booking while any court time remains');
   await movePast(late);
   await assert.rejects(decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true}),/DECISION_ALREADY_FINAL/);
-  assert.equal(await sweep(),1);
-  assert.equal(await sweep(),0);
-  const cancelled=(await admin.query(`SELECT b.status,p.status AS payment_status,p.proof_id,
+  const overdue=(await admin.query(`SELECT b.status,p.status AS payment_status,p.proof_id,
     ARRAY(SELECT a.state FROM ethn.court_allocations a JOIN ethn.booking_items i ON i.id=a.item_id WHERE i.booking_id=b.id) AS allocations,
     (SELECT count(*)::int FROM ethn.audit WHERE booking_id=b.id AND action='booking.cancel' AND actor='system:cancellation') AS audits
     FROM ethn.bookings b JOIN ethn.payments p ON p.booking_id=b.id WHERE b.id=$1`,[pending.checkoutId])).rows[0];
-  assert.deepEqual(cancelled,{status:'cancelled',payment_status:'unverified',proof_id:pendingProof.reservationId,allocations:['cancelled','cancelled'],audits:1});
-  assert.equal((await listInbox(pool,verify)).filter(item=>item.link===`/admin/bookings/${pending.checkoutId}` && item.kind==='booking_cancelled').length,1);
+  assert.deepEqual(overdue,{status:'pending',payment_status:'unverified',proof_id:pendingProof.reservationId,allocations:['pending','pending'],audits:0});
+  assert.equal((await listInbox(pool,verify)).filter(item=>item.link===`/admin/bookings/${pending.checkoutId}` && item.kind==='booking_cancelled').length,0);
+  assert.equal((await decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'reject',reason:'Payment could not be verified'})).status,'rejected');
   await admin.query('UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1',[actor]);
   await assert.rejects(bookingAction(pool,verify,next.bookingId,'archive',{key:randomUUID()}),/FORBIDDEN/);
  }finally{await pool.end();await admin.end();}
