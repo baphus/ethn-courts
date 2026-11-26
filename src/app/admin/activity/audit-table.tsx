@@ -247,7 +247,9 @@ export default function ActivityTimeline({
                         onClick={() =>
                           setExpandedId(isExpanded ? null : row.id)
                         }
-                        className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        aria-expanded={isExpanded}
+                        aria-controls={`audit-diff-${row.id}`}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-sm text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       >
                         <ArrowLeftRight className="size-3" />
                         {isExpanded ? "Hide changes" : "View changes"}
@@ -256,7 +258,7 @@ export default function ActivityTimeline({
 
                     {/* Quote-box diff, like the reference's comment box */}
                     {isExpanded && (
-                      <div className="mt-2 grid gap-2 rounded-lg bg-muted p-2 text-xs leading-relaxed md:grid-cols-2 md:p-3">
+                      <div id={`audit-diff-${row.id}`} className="mt-2 grid gap-2 rounded-lg bg-muted p-2 text-xs leading-relaxed md:grid-cols-2 md:p-3">
                         <div>
                           <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                             Before

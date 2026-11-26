@@ -42,6 +42,7 @@ function DialogOverlay({
 function DialogContent({
   className,
   overlayClassName,
+  forceBackdrop,
   children,
   showCloseButton = true,
   ...props
@@ -49,10 +50,11 @@ function DialogContent({
   showCloseButton?: boolean
   /** Classes for this dialog's backdrop, e.g. to soften it when stacked. */
   overlayClassName?: string
+  forceBackdrop?: DialogPrimitive.Backdrop.Props["forceRender"]
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay className={overlayClassName} />
+      <DialogOverlay className={overlayClassName} forceRender={forceBackdrop} />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(

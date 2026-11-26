@@ -9,6 +9,7 @@ import { LoadingRows } from "@/components/admin/loading-slots";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/admin/dashboard/section-card";
 import { useSidebarActivity } from "@/components/admin/admin-shell";
 import PushControls from "./push-controls";
 
@@ -90,7 +91,7 @@ export default function NotificationsPage() {
     <header className="flex flex-wrap items-end justify-between gap-4"><div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Staff updates</p><h1 className="text-3xl font-semibold tracking-tight">Notifications</h1><p className="max-w-2xl text-muted-foreground">Review payment proofs and keep up with booking changes.</p></div><div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Your unread</p><p className="text-2xl font-semibold tabular-nums" aria-live="polite">{unreadCount}</p></div></header>
     <PushControls />
     <section aria-label="Notifications" className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b p-5"><div><h2 className="text-lg font-semibold">Inbox</h2><p className="text-sm text-muted-foreground">Latest 50 · newest first</p></div><div className="flex flex-wrap items-center gap-3"><div role="group" aria-label="Filter notifications" className="inline-flex rounded-lg border p-1"><button type="button" aria-pressed={!unreadOnly} disabled={busy} onClick={() => setUnreadOnly(false)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${!unreadOnly ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>All</button><button type="button" aria-pressed={unreadOnly} disabled={busy} onClick={() => setUnreadOnly(true)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${unreadOnly ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Unread</button></div><Button type="button" variant="outline" disabled={busy || !unreadCount} onClick={() => void markAllRead()}>Mark all read</Button></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b p-5"><div><h2 className="text-lg font-semibold">Inbox</h2><p className="text-sm text-muted-foreground">Latest 50 · newest first</p></div><div className="flex flex-wrap items-center gap-3"><Segmented label="Filter notifications" disabled={busy} value={unreadOnly ? "unread" : "all"} onChange={value => setUnreadOnly(value === "unread")} options={[{ value: "all", label: "All" }, { value: "unread", label: "Unread" }]} /><Button type="button" variant="outline" disabled={busy || !unreadCount} onClick={() => void markAllRead()}>Mark all read</Button></div></div>
       {error && <p role="alert" className="m-5 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</p>}
       {!items && !error && <LoadingRows label="Loading notifications" />}
       {items?.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground"><EmptyIcon /> {unreadOnly ? "You’re all caught up." : "No notifications yet."}</p>}

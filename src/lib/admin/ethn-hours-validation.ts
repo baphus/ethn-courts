@@ -1,9 +1,42 @@
 import { parsePesos } from '../booking/core';
-import { scheduleWindows } from '../booking/schedule';
+import { scheduleWindows, timeMinutes } from '../booking/schedule';
 
 type Hours = { weekday: number; opens: string; closes: string; hourly_rate: string | null; court_id?: string };
 type Court = { id: string; active: boolean; hours: readonly Hours[] };
 type Allocation = { courtId: string; operatingDate: string; start: Date; end: Date; state: string; expiresAt: Date | null };
+
+type HoursIssue = { kind: 'overlap' | 'boundary' | 'invalid_time' | 'invalid_rate'; rows: number[] };
+const dayMinutes = 1440;
+const weekMinutes = 7 * dayMinutes;
+
+export function findEthnHoursIssues(hours: readonly Hours[], anchorMinutes: number): HoursIssue[] {
+  const issues: HoursIssue[] = [];
+  const windows: { index: number; start: number; end: number }[] = [];
+  for (const [index, row] of hours.entries()) {
+    const opens = timeMinutes(row.opens), closes = timeMinutes(row.closes);
+    const validTime = Number.isInteger(row.weekday) && row.weekday >= 0 && row.weekday <= 6 && opens !== null && closes !== null;
+    if (!validTime) issues.push({ kind: 'invalid_time', rows: [index] });
+    try { if (row.hourly_rate !== null) parsePesos(row.hourly_rate); }
+    catch { issues.push({ kind: 'invalid_rate', rows: [index] }); }
+    if (!validTime) continue;
+
+    const duration = closes - opens + (closes <= opens ? dayMinutes : 0);
+    const offset = (opens - anchorMinutes + dayMinutes) % dayMinutes;
+    if (offset + duration > dayMinutes) issues.push({ kind: 'boundary', rows: [index] });
+    const start = row.weekday * dayMinutes + opens;
+    windows.push({ index, start, end: start + duration });
+  }
+  for (const [i, a] of windows.entries()) {
+    for (let j = i + 1; j < windows.length; j++) {
+      const b = windows[j];
+      // A Saturday overnight window can overlap Sunday on the following week.
+      if ([-weekMinutes, 0, weekMinutes].some(shift => a.start < b.end + shift && b.start + shift < a.end)) {
+        issues.push({ kind: 'overlap', rows: [a.index, b.index] });
+      }
+    }
+  }
+  return issues;
+}
 
 export function validateEthnHours(input: {
   settings: { anchorMinutes: number; interval: number; minimum: number };
@@ -17,13 +50,7 @@ export function validateEthnHours(input: {
   const conflict = { error: 'HOURS_CONFLICT' } as const;
   if (!Number.isFinite(input.now.getTime()) || !Number.isInteger(anchorMinutes) || anchorMinutes < 0 || anchorMinutes >= 1440 || ![30, 60].includes(interval) || !Number.isInteger(minimum) || minimum < interval || minimum % interval || input.courts.some(c => !c.id) || new Set(input.courts.map(c => c.id)).size !== input.courts.length) return invalid;
   for (const court of input.courts) {
-    for (const row of court.hours) {
-      try { if (row.hourly_rate !== null) parsePesos(row.hourly_rate); } catch { return invalid; }
-    }
-    const hours = court.hours.map(row => ({ ...row, court_id: court.id }));
-    for (let day = 1; day <= 7; day++) {
-      if ('error' in scheduleWindows(`2026-11-0${day}`, anchorMinutes, court.id, hours)) return invalid;
-    }
+    if (findEthnHoursIssues(court.hours, anchorMinutes).length) return invalid;
   }
   for (const allocation of input.allocations) {
     if (allocation.state === 'block') {
@@ -52,11 +79,7 @@ export function validateEthnHours(input: {
     }
     const court = input.courts.find(c => c.id === allocation.courtId);
     if (!court?.active) return conflict;
-    const result = scheduleWindows(allocation.operatingDate, anchorMinutes, court.id, court.hours.map(row => ({ ...row, court_id: court.id })));
-    if ('error' in result) return conflict;
-    const start = allocation.start.getTime();
-    const window = result.windows.find(w => start >= w.opens && end <= w.closes);
-    if (!Number.isFinite(start) || !window || end <= start || (start - window.opens) % (interval * 60_000) || (end - window.opens) % (interval * 60_000) || end - start < minimum * 60_000) return conflict;
+    // Bookings and live holds keep their original times and rates; only deactivation is blocked.
   }
   return { ok: true };
 }

@@ -56,7 +56,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     }
     if (qr) assert.match(message.html, /not for check-in/);
     if (approved || index === 0) {
-      assert.ok(message.text.includes(`${approved ? "Booking invoice" : "Booking breakdown"}\nBooking date: January 1, 2026 (Manila time)`));
+      assert.ok(message.text.includes(`${approved ? "Booking invoice" : "Booking breakdown"}\nBooking date: January 1, 2026`));
       assert.match(message.text, /8:00\s*PM.*January 2, 2026.*1:00\s*AM\n10 × 30-min slots · ₱10\.00\/slot · Subtotal: ₱100\.00/i);
       assert.match(message.text, /3 × 30-min slots · approx\. ₱0\.01\/slot · Subtotal: ₱0\.02/);
       assert.match(message.text, /Total slots: 13\nPayment method: GCash/);
@@ -70,7 +70,7 @@ test("decision mail validates kinds and optional token without breaking submissi
       const url = new URL(calendar[1]);
       assert.equal(url.origin, "https://calendar.google.com");
       assert.equal(url.searchParams.get("dates"), "20260101T120000Z/20260101T193000Z");
-      assert.match(url.searchParams.get("details")!, /Actual court times \(Manila\):\nCourt <1>:[^\n]+\nCourt 2:/);
+      assert.match(url.searchParams.get("details")!, /Actual court times:\nCourt <1>:[^\n]+\nCourt 2:/);
       assert.doesNotMatch(decodeURIComponent(url.search), /checkout|ABCDE|guest@example|100\.02/);
     }
     assert.match(message.text, /ETHN Courts\n.*Balamban, Cebu/);

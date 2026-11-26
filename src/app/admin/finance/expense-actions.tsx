@@ -1,5 +1,9 @@
 "use client";
 
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
+import { FormSelect } from "@/components/ui/form-select";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,20 +16,20 @@ export type Expense = {
   revision: string | null; lastCorrectionId: string | null; description: string | null; vendor: string | null; notes: string | null;
 };
 
-export function ExpenseFields({ expense, today, className }: { expense?: Expense; today: string; className: string }) {
+export function ExpenseFields({ expense, today, disabled }: { expense?: Expense; today: string; disabled: boolean }) {
   const categories = expense && !newExpenseCategories.some(category => category === expense.category) ? [...newExpenseCategories, expense.category] : newExpenseCategories;
   return <>
-    <label className="grid gap-1 text-sm">Title<input className={className} name="title" required maxLength={100} defaultValue={expense?.title} /></label>
-    <label className="grid gap-1 text-sm">Category<select className={className} name="category" defaultValue={expense?.category ?? "Rent"}>{categories.map(category => <option key={category}>{category}</option>)}</select></label>
-    <label className="grid gap-1 text-sm">Amount (PHP)<input className={className} name="amount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={expense?.effectiveAmount} /></label>
-    <label className="grid gap-1 text-sm">Paid date<input className={className} name="paidDate" required type="date" max={today} defaultValue={expense?.paidDate ?? today} /></label>
-    <label className="grid gap-1 text-sm">Description (optional)<input className={className} name="description" maxLength={2000} defaultValue={expense?.description ?? ""} /></label>
-    <label className="grid gap-1 text-sm">Vendor / payee (optional)<input className={className} name="vendor" maxLength={160} defaultValue={expense?.vendor ?? ""} /></label>
-    <label className="grid gap-1 text-sm">Notes (optional)<textarea className={className} name="notes" maxLength={2000} defaultValue={expense?.notes ?? ""} /></label>
+    <label className="grid gap-1 text-sm">Title<Input name="title" required maxLength={100} defaultValue={expense?.title} /></label>
+    <label className="grid gap-1 text-sm">Category<FormSelect disabled={disabled} aria-label="Category" name="category" defaultValue={expense?.category ?? "Rent"} options={categories.map(value => ({ value, label: value }))} /></label>
+    <label className="grid gap-1 text-sm">Amount (PHP)<Input name="amount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={expense?.effectiveAmount} /></label>
+    <label className="grid gap-1 text-sm">Paid date<DateField name="paidDate" required max={today} disabled={disabled} defaultValue={expense?.paidDate ?? today} /></label>
+    <label className="grid gap-1 text-sm">Description (optional)<Input name="description" maxLength={2000} defaultValue={expense?.description ?? ""} /></label>
+    <label className="grid gap-1 text-sm">Vendor / payee (optional)<Input name="vendor" maxLength={160} defaultValue={expense?.vendor ?? ""} /></label>
+    <label className="grid gap-1 text-sm">Notes (optional)<Textarea name="notes" maxLength={2000} defaultValue={expense?.notes ?? ""} /></label>
   </>;
 }
 
-export function ExpenseActions({ expense, today, inputClass, onSaved }: { expense: Expense; today: string; inputClass: string; onSaved: (deleted: boolean) => void }) {
+export function ExpenseActions({ expense, today, onSaved }: { expense: Expense; today: string; onSaved: (deleted: boolean) => void }) {
   const [edit, setEdit] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -64,7 +68,7 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogTitle>Edit expense</DialogTitle><DialogDescription>Save new details and amount. Prior corrections stay in history but no longer affect totals.</DialogDescription>
           <form className="space-y-3" onSubmit={event => { event.preventDefault(); void save("PATCH", Object.fromEntries(new FormData(event.currentTarget))); }}>
-            <fieldset disabled={busy} className="space-y-3"><ExpenseFields expense={expense} today={today} className={inputClass} /></fieldset>
+            <fieldset disabled={busy} className="space-y-3"><ExpenseFields expense={expense} today={today} disabled={busy} /></fieldset>
             {message && <p role={invalid ? "alert" : undefined} className="text-sm text-destructive">{message}</p>}
             <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(false)}>Cancel</Button><Button disabled={busy} type="submit">Save expense</Button></div>
           </form>

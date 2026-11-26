@@ -3,6 +3,7 @@ import "../court-view.css";
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { useDashboardResource } from "./dashboard-resource";
+import { Button } from "@/components/ui/button";
 
 export function useAnalytics<T>(query: string) {
   return useDashboardResource<T>(`/api/ethn/admin/dashboard/analytics?${query}`);
@@ -11,7 +12,7 @@ export type AnalyticsState<T> = ReturnType<typeof useAnalytics<T>>;
 
 /** Stable skeleton while loading, retryable error, and dimmed content while a new range loads. */
 export function Body<T>({ state, skeleton = "h-48", children }: { state: { data: T | null; error: string; loading: boolean; retry: () => void }; skeleton?: string; children: (data: T) => ReactNode }) {
-  if (state.error) return <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/50 p-3 text-sm">{state.error}<button type="button" onClick={state.retry} className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted">Retry</button></div>;
+  if (state.error) return <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/50 p-3 text-sm">{state.error}<Button type="button" size="sm" variant="outline" onClick={state.retry}>Retry</Button></div>;
   if (!state.data) return <div role="status" aria-busy="true" className={`motion-safe:animate-pulse rounded-lg bg-muted/50 ${skeleton}`}><span className="sr-only">Loading</span></div>;
   return <div aria-busy={state.loading} className={`transition-opacity duration-200 ${state.loading ? "opacity-60" : ""}`}>{children(state.data)}</div>;
 }
@@ -26,9 +27,9 @@ export function Card({ title, subtitle, action, children, className = "" }: { ti
   </section>;
 }
 
-export function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (value: T) => void; options: { value: T; label: string }[]; label: string }) {
+export function Segmented<T extends string>({ value, onChange, options, label, disabled }: { value: T; onChange: (value: T) => void; options: { value: T; label: string }[]; label: string; disabled?: boolean }) {
   return <div role="group" aria-label={label} className="inline-flex rounded-lg border bg-muted/40 p-0.5 text-xs">
-    {options.map(o => <button key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)} className={`rounded-md px-2.5 py-1 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${value === o.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{o.label}</button>)}
+    {options.map(o => <button key={o.value} type="button" aria-pressed={value === o.value} disabled={disabled} onClick={() => onChange(o.value)} className={`rounded-md px-2.5 py-1 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${value === o.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{o.label}</button>)}
   </div>;
 }
 

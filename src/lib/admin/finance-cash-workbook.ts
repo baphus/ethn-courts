@@ -13,8 +13,8 @@ const pesos = (amount: string | null): Cell => {
 export function buildCashWorkbook({ from, to, generated, totals, entries }: CashFinanceExport) {
   const summary: SheetData = [
     [heading("Cash activity"), heading("Amount (PHP)")],
-    ["Manila reporting period", `${from} to ${to}`],
-    ["Generated (Manila date)", generated],
+    ["Reporting period", `${from} to ${to}`],
+    ["Generated date", generated],
     [],
     ["Booking and extension receipts", pesos(totals.bookingPayments)],
     ["Other sales after corrections", pesos(totals.otherSales)],
@@ -29,7 +29,7 @@ export function buildCashWorkbook({ from, to, generated, totals, entries }: Cash
     ["Cash and GCash deltas explain sale corrections; do not add them to Amount."],
   ];
   const ledger: SheetData = [
-    ["Manila date", "Entry type", "Reference", "Entry ID", "Payment method ID", "Expense category", "Amount (PHP)", "Cash delta (PHP)", "GCash delta (PHP)"].map(heading),
+    ["Date", "Entry type", "Reference", "Entry ID", "Payment method ID", "Expense category", "Amount (PHP)", "Cash delta (PHP)", "GCash delta (PHP)"].map(heading),
     ...entries.map(entry => [entry.date, entry.kind, entry.reference, entry.id, entry.method, entry.category, pesos(entry.amount), pesos(entry.cashDelta), pesos(entry.gcashDelta)]),
   ];
   return [

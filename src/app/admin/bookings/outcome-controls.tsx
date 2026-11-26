@@ -1,15 +1,18 @@
 "use client";
+import { Textarea } from "@/components/ui/textarea";
+import { useConfirm } from "@/components/ui/confirm";
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export default function OutcomeControls({bookingId,noShow,onSaved}:{bookingId:string;noShow:boolean;onSaved:()=>void}){
+  const confirm = useConfirm();
   const [reason,setReason]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [announceError,setAnnounceError]=useState(false);
   const [open,setOpen]=useState(false); const [unknown,setUnknown]=useState(false); const inflight=useRef(false);
-  function changeOpen(next:boolean){
+  async function changeOpen(next:boolean){
     if(!next && (inflight.current || unknown)) return;
-    if(!next && reason.trim() && !window.confirm('Discard this reason?')) return;
+    if(!next && reason.trim() && !await confirm("Discard this reason?", { confirmLabel: "Discard reason", destructive: true })) return;
     setOpen(next); if(!next){setReason('');setError('');}
   }
   async function save(){
@@ -33,5 +36,5 @@ export default function OutcomeControls({bookingId,noShow,onSaved}:{bookingId:st
     toast.success(noShow?'No-show cleared.':'No-show recorded.');
     onSaved();
   }
-  return <section className="rounded-xl border bg-card p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="font-semibold">Completion outcome: {noShow?'No-show':'Completed'}</h2><p className="mt-1 text-sm text-muted-foreground">Attendance corrections do not cancel, release or refund this booking.</p></div><Dialog open={open} onOpenChange={changeOpen}><DialogTrigger render={<Button variant="outline" />}>Change outcome</DialogTrigger><DialogContent showCloseButton={!busy&&!unknown}><DialogTitle>{noShow?'Clear no-show':'Record no-show'}</DialogTitle><DialogDescription>Payment and reserved history remain unchanged. The reason is recorded in the audit history.</DialogDescription><label className="block text-sm font-medium">Reason<textarea required maxLength={500} disabled={busy||unknown} value={reason} onChange={e=>setReason(e.target.value)} className="mt-2 w-full rounded-md border bg-background p-2" /></label>{error&&<p role={announceError ? 'alert' : undefined} className="text-destructive">{error}</p>}<div className="flex flex-wrap gap-2">{unknown ? <Button onClick={() => window.location.reload()}>Reload booking</Button> : <><Button disabled={busy||!reason.trim()} onClick={()=>void save()}>{busy?'Saving…':noShow?'Clear no-show':'Record no-show'}</Button><Button variant="outline" disabled={busy} onClick={()=>changeOpen(false)}>Cancel</Button></>}</div></DialogContent></Dialog></div></section>;
+  return <section className="rounded-xl border bg-card p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="font-semibold">Completion outcome: {noShow?'No-show':'Completed'}</h2><p className="mt-1 text-sm text-muted-foreground">Attendance corrections do not cancel, release or refund this booking.</p></div><Dialog open={open} onOpenChange={(next, details) => { if (!next && (busy || unknown || reason.trim())) details.cancel(); void changeOpen(next); }}><DialogTrigger render={<Button variant="outline" />}>Change outcome</DialogTrigger><DialogContent showCloseButton={!busy&&!unknown}><DialogTitle>{noShow?'Clear no-show':'Record no-show'}</DialogTitle><DialogDescription>Payment and reserved history remain unchanged. The reason is recorded in the audit history.</DialogDescription><label className="block text-sm font-medium">Reason<Textarea required maxLength={500} disabled={busy||unknown} value={reason} onChange={e=>setReason(e.target.value)} className="mt-2" /></label>{error&&<p role={announceError ? 'alert' : undefined} className="text-destructive">{error}</p>}<div className="flex flex-wrap gap-2">{unknown ? <Button onClick={() => window.location.reload()}>Reload booking</Button> : <><Button disabled={busy||!reason.trim()} onClick={()=>void save()}>{busy?'Saving…':noShow?'Clear no-show':'Record no-show'}</Button><Button variant="outline" disabled={busy} onClick={()=>changeOpen(false)}>Cancel</Button></>}</div></DialogContent></Dialog></div></section>;
 }

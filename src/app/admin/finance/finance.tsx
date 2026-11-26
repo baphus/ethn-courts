@@ -1,5 +1,9 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
+import { FormSelect } from "@/components/ui/form-select";
+import { useConfirm } from "@/components/ui/confirm";
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { useDashboardResource, useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
@@ -28,11 +32,11 @@ import type { CashFinanceExport } from "@/lib/admin/finance-cash";
 import { ExpenseActions, ExpenseFields, type Expense } from "./expense-actions";
 type Expenses = { rows: Expense[]; page: number; limit: number; total: number };
 type Payload = { title: string; category: string; amount: string; paidDate: string; idempotencyKey: string; description?: string; vendor?: string; notes?: string };
-const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
-const button = "rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
+
 const money = (value: string) => `₱${value}`;
 
 export default function Finance() {
+  const confirm = useConfirm();
   const [today] = useState(() => manilaTodayStr());
   const params = useSearchParams();
   const filters = useMemo(() => financeFilters(params, today), [params, today]);
@@ -147,8 +151,8 @@ export default function Finance() {
               <fieldset><legend className="mb-2 font-medium">Quick date range</legend><div className="flex flex-wrap gap-2">
                 {[7, 30, 90].map(days => { const start = addDaysManilaStr(today, 1 - days); return <Button key={days} type="button" size="sm" variant={from === start && to === today ? "secondary" : "outline"} onClick={() => applyFilters({ ...filters, from: start, to: today })}>Last {days} days</Button>; })}
               </div></fieldset>
-              <label className="grid gap-1 text-sm font-medium">From<input className={input} type="date" required max={today} value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
-              <label className="grid gap-1 text-sm font-medium">To<input className={input} type="date" required max={today} value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
+              <label className="grid gap-1 text-sm font-medium">From<DateField required max={today} value={draft.from} onValueChange={value => setDraft({ ...draft, from: value })} /></label>
+              <label className="grid gap-1 text-sm font-medium">To<DateField required max={today} value={draft.to} onValueChange={value => setDraft({ ...draft, to: value })} /></label>
               {filterError && <p role="alert" className="text-sm text-destructive">{filterError}</p>}
             </div>
             <SheetFooter className="flex-row justify-between border-t"><Button variant="ghost" type="button" onClick={() => applyFilters(null)}>Reset</Button><Button type="submit">Apply filters</Button></SheetFooter>
@@ -173,14 +177,14 @@ export default function Finance() {
           <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Expenses are recorded on the date paid.</DialogDescription>
 
         <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); if (!pending) { const fields = new FormData(e.currentTarget); const get = (key: string) => String(fields.get(key) ?? ""); void save({ title: get("title"), category: get("category"), amount: get("amount"), paidDate: get("paidDate"), description: get("description"), vendor: get("vendor"), notes: get("notes"), idempotencyKey: crypto.randomUUID() }); } }}>
-          <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} className={input} /><button className={`${button} w-full`} disabled={saving}>Record expense</button></fieldset>
+          <fieldset disabled={!!pending || saving} className="space-y-4 disabled:opacity-60"><ExpenseFields today={today} disabled={!!pending || saving} /><Button type="submit" className="w-full" disabled={saving}>Record expense</Button></fieldset>
           {saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
-          {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {formatDisplayDate(pending.paidDate)}</p><p>Retry only while signed in to the same account that recorded this expense.</p><button type="button" disabled={saving} className={button} onClick={() => void save(pending)}>Retry same expense</button><button type="button" disabled={saving} className="block underline" onClick={() => { if (window.confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?")) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</button></div>}
+          {pending && <div className="space-y-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><p>Pending: {pending.title} · {pending.category} · {money(pending.amount)} · {formatDisplayDate(pending.paidDate)}</p><p>Retry only while signed in to the same account that recorded this expense.</p><Button type="button" disabled={saving} onClick={() => void save(pending)}>Retry same expense</Button><Button type="button" variant="destructive" size="sm" disabled={saving} onClick={async () => { if (await confirm("This expense may already be recorded. Check the expense list for its paid date before discarding. Discard pending retry?", { confirmLabel: "Discard retry", destructive: true })) { sessionStorage.removeItem("ethn-finance-pending"); setPending(null); setSaveMessage("Check the expense list before entering this expense again."); } }}>Discard pending retry</Button></div>}
         </form>
       </DialogContent></Dialog>
         </div>
-        <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); applyFilters({ ...filters, q: searchDraft.trim() }); }}><label className="grid min-w-0 flex-1 basis-56 gap-1 text-sm font-medium">Search expense title<input className={input} type="search" maxLength={100} value={searchDraft} onChange={e => setSearchDraft(e.target.value)} /></label><Button variant="outline" type="submit">Search</Button><label className="grid gap-1 text-sm font-medium">Category<select className={input} value={filters.category} onChange={e => applyFilters({ ...filters, category: e.target.value })}><option value="">All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select></label></form>
-        {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div role="region" aria-label="Expense results table" tabIndex={0} className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} inputClass={input} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && <div className="mt-4"><TablePager page={expenses.page} pageSize={expenses.limit} total={expenses.total} onPageChange={setPage} busy={listLoading} /></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
+        <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); applyFilters({ ...filters, q: searchDraft.trim() }); }}><label className="grid min-w-0 flex-1 basis-56 gap-1 text-sm font-medium">Search expense title<Input type="search" maxLength={100} value={searchDraft} onChange={e => setSearchDraft(e.target.value)} /></label><Button variant="outline" type="submit">Search</Button><label className="grid gap-1 text-sm font-medium">Category<FormSelect aria-label="Category" value={filters.category} onValueChange={value => applyFilters({ ...filters, category: value ?? "" })} options={[{ value: "", label: "All categories" }, ...categories.map(value => ({ value, label: value }))]} /></label></form>
+        {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div role="region" aria-label="Expense results table" tabIndex={0} className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && <div className="mt-4"><TablePager page={expenses.page} pageSize={expenses.limit} total={expenses.total} onPageChange={setPage} busy={listLoading} /></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
       </section>
 
     </div>
@@ -190,7 +194,7 @@ export default function Finance() {
 function ApprovalReport({ from, to }: { from: string; to: string }) {
   const { data: report, loading, error, retry: retryReport } = useDashboardResource<FinanceReport & { from: string; to: string }>(`/api/ethn/admin/finance?${new URLSearchParams({ from, to, basis: "approval" })}`);
   return <>
-    <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Approval report</h2><FinanceInfo label="How approval totals are calculated">Booking revenue is counted on the original payment approval date in Manila; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</FinanceInfo></div>
+    <div className="flex items-center gap-2"><h2 className="text-lg font-semibold">Approval report</h2><FinanceInfo label="How approval totals are calculated">Booking revenue is counted on the original payment approval date; expenses use their paid date. Net profit is booking revenue less expenses, not full accounting profit. Cancelled or refunded bookings are excluded, so past reports can change. Extensions and manual sales are excluded.</FinanceInfo></div>
     <section aria-label="Finance summary" aria-busy={loading}>
       {loading ? <ReportStats /> : error ? <p role="alert" className="text-red-700">{error} <button className="underline" onClick={retryReport}>Retry</button></p> : report && <ReportStats report={report} />}
     </section>

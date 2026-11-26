@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
@@ -22,9 +23,9 @@ export default function OwnerContact() {
   return <section className="w-full rounded-xl border bg-card p-5 shadow-sm"><h2 className="text-lg font-semibold">Public contact details</h2><p className="mt-1 text-sm text-muted-foreground">Shown on the contact page. Leave a field blank to use the venue default. Email lets visitors open a message in their email app.</p>
     {message && <p role="status" className="mt-3 text-sm">{message}</p>}
     {!values ? (busy ? <LoadingRows label="Loading contact settings" /> : <Button className="mt-4" variant="outline" onClick={() => void load()}>Try again</Button>) : <form onSubmit={save} className="mt-4 space-y-4"><fieldset disabled={busy || stale} className="grid gap-4 sm:grid-cols-2">
-      <label className="block text-sm font-medium sm:col-span-2">Facebook page URL<input type="url" maxLength={500} placeholder="https://www.facebook.com/yourpage" value={values.facebook} onChange={e => setValues({ ...values, facebook: e.target.value })} className="mt-1 block w-full rounded-md border border-input bg-background p-3 font-normal" /></label>
-      <label className="block text-sm font-medium">Phone number<input type="tel" maxLength={40} value={values.phone} onChange={e => setValues({ ...values, phone: e.target.value })} className="mt-1 block w-full rounded-md border border-input bg-background p-3 font-normal" /></label>
-      <label className="block text-sm font-medium">Owner email<input type="email" maxLength={254} value={values.email} onChange={e => setValues({ ...values, email: e.target.value })} className="mt-1 block w-full rounded-md border border-input bg-background p-3 font-normal" /></label>
+      <label className="block text-sm font-medium sm:col-span-2">Facebook page URL<Input type="url" maxLength={500} placeholder="https://www.facebook.com/yourpage" value={values.facebook} onChange={e => setValues({ ...values, facebook: e.target.value })} className="mt-1 block w-full rounded-md border border-input bg-background p-3 font-normal" /></label>
+      <label className="block text-sm font-medium">Phone number<Input type="tel" maxLength={40} value={values.phone} onChange={e => setValues({ ...values, phone: e.target.value })} className="mt-1 block w-full rounded-md border border-input bg-background p-3 font-normal" /></label>
+      <label className="block text-sm font-medium">Owner email<Input type="email" maxLength={254} value={values.email} onChange={e => setValues({ ...values, email: e.target.value })} className="mt-1 block w-full rounded-md border border-input bg-background p-3 font-normal" /></label>
       <div><Button type="submit">{busy ? "Saving…" : "Save contact details"}</Button></div>
     </fieldset></form>}
   </section>;

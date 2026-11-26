@@ -1,5 +1,6 @@
 "use client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { KpiCard, type Kpi } from "../kpi-row";
 import { BookOpen, CalendarDays, DollarSign, Wallet } from "lucide-react";
 import { cents, pesos, type DashboardOverview } from "@/app/admin/dashboard-overview-types";
@@ -33,13 +34,13 @@ export function HeroStats({ overview, owner, overviewError, retryOverview }: { o
   }));
   const today: Stat = { label: "Today's confirmed bookings", value: overview ? overview.periods.today : overviewError ? "Unavailable" : <Skeleton className="h-7 w-16 motion-reduce:animate-none" />, href: overview ? `/admin/bookings?status=confirmed&from=${overview.operatingDate}&to=${overview.operatingDate}` : undefined, Icon: CalendarDays };
   return <section aria-label="Dashboard overview" className="space-y-2">
-    {error && <div role="alert" className="flex items-center gap-3 rounded-lg border border-destructive/50 p-3 text-sm">{error}<button type="button" onClick={retry} className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted">Retry</button></div>}
+    {error && <div role="alert" className="flex items-center gap-3 rounded-lg border border-destructive/50 p-3 text-sm">{error}<Button type="button" size="sm" variant="outline" onClick={retry}>Retry</Button></div>}
     <div className={`grid grid-cols-2 gap-3 ${(owner || overview?.finance) ? "xl:grid-cols-3" : "xl:grid-cols-2"}`}>
       {[...stats, today].map(({ chip, chipTitle, ...stat }) => <KpiCard key={stat.label} {...stat}>
         {chip && <Chip chip={chip} title={chipTitle ?? ""} />}
       </KpiCard>)}
     </div>
-    {overviewError && <div role="alert" className="text-sm">{overviewError} <button type="button" onClick={retryOverview} className="underline">Retry</button></div>}
+    {overviewError && <div role="alert" className="text-sm">{overviewError} <Button type="button" variant="link" className="h-auto p-0" onClick={retryOverview}>Retry</Button></div>}
     {overview?.finance && data?.collections && <p className="text-[11px] text-muted-foreground">Collections: {data.collections.included}</p>}
   </section>;
 }

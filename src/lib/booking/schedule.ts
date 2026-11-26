@@ -11,7 +11,7 @@ export type ScheduleResult =
   | { ranges: (CoreRange & { rate: string; minutes: number })[] }
   | { error: "INVALID_INPUT" | "COURT_UNAVAILABLE" | "INVALID_SCHEDULE" | "CLOSED" | "INVALID_RATE" };
 
-function timeMinutes(value: string): number | null {
+export function timeMinutes(value: string): number | null {
   const match = /^(\d{2}):(\d{2})(?::00)?$/.exec(value);
   if (!match || +match[1] > 23 || +match[2] > 59) return null;
   return +match[1] * 60 + +match[2];

@@ -23,7 +23,7 @@ test("owner changes hours without changing frozen item", { skip: !url || !adminU
     assert.deepEqual((await admin.query("SELECT actor,detail FROM ethn.audit WHERE action='hours.update'")).rows, [{ actor: owner, detail: { oldVersion: "1", newVersion: "2", courtIds: ["1", "2"] } }]);
   } finally { await pool.end(); await admin.end(); }
 });
-test("future pending allocation blocks changes atomically", { skip: !url || !adminUrl }, async () => {
+test("future pending allocation blocks deactivation atomically", { skip: !url || !adminUrl }, async () => {
   const pool = new Pool({ connectionString: url }), admin = new Pool({ connectionString: adminUrl });
   try {
     await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES ('00000000-0000-4000-8000-000000000020','test',current_date+2,'pending',now()+interval '1 hour',100,2)");
@@ -32,5 +32,13 @@ test("future pending allocation blocks changes atomically", { skip: !url || !adm
     const before = await snapshot(admin), input = proposal("2"); input.courts[0].active = false;
     await assert.rejects(putEthnHours(pool, async () => owner, input), /HOURS_CONFLICT/);
     assert.deepEqual(await snapshot(admin), before);
+    const frozen = () => admin.query(`SELECT b.status, i.starts_at, i.ends_at, i.hourly_rate::text, i.amount::text, a.state
+      FROM ethn.bookings b JOIN ethn.booking_items i ON i.booking_id=b.id
+      JOIN ethn.court_allocations a ON a.item_id=i.id WHERE b.id='00000000-0000-4000-8000-000000000020'`);
+    const booked = (await frozen()).rows;
+    const changed = proposal("2");
+    changed.courts[0].hours = [];
+    assert.deepEqual(await putEthnHours(pool, async () => owner, changed), { version: "3" });
+    assert.deepEqual((await frozen()).rows, booked);
   } finally { await pool.end(); await admin.end(); }
 });

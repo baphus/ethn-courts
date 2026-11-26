@@ -39,10 +39,10 @@ test("owner authorization, hold expiry, and checkout serialization", { skip: !ur
       const start = new Date(`${date}T10:00:00.000Z`), end = new Date(`${date}T10:30:00.000Z`);
       const checkout = { ownerToken: randomUUID(), idempotencyKey: randomUUID(), date, ranges: [{ courtId: "1", start: start.toISOString(), end: end.toISOString() }], displayedTotal: "75.00", displayedVersion: reset.version };
       const [book, edit] = await Promise.allSettled([createCheckout(pool, checkout), putEthnHours(pool, async () => owner, proposal(reset.version, "17:00"))]);
-      if (book.status === "fulfilled") { assert.equal(edit.status, "rejected"); assert.match(String(edit.reason), /HOURS_CONFLICT/); }
-      else { assert.equal(edit.status, "fulfilled"); assert.match(String(book.reason), /CLOSED|INVALID_INPUT/); }
+      assert.equal(edit.status, "fulfilled");
+      if (book.status === "rejected") assert.match(String(book.reason), /CLOSED|INVALID_INPUT/);
       const outside = await admin.query("SELECT count(*)::int n FROM ethn.court_allocations a JOIN ethn.booking_items i ON i.id=a.item_id JOIN ethn.bookings b ON b.id=i.booking_id WHERE a.state='held' AND b.expires_at>now() AND NOT EXISTS (SELECT 1 FROM ethn.court_hours h WHERE h.court_id=a.court_id AND h.weekday=extract(dow from b.operating_date) AND (a.starts_at AT TIME ZONE 'Asia/Manila')::time >= h.opens AND (a.ends_at AT TIME ZONE 'Asia/Manila')::time <= h.closes)");
-      assert.equal(outside.rows[0].n, 0);
+      assert.equal(outside.rows[0].n, book.status === "fulfilled" ? 1 : 0);
       await admin.query("UPDATE ethn.court_allocations SET state='expired' WHERE state='held'");
     }
   } finally { await pool.end(); await admin.end(); }

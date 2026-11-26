@@ -1,4 +1,7 @@
 "use client";
+
+import { DateField } from "@/components/ui/date-field";
+import { Button } from "@/components/ui/button";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import "./court-view.css";
 import Link from "next/link";
@@ -56,7 +59,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
     {kpis.length > 0 && <section>
       <div className="mb-3"><h2 className="font-semibold">Today</h2></div>
       <KpiRow items={kpis} />
-      {overviewError && <p role="alert" className="mt-2 text-sm">{overviewError} <button type="button" onClick={retryOverview} className="underline">Retry</button></p>}
+      {overviewError && <p role="alert" className="mt-2 text-sm">{overviewError} <Button type="button" variant="link" className="h-auto p-0" onClick={retryOverview}>Retry</Button></p>}
     </section>}
 
     {updated && <p className="text-xs text-muted-foreground" role="status">{loading ? "Refreshing schedule…" : `Last updated ${timelineTime(updated)}`}</p>}
@@ -69,7 +72,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
       <div><h2 className="text-lg font-semibold">Court timeline</h2><p className="text-xs text-muted-foreground">Shows current and upcoming confirmed bookings and court blocks. Check the calendar for pending bookings and holds.</p></div>
       <div className="flex items-center gap-2">
         <button type="button" aria-label="Previous date" className={navBtn} disabled={!selectedDate} onClick={() => setDate(shiftDate(selectedDate, -1))}><ChevronLeft className="size-4" /></button>
-        <input aria-label="Court schedule date" type="date" className={navBtn} value={selectedDate} onChange={event => { if (event.target.value) setDate(event.target.value); }} />
+        <DateField aria-label="Court schedule date" value={selectedDate} required onValueChange={setDate} />
         <button type="button" aria-label="Next date" className={navBtn} disabled={!selectedDate} onClick={() => setDate(shiftDate(selectedDate, 1))}><ChevronRight className="size-4" /></button>
       </div>
     </div>

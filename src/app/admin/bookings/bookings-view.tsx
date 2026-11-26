@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { DateField } from "@/components/ui/date-field";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, RotateCcw } from "lucide-react";
@@ -39,7 +41,7 @@ export default function BookingsView() {
   return <div className="w-full space-y-5 pb-24">
     <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6"><div><h1 className="text-2xl font-semibold tracking-tight">Bookings</h1><p className="mt-2 text-sm text-muted-foreground">Find and review reservations.</p></div><Button render={<Link href="/admin/bookings/new" />}>New booking</Button></header>
     <section aria-label="Booking filters" className="flex flex-wrap items-end gap-2 [&_button]:rounded-sm [&_button]:h-9">
-      <label className="grid w-full min-w-0 gap-1.5 sm:w-72 text-sm font-medium">Search<input type="search" className={input} value={search} maxLength={100} onChange={e => setSearch(e.target.value)} placeholder="Name, contact or booking ID" autoComplete="off" /></label>
+      <label className="grid w-full min-w-0 gap-1.5 sm:w-72 text-sm font-medium">Search<Input type="search" value={search} maxLength={100} onChange={e => setSearch(e.target.value)} placeholder="Name, contact or booking ID" autoComplete="off" /></label>
       {search && <Button type="button" variant="ghost" onClick={() => { setSearch(""); update({ ...filters, q: "", page: 1 }, true); }}>Clear search</Button>}
       <Popover open={open} onOpenChange={value => { setOpen(value); if (value) setDraft(filters); }}>
         <PopoverTrigger render={<Button variant="outline" />}><Filter aria-hidden="true" /> Filter{active > 0 && ` (${active})`}</PopoverTrigger>
@@ -50,7 +52,7 @@ export default function BookingsView() {
             <fieldset className="grid grid-cols-2 gap-x-2 pt-1"><legend className="sr-only">Status</legend>{statuses.map((status) => { const { icon: Icon, accent } = bookingStatusStyle(status); return <label key={status} className="flex min-h-9 cursor-pointer items-center gap-2 text-sm capitalize"><input type="checkbox" className="size-4 accent-primary" checked={draft.status.includes(status)} onChange={e => setDraft({ ...draft, status: e.target.checked ? [...draft.status, status] : draft.status.filter(s => s !== status) })} /><Icon className={`size-4 ${accent}`} aria-hidden="true" />{status}</label>; })}<label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-primary" checked={!!draft.archived} onChange={e => setDraft({ ...draft, archived: e.target.checked ? "true" : "" })} /><Archive className={`size-4 ${bookingStatusStyle("archived").accent}`} aria-hidden="true" />Archived</label></fieldset>
           </details>
           <details key={open ? "open" : "closed"} open={!!(filters.from || filters.to)} className="group border-t py-2"><summary className="flex cursor-pointer list-none items-center gap-2 py-1 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"><CalendarDays className="size-4" aria-hidden="true" /> Booking date <ChevronDown className="size-4 -rotate-90 text-muted-foreground group-open:rotate-0" aria-hidden="true" /></summary>
-            <div className="grid grid-cols-2 gap-2 pt-2"><label className="grid min-w-0 gap-1 text-xs font-medium">From date<input className={`${input} w-full min-w-0 px-1`} type="date" value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label><label className="grid min-w-0 gap-1 text-xs font-medium">To date<input className={`${input} w-full min-w-0 px-1`} type="date" value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label></div>
+            <div className="grid grid-cols-2 gap-2 pt-2"><label className="grid min-w-0 gap-1 text-xs font-medium">From date<DateField value={draft.from} onValueChange={value => setDraft({ ...draft, from: value })} /></label><label className="grid min-w-0 gap-1 text-xs font-medium">To date<DateField value={draft.to} onValueChange={value => setDraft({ ...draft, to: value })} /></label></div>
           </details>
           {invalidRange && <p role="alert" className="mb-2 text-sm text-destructive">End date must be on or after start date.</p>}
           <div className="border-t pt-3"><Button className="w-full" disabled={invalidRange} onClick={() => { update({ ...filters, status: draft.status, from: draft.from, to: draft.to, archived: draft.archived ? (draft.status.length ? "include" : "true") : "", page: 1 }); setOpen(false); }}>Apply</Button></div>

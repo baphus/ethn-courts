@@ -1,5 +1,7 @@
 "use client";
 
+import { DateField } from "@/components/ui/date-field";
+import { FormSelect } from "@/components/ui/form-select";
 import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { TablePager } from "@/components/admin/table-pager";
@@ -80,9 +82,9 @@ export default function ActivityLog() {
         <PopoverContent className="w-[min(24rem,calc(100vw-2rem))] p-4">
       <h2 className="text-lg font-semibold">Filter activity</h2><p className="mt-1 text-sm text-muted-foreground">Dates refer to when activity occurred, not the booking date.</p>
       <form onSubmit={apply} className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1 text-sm font-medium" htmlFor="activity-from">From date<Input id="activity-from" type="date" value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} /></label>
-        <label className="space-y-1 text-sm font-medium" htmlFor="activity-to">To date<Input id="activity-to" type="date" value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} /></label>
-        <label className="space-y-1 text-sm font-medium" htmlFor="activity-action">Action<select id="activity-action" className="flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={draft.action} onChange={e => setDraft({ ...draft, action: e.target.value })}><option value="">All actions</option>{actions.map(action => <option key={action} value={action}>{action}</option>)}</select></label>
+        <label className="space-y-1 text-sm font-medium" htmlFor="activity-from">From date<DateField id="activity-from" value={draft.from} onValueChange={value => setDraft({ ...draft, from: value })} /></label>
+        <label className="space-y-1 text-sm font-medium" htmlFor="activity-to">To date<DateField id="activity-to" value={draft.to} onValueChange={value => setDraft({ ...draft, to: value })} /></label>
+        <label className="space-y-1 text-sm font-medium" htmlFor="activity-action">Action<FormSelect id="activity-action" value={draft.action} onValueChange={value => setDraft({ ...draft, action: value ?? "" })} options={[{ value: "", label: "All actions" }, ...actions.map(value => ({ value, label: value }))]} /></label>
         {inputError && <p role="alert" className="text-sm text-destructive sm:col-span-2 lg:col-span-4">{inputError}</p>}
         <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4"><Button type="submit">Apply filters</Button><Button type="button" variant="outline" onClick={() => { setDraft(empty); setFilters({ ...empty }); setPage(1); setInputError(""); }}>Clear filters</Button></div>
       </form>

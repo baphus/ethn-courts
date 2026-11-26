@@ -15,7 +15,7 @@ test('dashboard leads with booking statuses and retains court view and optional 
   assert.ok(page.indexOf('Today’s status') < page.indexOf('<HeroStats'));
   const court = source('src/components/admin/dashboard-court-view.tsx');
   assert.doesNotMatch(court, /Operating hours|AttentionPanel/);
-  assert.match(court, /type="date"/);
+  assert.match(court, /<DateField aria-label="Court schedule date"[^>]*onValueChange=\{setDate\}/);
   assert.match(page, /<StatusBadge state=\{row\.status\}/);
   assert.match(page, /courtView \? <DashboardCourtView overview=\{data\}/);
   assert.match(page, /<ViewToggle courtView=\{courtView\} onChange=\{setCourtView\}/);

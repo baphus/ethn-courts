@@ -39,7 +39,7 @@ function googleCalendarLink(items: ScheduleItem[]) {
   const url = new URL("https://calendar.google.com/calendar/render");
   url.search = new URLSearchParams({
     action: "TEMPLATE", text: "ETHN Courts booking", dates: `${stamp(start)}/${stamp(end)}`, location: VENUE_ADDRESS,
-    details: ["This event spans the booking window. Actual court times (Manila):", ...items.map(scheduleLine)].join("\n"),
+    details: ["This event spans the booking window. Actual court times:", ...items.map(scheduleLine)].join("\n"),
   }).toString();
   return { label: "Add to Google Calendar", href: url.href };
 }
@@ -172,7 +172,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
           if (hasInvoice) {
             const slots = invoice.map(item => gridSlotCount(item.duration_minutes, item.interval_minutes));
             sections.push({ title: approved ? "Booking invoice" : "Booking breakdown", lines: [
-              `Booking date: ${formatDisplayDate(invoice[0].booking_date)} (Manila time)`,
+              `Booking date: ${formatDisplayDate(invoice[0].booking_date)}`,
               ...invoice.map((item, index) => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)}\n${invoiceSlotRate(item.duration_minutes, item.interval_minutes)}${slotPrice(item, slots[index])} · Subtotal: ${invoiceMoney(item.amount)}`),
               `Total slots: ${slots.every(count => count !== undefined) ? slots.reduce((total, count) => total + count, 0) : "Unavailable"}`,
               ...(invoice[0].method_name ? [`Payment method: ${invoice[0].method_name}`] : []),

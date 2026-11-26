@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/confirm";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const message = (status: number) => status === 401 ? "Your session ended. Please sign in again." : status === 403 ? "Owner access is no longer enabled for this account." : status === 404 ? "That Auth account does not exist. Create the login first, then grant access." : status === 409 ? "Rejected: at least one enabled owner must remain." : status === 400 ? "That user ID is not valid." : "Owner access services are unavailable. Please try again later.";
 
 export default function OwnerAccessManager() {
+  const confirm = useConfirm();
   const [owners, setOwners] = useState<Access[] | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -38,7 +40,7 @@ export default function OwnerAccessManager() {
   async function save(next: Access) {
     if (busy) return;
     if (!uuid.test(next.userId)) { setError("Enter a valid Auth user ID (UUID)."); return; }
-    if (!window.confirm(`${next.enabled ? "Grant" : "Revoke"} Owner access for ${next.userId}? This takes effect immediately.`)) return;
+    if (!await confirm(`${next.enabled ? "Grant" : "Revoke"} Owner access for ${next.userId}? This takes effect immediately.`, { confirmLabel: next.enabled ? "Grant access" : "Revoke access", destructive: !next.enabled })) return;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/ethn/admin/owner-access", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
@@ -58,7 +60,7 @@ export default function OwnerAccessManager() {
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           {discard && <div role="alert" className="space-y-2 rounded-md border p-3"><p>Close without saving? Your entries remain until you leave this page.</p><div className="flex gap-2"><Button variant="outline" onClick={() => setDiscard(false)}>Keep editing</Button><Button onClick={() => { setDiscard(false); setOpen(false); returnFocus?.focus(); }}>Close form</Button></div></div>}
           <label className="space-y-1 text-sm font-medium" htmlFor="new-user">Auth user ID<Input id="new-user" value={userId} onChange={e => setUserId(e.target.value)} disabled={busy || !!editing} placeholder="00000000-0000-4000-8000-000000000000" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} /></label>
-          {editing && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} disabled={busy} onChange={e => setEnabled(e.target.checked)} /> Enabled</label>}
+          {editing && <label className="flex items-center gap-2 text-sm"><input className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" type="checkbox" checked={enabled} disabled={busy} onChange={e => setEnabled(e.target.checked)} /> Enabled</label>}
           <Button type="button" disabled={busy || !userId.trim()} onClick={() => void save({ userId: userId.trim().toLowerCase(), enabled })}>{busy ? "Saving…" : editing ? "Save access" : "Grant access"}</Button>
         </DialogContent>
       </Dialog>}

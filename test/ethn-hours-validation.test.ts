@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateEthnHours } from '../src/lib/admin/ethn-hours-validation';
+import { findEthnHoursIssues, validateEthnHours } from '../src/lib/admin/ethn-hours-validation';
+import { scheduleWindows } from '../src/lib/booking/schedule';
 import { manilaWallClock } from '../src/lib/booking/slots';
 
 const at = (date: string, hour: number, minute = 0) => new Date(manilaWallClock(date, hour, minute).getTime());
@@ -24,15 +25,51 @@ test('weekly windows validate overnight overlap, anchor and rates', () => {
   assert.deepEqual(validateEthnHours(input), invalid);
 });
 
-test('live allocations survive proposed hours and inactive courts', () => {
+test('diagnostics identify exact overlapping windows and operating-day boundaries', () => {
+  const hours = [row(0, '09:00', '17:00', '150'), row(0, '05:00', '00:00', '250')];
+  assert.deepEqual(findEthnHoursIssues(hours, 420), [
+    { kind: 'boundary', rows: [1] }, { kind: 'overlap', rows: [0, 1] },
+  ]);
+  hours[1].opens = '17:00';
+  assert.deepEqual(findEthnHoursIssues(hours, 420), []);
+  assert.deepEqual(findEthnHoursIssues([row(6, '17:00', '03:00'), row(0, '02:00', '04:00')], 420), [
+    { kind: 'overlap', rows: [0, 1] },
+  ]);
+  assert.deepEqual(findEthnHoursIssues([row(1, '25:00', '03:00', '1e2')], 420), [
+    { kind: 'invalid_time', rows: [0] }, { kind: 'invalid_rate', rows: [0] },
+  ]);
+});
+
+test('weekly diagnostics agree with booking windows at week wrap and anchor edges', () => {
+  const schedules = [
+    [row(6, '07:00', '03:00'), row(0, '03:00', '05:00')],
+    [row(6, '07:00', '03:00'), row(0, '02:59', '05:00')],
+    [row(0, '07:00', '07:00')],
+    [row(0, '07:00', '00:00'), row(1, '00:00', '07:00')],
+  ];
+  for (const schedule of schedules) {
+    for (const anchor of [0, 180, 420, 421, 1439]) {
+      const hours = schedule.map(window => ({ ...window, court_id: '1' }));
+      const rejected = Array.from({ length: 7 }, (_, day) => scheduleWindows(`2026-11-0${day + 1}`, anchor, '1', hours)).some(result => 'error' in result);
+      assert.equal(findEthnHoursIssues(schedule, anchor).length > 0, rejected, JSON.stringify({ schedule, anchor }));
+    }
+  }
+});
+
+test('changed weekly hours do not block live holds or bookings, but deactivation does', () => {
   const input = base();
   input.allocations = [allocation('held')];
   input.courts[0].hours = [row(0, '10:00', '03:00')];
+  assert.deepEqual(validateEthnHours(input), ok);
+  input.courts[0].active = false;
   assert.deepEqual(validateEthnHours(input), conflict);
   input.allocations[0].expiresAt = input.now;
   assert.deepEqual(validateEthnHours(input), ok);
-  input.allocations = [allocation()];
-  assert.deepEqual(validateEthnHours(input), conflict);
+  input.courts[0].active = true;
+  for (const state of ['pending', 'confirmed']) {
+    input.allocations = [allocation(state)];
+    assert.deepEqual(validateEthnHours(input), ok);
+  }
   input.courts[0].hours = [row(0, '07:00', '03:00', '999.99')];
   assert.deepEqual(validateEthnHours(input), ok);
   input.courts[0].hours[0].hourly_rate = null;
@@ -43,9 +80,7 @@ test('live allocations survive proposed hours and inactive courts', () => {
   input.courts[0].hours = [row(0, '08:00', '04:00')];
   assert.deepEqual(validateEthnHours(input), ok);
   input.allocations[0].start = at('2026-11-01', 9, 15);
-  assert.deepEqual(validateEthnHours(input), conflict);
-  input.allocations[0] = { ...allocation(), operatingDate: '2026-02-30' };
-  assert.deepEqual(validateEthnHours(input), conflict);
+  assert.deepEqual(validateEthnHours(input), ok);
   input.allocations[0] = { ...allocation(), courtId: 'missing' };
   assert.deepEqual(validateEthnHours(input), conflict);
 });

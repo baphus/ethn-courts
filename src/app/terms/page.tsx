@@ -17,7 +17,7 @@ const SECTIONS: { heading: string; body: string[] }[] = [
   {
     heading: "2. Times, availability, and prices",
     body: [
-      "You can book available times without creating an account. Times are shown in Philippine time. Available courts, slot length, minimum booking duration, and how far ahead you can book depend on the venue settings shown on the booking page.",
+      "You can book available times without creating an account. Available courts, slot length, minimum booking duration, and how far ahead you can book depend on the venue settings shown on the booking page.",
       "Court charges and any selected rentals are shown in your total. Review your court, times, and total before paying. If the price or booking details change during checkout, review and accept the updated total before proceeding.",
     ],
   },

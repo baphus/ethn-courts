@@ -1,5 +1,8 @@
 "use client";
 
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { FormSelect } from "@/components/ui/form-select";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import { toast } from "sonner";
 
@@ -88,11 +91,11 @@ export default function OwnerPayment() {
         <form onSubmit={save} className="space-y-4">
           {dialogError && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{dialogError}</p>}
           <fieldset disabled={saving || !!uncertain} className="space-y-4 disabled:opacity-70">
-            <label className="grid gap-1 text-sm font-medium">Method name<input autoFocus required maxLength={100} className="rounded-md border bg-background p-2" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
-            <label className="grid gap-1 text-sm font-medium">Payment instructions<textarea maxLength={4000} rows={4} className="rounded-md border bg-background p-2" value={form.instructions} onChange={e => { setForm({ ...form, instructions: e.target.value }); setQrAction("remove"); }} /></label>
-            <label className="grid gap-1 text-sm font-medium">Without a replacement image<select className="rounded-md border bg-background p-2" value={qrAction} onChange={e => setQrAction(e.target.value === "keep" ? "keep" : "remove")}><option value="keep">Keep existing QR</option><option value="remove">Save without a QR</option></select></label>
-            <label className="grid gap-1 text-sm font-medium">QR code (optional, JPG, PNG or WebP up to 1 MiB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />Available for online booking</label>
+            <label className="grid gap-1 text-sm font-medium">Method name<Input autoFocus required maxLength={100} className="rounded-md border bg-background p-2" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
+            <label className="grid gap-1 text-sm font-medium">Payment instructions<Textarea maxLength={4000} rows={4} value={form.instructions} onChange={e => { setForm({ ...form, instructions: e.target.value }); setQrAction("remove"); }} /></label>
+            <label className="grid gap-1 text-sm font-medium">Without a replacement image<FormSelect disabled={saving || !!uncertain} aria-label="Without a replacement image" value={qrAction} onValueChange={value => setQrAction(value === "keep" ? "keep" : "remove")} options={[{ value: "keep", label: "Keep existing QR" }, { value: "remove", label: "Save without a QR" }]} /></label>
+            <label className="grid gap-1 text-sm font-medium">QR code (optional, JPG, PNG or WebP up to 1 MiB)<Input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} /></label>
+            <label className="flex items-center gap-2 text-sm"><input className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />Available for online booking</label>
           </fieldset>
           <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => { setOpen(false); if (uncertain) void load(); }}>Cancel</Button><Button disabled={saving || uncertain} type="submit">{saving ? "Saving…" : "Save method"}</Button></div>
         </form>
