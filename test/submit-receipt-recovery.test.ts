@@ -13,7 +13,7 @@ test("retired submit cannot delete receipts or invoke legacy booking writes", ()
 
 test("ETHN submission replays committed result before proof preflight and checks locked deadline", () => {
   const replay = service.indexOf('SELECT fingerprint, result FROM ethn.idempotency');
-  const proof = service.indexOf('SELECT object_path, mime_type, byte_size, state FROM ethn.proof_reservations');
+  const proof = service.indexOf('SELECT state, object_path, mime_type, byte_size FROM ethn.proof_reservations');
   assert.ok(replay >= 0 && proof > replay);
   assert.ok(service.indexOf('FOR UPDATE') < service.indexOf('SELECT clock_timestamp() AS now'));
   assert.match(service, /now\.getTime\(\) < new Date\(booking\.expires_at\)\.getTime\(\)/);

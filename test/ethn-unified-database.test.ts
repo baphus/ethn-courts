@@ -46,19 +46,20 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   await bookingAction(pool,verify,booking.bookingId,'refund',refund);
   assert.equal((await admin.query('SELECT count(*)::int AS n FROM ethn.booking_refunds')).rows[0].n,1);
    const queued=async (id:string)=>(await pool.query('SELECT kind,payload FROM ethn.email_outbox WHERE booking_id=$1 ORDER BY kind',[id])).rows;
-   assert.deepEqual(await queued(booking.bookingId),['booking_approved','booking_refunded'].map(kind=>({kind,payload:{email:'guest@example.test',staff:true,total:'600.00'}})));
+    const ownerAlert=(source:string)=>({kind:'booking_owner_alert',payload:{ownerId:actor,source}});
+    assert.deepEqual(await queued(booking.bookingId),[{kind:'booking_approved',payload:{email:'guest@example.test',staff:true,total:'600.00'}},ownerAlert('internal'),{kind:'booking_refunded',payload:{email:'guest@example.test',staff:true,total:'600.00'}}]);
    assert.equal((await pool.query('SELECT guest_email FROM ethn.bookings WHERE id=$1',[booking.bookingId])).rows[0].guest_email,'guest@example.test');
   await bookingAction(pool,verify,booking.bookingId,'archive',{key:randomUUID()});
   const finance=await getFinance(pool,verify,null,null);
   assert.equal(finance.totals.other,'600.00');assert.equal(finance.totals.refunds,'600.00');assert.equal(finance.totals.net,'0.00');
   const noEmail=await createInternalBooking(pool,verify,{...input,guestEmail:null,ranges:[first],displayedTotal:'200.00',method:'cash',idempotencyKey:randomUUID()});
   await bookingAction(pool,verify,noEmail.bookingId,'cancel',{key:randomUUID(),reason:'No email on file'});
-  assert.deepEqual(await queued(noEmail.bookingId),[]);
+  assert.deepEqual(await queued(noEmail.bookingId),[ownerAlert('internal')]);
   const next=await createInternalBooking(pool,verify,{...input,ranges:[first],displayedTotal:'200.00',method:'cash',idempotencyKey:randomUUID()});
   const cancel={key:randomUUID(),reason:'Customer cancelled, payment retained'};
   await bookingAction(pool,verify,next.bookingId,'cancel',cancel);
   await bookingAction(pool,verify,next.bookingId,'cancel',cancel);
-  assert.deepEqual(await queued(next.bookingId),['booking_approved','booking_cancelled'].map(kind=>({kind,payload:{email:'guest@example.test',staff:true,total:'200.00'}})));
+  assert.deepEqual(await queued(next.bookingId),[...['booking_approved','booking_cancelled'].map(kind=>({kind,payload:{email:'guest@example.test',staff:true,total:'200.00'}})),ownerAlert('internal')]);
   assert.equal((await admin.query('SELECT status FROM ethn.payments WHERE booking_id=$1',[next.bookingId])).rows[0].status,'accepted');
   const ownerToken=randomUUID();
   const early={courtId:'2',start,end},late={courtId:'2',start:`${date}T02:00:00.000Z`,end:`${date}T03:00:00.000Z`};
@@ -71,16 +72,18 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   assert.equal(await releaseCheckout(pool,release),true);
   assert.equal(await releaseCheckout(pool,release),true);
   const checkout=await createCheckout(pool,onlineInput);
+   assert.deepEqual(await queued(checkout.checkoutId), []);
   assert.deepEqual(await createCheckout(pool,{...onlineInput,ranges:[early,late]}),checkout);
   const allocations=(await admin.query('SELECT a.starts_at,a.ends_at FROM ethn.court_allocations a JOIN ethn.booking_items i ON i.id=a.item_id WHERE i.booking_id=$1 AND a.state=$2 ORDER BY a.starts_at',[checkout.checkoutId,'held'])).rows;
   assert.deepEqual(allocations.map(a=>[a.starts_at.toISOString(),a.ends_at.toISOString()]),[[early.start,early.end],[late.start,late.end]]);
   await savePaymentMethod(pool,verify,{id:'metrobank',name:'Changed bank',instructions:'Changed account',enabled:false});
-  const proof=await reserveProof(pool,{ownerToken,checkoutId:checkout.checkoutId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
+  await savePaymentMethod(pool,verify,{id:'gcash',name:'GCash',instructions:'Backup payment method',enabled:true});
+   const proof=await reserveProof(pool,{ownerToken,checkoutId:checkout.checkoutId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
   await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()+interval '1 second' WHERE id=$1",[checkout.checkoutId]);
   let competitor: Promise<string> | undefined;
   const submitted=await submitBooking(pool,{inspect:async()=>{
    await admin.query('SELECT pg_sleep(1.1)');
-   competitor=createCheckout(pool,{...onlineInput,ownerToken:randomUUID(),idempotencyKey:randomUUID()}).then(()=> 'ACQUIRED',e=>e.message);
+    competitor=createCheckout(pool,{...onlineInput,ownerToken:randomUUID(),idempotencyKey:randomUUID()}).then(()=> 'ACQUIRED',e=>e.message);
    // Let the competing transaction reach the held booking while proof inspection is still in progress.
    await admin.query('SELECT pg_sleep(0.2)');
    return {bytes:10,mimeType:'image/png'};
@@ -93,8 +96,11 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
   await bookingAction(pool,verify,checkout.checkoutId,'refund',{key:randomUUID(),reason:'Internal note',reference:'External transfer'});
   const onlineNotices=await queued(checkout.checkoutId);
-  assert.deepEqual(onlineNotices.map(n=>n.kind),['booking_approved','booking_refunded','booking_submission']);
-  const [approved, refunded, submission]=onlineNotices;
+  assert.deepEqual(onlineNotices.map(n=>n.kind),['booking_approved','booking_owner_alert','booking_refunded','booking_submission']);
+  const [approved, alert, refunded, submission]=onlineNotices;
+   assert.deepEqual(alert, ownerAlert('online'));
+   const inbox = (await pool.query('SELECT recipient,title,body FROM ethn.notifications WHERE link=$1',[`/admin/bookings/${checkout.checkoutId}`])).rows;
+   assert.deepEqual(inbox, [{recipient:actor,title:'New booking',body:'A customer submitted a booking. Payment needs review.'}]);
   assert.match(submission.payload.trackingToken,/^[0-9a-f]{64}$/);
   assert.deepEqual(refunded.payload,{email:'test@example.test',total:'400.00',code:submission.payload.code,trackingToken:submission.payload.trackingToken});
   assert.equal(approved.payload.trackingToken,refunded.payload.trackingToken);

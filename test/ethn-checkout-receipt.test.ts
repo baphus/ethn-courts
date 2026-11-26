@@ -16,6 +16,7 @@ function poolReturning(rows: object[]) {
     assert.match(sql, /s\.operation='submission' AND s\.key=\$3/);
     assert.match(sql, /s\.result->>'checkoutId'=b\.id::text/);
     assert.match(sql, /WHERE b\.id=\$1 AND b\.owner_hash=\$2 AND b\.walk_in_actor IS NULL/);
+    assert.match(sql, /'durationMinutes', i\.duration_minutes,\s*'intervalMinutes', i\.interval_minutes/);
     assert.deepEqual(params, [input.checkoutId, createHash("sha256").update(input.ownerToken.toLowerCase()).digest("hex"), input.submitKey]);
     return { rows };
   } } as Pick<Pool, "query">;
@@ -23,10 +24,10 @@ function poolReturning(rows: object[]) {
 
 test("owned receipt returns live status and only intended receipt fields", async () => {
   const token = "a".repeat(64);
-  const items = [{ court: "Court 2", startsAt: "2026-11-24T15:00:00Z", endsAt: "2026-11-24T17:00:00Z", amount: "800.00" }];
-  const pool = poolReturning([{ booked: true, status: "confirmed", guest_name: "Test Guest", guest_email: "guest@example.test", guest_phone: "private", proof_id: "private", payment_method: "GCash", operating_date: "2026-11-24", total: "800.00", tracking_token: token, tracking_code: "ABCDE", items }]);
+  const items = [{ court: "Court 2", startsAt: "2026-11-24T15:00:00Z", endsAt: "2026-11-24T17:00:00Z", amount: "800.00", durationMinutes: 120, intervalMinutes: 30, hourlyRate: "400.00" }];
+  const pool = poolReturning([{ booked: true, open_play_saved: false, status: "confirmed", guest_name: "Test Guest", guest_email: "guest@example.test", guest_phone: "private", proof_id: "private", payment_method: "GCash", operating_date: "2026-11-24", total: "800.00", tracking_token: token, tracking_code: "ABCDE", items }]);
   assert.deepEqual(await readCheckoutReceipt(pool, input), {
-    booked: true, trackingToken: token, code: "ABCDE", receipt: { status: "confirmed", customerName: "Test Guest", maskedEmail: "g•••@example.test", operatingDate: "2026-11-24", total: "800.00", paymentMethod: "GCash", items },
+    booked: true, trackingToken: token, code: "ABCDE", openPlaySaved: false, receipt: { status: "confirmed", customerName: "Test Guest", maskedEmail: "g•••@example.test", operatingDate: "2026-11-24", total: "800.00", paymentMethod: "GCash", items },
   });
 });
 

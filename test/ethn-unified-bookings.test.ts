@@ -35,7 +35,7 @@ test('direct internal creation writes every court and one payment, or rolls back
  const client={async query(sql:string,args?:unknown[]){queries.push(sql);
   if(sql.startsWith('INSERT INTO ethn.email_outbox')) assert.deepEqual(JSON.parse(String(args?.[2])),{email:request.guestEmail,total:'500.00',staff:true});
   if(sql.startsWith('INSERT INTO ethn.court_allocations') && ++allocations === 2 && failSecond) throw Object.assign(new Error('overlap'),{code:'23P01'});
-  if(sql.includes('SELECT user_id'))return{rowCount:1,rows:[{user_id:'staff'}]};
+  if(sql.includes('SELECT user_id'))return{rowCount:1,rows:[{user_id:'00000000-0000-4000-8000-000000000001'}]};
   if(sql.startsWith('INSERT INTO ethn.idempotency'))return{rowCount:1,rows:[{key:'create-one'}]};
   if(sql.startsWith('SELECT fingerprint')){const {idempotencyKey:_,...payload}=validateInternalBooking(request);return{rows:[{fingerprint:createHash('sha256').update(JSON.stringify(payload)).digest('hex')}]};}
   if(sql.startsWith('SELECT version'))return{rows:[{version:'1',interval_minutes:30,minimum_minutes:30,anchor_minutes:420,horizon_days:30}]};
@@ -52,10 +52,11 @@ test('direct internal creation writes every court and one payment, or rolls back
  assert.equal(allocations,2);
  assert.equal(queries.filter(q=>q.startsWith('INSERT INTO ethn.payments')).length,1);
  assert.equal(queries.filter(q=>q.startsWith('INSERT INTO ethn.email_outbox')).length,1);
- assert.equal(queries.at(-1),'COMMIT');
+ assert.equal(queries.filter(q=>q.includes('INSERT INTO ethn.notifications') && q.includes("'booking_owner_alert'")).length,1);
+  assert.equal(queries.at(-1),'COMMIT');
  failSecond=true;allocations=0;queries.length=0;
  await assert.rejects(createInternalBooking({connect:async()=>client} as never,async()=>'00000000-0000-4000-8000-000000000001',request),/SLOT_TAKEN/);
- assert.ok(!queries.some(q=>q.startsWith('INSERT INTO ethn.payments') || q.startsWith('INSERT INTO ethn.email_outbox')));
+ assert.ok(!queries.some(q=>q.startsWith('INSERT INTO ethn.payments') || q.includes('INSERT INTO ethn.email_outbox')));
  assert.equal(queries.at(-1),'ROLLBACK');
 });
 

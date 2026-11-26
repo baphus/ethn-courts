@@ -23,13 +23,22 @@ export async function verifyStaffIdentity(): Promise<string | null> {
 }
 
 // Auth admin uses the same ETHN project as private Storage; no separate config.
-export async function authUserExists(userId: string): Promise<boolean> {
+async function getAuthUser(userId: string) {
   const url = process.env.ETHN_STORAGE_URL, key = process.env.ETHN_STORAGE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("STAFF_UNAVAILABLE");
   const { data, error } = await createAuthClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }).auth.admin.getUserById(userId);
-  if (data?.user) return true;
-  if (!error || error.status === 404 || error.code === "user_not_found") return false;
+  if (data?.user) return data.user;
+  if (!error || error.status === 404 || error.code === "user_not_found") return null;
   throw new Error("STAFF_UNAVAILABLE");
+}
+
+export async function authUserExists(userId: string): Promise<boolean> {
+  return !!(await getAuthUser(userId));
+}
+
+export async function getOwnerAlertEmail(userId: string): Promise<string | null> {
+  const user = await getAuthUser(userId);
+  return user?.id === userId && user.email_confirmed_at && !isDeactivated(user) ? user.email ?? null : null;
 }
 
 export const staffPool = { connect: () => getCheckoutPool().connect() };

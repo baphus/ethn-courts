@@ -33,7 +33,7 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
   const actor = await getStaff(pool, verify);
   const client = await pool.connect();
   let discardClient=false;
-  let result: { operatingDate: string; calendarDate: string; counts: Record<string, number>; periods: { current: number; prior: number; today: number }; recentBookings: ReturnType<typeof summary>[] };
+  let result: { operatingDate: string; calendarDate: string; counts: Record<string, number>; periods: { current: number; prior: number; today: number }; recentBookings: (ReturnType<typeof summary> & { slotCount: number })[] };
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const clock = (await client.query("SELECT clock_timestamp() AS now, anchor_minutes FROM ethn.settings WHERE singleton = true")).rows[0];
@@ -55,11 +55,14 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
       count(*) FILTER (WHERE operating_date = $1::date AND status = 'confirmed')::int AS today
       FROM ethn.bookings WHERE status <> 'held' AND operating_date BETWEEN $3::date AND $1::date`,
       [operatingDate, dashboardDateOffset(operatingDate, -14), dashboardDateOffset(operatingDate, -29)])).rows[0];
-    const recent = await client.query(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
-      (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
-      FROM ethn.bookings b WHERE ${visibleBooking} ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
+    const recent = await client.query<SummaryRow & { slot_count: number }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+      x.item_count, x.slot_count FROM ethn.bookings b CROSS JOIN LATERAL (
+        SELECT count(*)::int AS item_count, coalesce(sum(i.duration_minutes / i.interval_minutes), 0)::int AS slot_count
+        FROM ethn.booking_items i WHERE i.booking_id = b.id
+      ) x
+      WHERE ${visibleBooking} AND b.archived_at IS NULL ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
     await client.query("COMMIT");
-    result = { operatingDate, calendarDate: manilaDateStr(now), counts, periods, recentBookings: recent.rows.map(summary) };
+    result = { operatingDate, calendarDate: manilaDateStr(now), counts, periods, recentBookings: recent.rows.map(row => ({ ...summary(row), slotCount: row.slot_count })) };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
   if (actor.role !== "owner") return result;
@@ -153,16 +156,23 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
       FROM ethn.bookings b WHERE b.id = $1 AND ${visibleBooking}`, [id])).rows[0];
     if (!b) { await client.query("COMMIT"); return null; }
     const [items, payments] = await Promise.all([
-      client.query(`SELECT i.court_id::text, c.name AS court_name, i.starts_at, i.ends_at, i.duration_minutes, i.hourly_rate::text, i.amount::text
+      client.query(`SELECT i.court_id::text, c.name AS court_name, i.starts_at, i.ends_at, i.duration_minutes, i.hourly_rate::text, i.amount::text,
+        i.interval_minutes, false AS is_extension
         FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id WHERE i.booking_id = $1
-         UNION ALL SELECT ei.court_id::text,c.name,ei.starts_at,ei.ends_at,ei.duration_minutes,ei.hourly_rate::text,ei.amount::text FROM ethn.extension_items ei JOIN ethn.extensions e ON e.id=ei.extension_id JOIN ethn.courts c ON c.id=ei.court_id WHERE e.booking_id=$1 AND e.status='confirmed' ORDER BY starts_at`, [id]),
+        UNION ALL SELECT ei.court_id::text, c.name, ei.starts_at, ei.ends_at, ei.duration_minutes, ei.hourly_rate::text, ei.amount::text,
+        ei.interval_minutes, true FROM ethn.extension_items ei JOIN ethn.extensions e ON e.id = ei.extension_id
+        JOIN ethn.courts c ON c.id = ei.court_id WHERE e.booking_id = $1 AND e.status = 'confirmed' ORDER BY starts_at`, [id]),
       client.query(`SELECT p.id, p.method, p.status, p.claimed_amount::text, p.claimed_reference, p.received_at, p.verified_at,
-        p.collected_amount::text, p.accepted_reference, p.reviewed_at, p.review_reason,
+        p.collected_amount::text, p.accepted_reference, p.reviewed_at, p.review_reason, p.extension_id,
+        COALESCE(m.value->>'name', pm.name, CASE p.method WHEN 'cash' THEN 'Cash' WHEN 'gcash' THEN 'GCash' ELSE p.method END) AS method_name,
         EXISTS (SELECT 1 FROM ethn.proof_reservations r WHERE r.id = p.proof_id AND r.booking_id = p.booking_id AND r.owner_hash = b.owner_hash AND r.state = 'attached') AS "proofAvailable"
-        FROM ethn.payments p JOIN ethn.bookings b ON b.id = p.booking_id WHERE p.booking_id = $1 ORDER BY p.id`, [id]),
+        FROM ethn.payments p JOIN ethn.bookings b ON b.id = p.booking_id
+        LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(b.payment_methods_snapshot) WHERE value->>'id' = p.method LIMIT 1) m ON true
+        LEFT JOIN ethn.payment_methods pm ON pm.id = p.method WHERE p.booking_id = $1 ORDER BY p.id`, [id]),
     ]);
     await client.query("COMMIT");
-    return { id: b.id, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
+    const paymentMethod = [...new Set(payments.rows.filter(p => p.extension_id === null).map(p => p.method_name))].join(", ") || null;
+    return { id: b.id, paymentMethod, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
   } catch (error) { await client.query("ROLLBACK").catch(() => { discard = error instanceof Error ? error : new Error("DB_ERROR"); }); if (discard) (client as typeof client & { release(error?: Error): void }).release(discard); throw error; }
   finally { if (!discard) client.release(); }
 }

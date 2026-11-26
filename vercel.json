@@ -6,6 +6,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/ethn-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/outbox",
       "schedule": "5 2 * * *"
     },

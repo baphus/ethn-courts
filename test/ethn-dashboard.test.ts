@@ -20,14 +20,15 @@ test("staff dashboard excludes finance and bounds non-held booking periods", asy
     if (sql.includes("anchor_minutes")) return { rows: [{ now: new Date("2026-03-01T00:00:00Z"), anchor_minutes: 420 }] };
     if (sql.includes("AS held")) return { rows: [{ pending: 1 }] };
     if (sql.includes("AS current")) return { rows: [{ current: 3, prior: 2, today: 1 }] };
-    if (sql.includes("LIMIT 8")) return { rows: [] };
+    if (sql.includes("LIMIT 8")) return { rows: [{ id: actor, guest_name: "Guest", status: "confirmed", operating_date: "2026-03-01", created_at: new Date("2026-02-28T00:00:00Z"), total: "100.00", item_count: 1, slot_count: 4 }] };
     return { rows: [] };
   } }) };
   const data = await ethnDashboard(pool as never, async () => actor);
   assert.equal("finance" in data, false);
+  assert.equal(data.recentBookings[0].slotCount, 4);
   const periods = queries.find(q => q.sql.includes("AS current"))!;
   assert.match(periods.sql, /status <> 'held'/);
   assert.match(periods.sql, /operating_date = \$1::date AND status = 'confirmed'\)::int AS today/);
   assert.deepEqual(periods.args, ["2026-03-01", "2026-02-15", "2026-01-31"]);
-  assert.match(queries.find(q => q.sql.includes("LIMIT 8"))!.sql, /status NOT IN \('held', 'expired'\)/);
+  assert.match(queries.find(q => q.sql.includes("LIMIT 8"))!.sql, /status NOT IN \('held', 'expired'\) AND b\.archived_at IS NULL ORDER BY/);
 });

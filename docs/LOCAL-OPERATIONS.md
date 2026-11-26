@@ -12,7 +12,7 @@ All ETHN workers require an explicitly configured `CRON_SECRET`, including local
 
 - `/api/cron/ethn-outbox`: opt-in bounded email retry.
 - `/api/cron/ethn-operations`: bounded held-extension expiry and ended-confirmed-booking completion. Pending booking/payment review is never auto-approved. Pending extension evidence delays parent completion until staff decide it.
-- `/api/cron/ethn-inbox`: bounded recipient inbox reconciliation, deduplicated pending/urgent/late-evidence events.
+- New-booking inbox alerts are recorded with the booking; no inbox cron is needed.
 - `/api/cron/ethn-push`: optional push delivery/retry after VAPID configuration.
 
 Endpoint implementation does not provision a scheduler or prove latency/availability. Use bearer secret privately; never put it in query strings, source, screenshots or logs. Repeated delivery can occur after uncertain external-send outcomes. Inbox stays available if email or push fails.

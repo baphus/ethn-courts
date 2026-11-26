@@ -5,7 +5,7 @@ import { Copy, Download, ExternalLink, MapPin, QrCode } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { BookingStatusBadge } from "@/components/booking/booking-status";
 import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
-import { formatDisplayDate } from "@/lib/display-date";
+import { BookingInvoice } from "@/components/booking/ethn-booking-invoice";
 import { VENUE_ADDRESS, VENUE_FACEBOOK_LINK, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
 
 type Props = {
@@ -16,19 +16,17 @@ type Props = {
     operatingDate: string;
     total: string;
     paymentMethod: string;
-    items: { court: string; startsAt: string; endsAt: string; amount: string }[];
+    items: { court: string; startsAt: string; endsAt: string; amount: string; durationMinutes: number; intervalMinutes: number; hourlyRate: string }[];
   };
   trackingToken: string;
   code: string;
+  openPlaySaved?: boolean;
   onAnotherBooking: () => void;
 };
 
-const dateTime = (value: string) => new Intl.DateTimeFormat("en-PH", {
-  timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short",
-}).format(new Date(value));
 const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f28500]";
 
-export default function EthnBookingReceipt({ receipt, trackingToken, code, onAnotherBooking }: Props) {
+export default function EthnBookingReceipt({ receipt, trackingToken, code, openPlaySaved, onAnotherBooking }: Props) {
   const [url, setUrl] = useState("");
   const [feedback, setFeedback] = useState({ text: "", count: 0 });
   const qrRef = useRef<HTMLCanvasElement>(null);
@@ -69,16 +67,13 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, onAno
         <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-black tracking-tight outline-none sm:text-4xl">Request received.</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#405966]">Thank you, {receipt.customerName}. Keep this receipt to check your reservation status.</p>
         <div className="mt-5 flex flex-wrap items-center gap-2 text-sm"><span className="font-semibold">Current status:</span> <BookingStatusBadge state={receipt.status} /></div>
-        <p className="mt-3 text-sm"><a href="/track" className="font-semibold underline">Hosting an Open Play?</a> Use your tracking code and booking email to add a listing.</p>
+        <p className="mt-3 text-sm">{openPlaySaved === true ? "Open Play details saved. Your listing stays private until your booking is confirmed. " : openPlaySaved === false ? "Your booking request was received, but your Open Play listing could not be added because the court times no longer qualify. " : null}<a href="/track" className="font-semibold underline">{openPlaySaved === true ? "Manage your Open Play" : "Hosting an Open Play?"}</a> Use your tracking code and booking email.</p>
         {receipt.status.toLowerCase() === "pending" && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">Pending review. Your reservation is not yet confirmed; staff must verify your payment.</p>}
       </div>
     </section>
 
-    <div className="space-y-4"><section aria-labelledby="receipt-details" className="rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#dce5dc] pb-4"><h2 id="receipt-details" className="font-display text-xl font-bold">Booking details</h2><p className="text-sm text-[#405966]">Operating date · {formatDisplayDate(receipt.operatingDate)}</p></div>
-      <ul className="divide-y divide-[#e5ebe3]">{receipt.items.map((item, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-4"><div><p className="font-bold">{item.court}</p><p className="mt-1 text-sm leading-relaxed text-[#405966]">{dateTime(item.startsAt)} – {dateTime(item.endsAt)} <span className="whitespace-nowrap">(Manila time)</span></p></div><p className="font-semibold tabular-nums">₱{item.amount}</p></li>)}</ul>
-      <dl className="space-y-2 border-t border-[#dce5dc] pt-4 text-sm"><div className="flex justify-between gap-4"><dt className="text-[#405966]">Payment method</dt><dd className="text-right font-semibold">{receipt.paymentMethod}</dd></div><div className="flex justify-between gap-4"><dt className="text-[#405966]">Email</dt><dd className="break-all text-right font-semibold">{receipt.maskedEmail}</dd></div><div className="flex justify-between gap-4 pt-2 text-lg font-bold"><dt>Total</dt><dd className="tabular-nums">₱{receipt.total}</dd></div></dl>
-    </section>
+    <div className="space-y-4">
+      <BookingInvoice date={receipt.operatingDate} items={receipt.items} paymentMethod={receipt.paymentMethod} email={receipt.maskedEmail} total={receipt.total} />
 
     <section aria-labelledby="private-status" className="@container rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-5 shadow-sm sm:p-6">
       <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#e7f0e3] text-[#447244]"><QrCode className="size-5" aria-hidden="true" /></span><div><h2 id="private-status" className="text-xl font-bold">Your private status link</h2><p className="mt-1 text-sm leading-relaxed text-[#405966]">Scan to view your reservation status. This is not a check-in pass. Keep the QR and link private; do not share them widely.</p></div></div>

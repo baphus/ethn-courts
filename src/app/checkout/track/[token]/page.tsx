@@ -45,7 +45,6 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
           </div>
         )}
         <nav className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold text-pine" aria-label="Reservation navigation"><a className="underline underline-offset-4" href="/book">Book another court</a><a className="underline underline-offset-4" href="/">Back to homepage</a></nav>
-        <p className="mt-8 text-sm text-warm-muted">All times are local.</p>
       </div>
     </main>
   );

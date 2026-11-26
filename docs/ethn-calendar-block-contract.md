@@ -1,5 +1,11 @@
 # ETHN calendar and court-block contract
 
+## Shared event form — 2026-11-26
+
+- Court Setup **Add closure** and Calendar **Create event** use the same form. Court Setup offers closures only; Calendar also offers Open Play. Both let users select all active courts or choose individual courts and preview the time range before submitting.
+- Closures default to **Specific hours**. **Whole day(s)** blocks one continuous, inclusive date range from Manila midnight on the first day to Manila midnight after the last day. Use Specific hours to close the remainder of today if midnight has already passed. Open Play uses specific hours only.
+- Closing an edited form keeps its draft until a successful save or page exit. Existing validation, permissions, atomic multi-court saves, and uncertain-save retry safeguards still apply.
+
 ## Court Setup closure controls — 2026-11-24
 
 - `/admin/courts` lists upcoming and ongoing maintenance and private-use closures by Manila start date. Open Plays and history stay out of this list. It uses the existing block list (up to 50 rows before filtering by kind).
@@ -11,6 +17,11 @@
 - Closures add an exact `{courtIds,startsAt,endsAt,reason,kind}` POST variant with 1–100 distinct IDs, returning 201 `{blocks:[{id,courtId,startsAt,endsAt,reason,kind}]}`. Existing single-court request/response remains supported. All selected courts are checked and written in one transaction; any conflict rejects the whole submission. Each closure remains independently releasable through existing workflow.
 - Open Play reuses its existing atomic service and public listing: required title, optional description and informational fee defaulting to zero; no registration, capacity or payment collection. Existing opening-hours rules apply.
 - Success closes and resets the form and refreshes calendar; errors retain entries. Uncertain saves require checking refreshed calendar before retry. Owner/staff permissions, future/horizon rules and existing edit/remove workflows remain unchanged. No schema migration needed for this amendment.
+
+## Booking summaries — 2026-11-26
+
+- The existing owner calendar read includes optional `slotCount` on non-held booking allocations. It uses the booked duration and interval snapshot, not current venue settings. Blocks and held allocations omit it. Calendar access is unchanged.
+- Clicking a booking on the calendar opens the same embedded booking detail used by Unified Bookings, including its existing decision, outcome and payment controls. A saved action reloads the calendar. No new endpoints or permissions.
 
 ## Approved implementation contract — 2026-11-21
 

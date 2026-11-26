@@ -173,7 +173,7 @@ async function hero(pool: Db, verify: StaffVerifier, owner: boolean) {
     const [priorFrom, priorTo] = priorEquivalent(operatingDate);
     const row = (await client.query(`SELECT count(*) FILTER (WHERE operating_date >= $1::date)::int AS current,
       count(*) FILTER (WHERE operating_date BETWEEN $3::date AND $4::date)::int AS prior
-      FROM ethn.bookings WHERE status <> 'held' AND operating_date BETWEEN $3::date AND $2::date`, [`${operatingDate.slice(0, 7)}-01`, operatingDate, priorFrom, priorTo])).rows[0];
+      FROM ethn.bookings WHERE status IN ('confirmed', 'completed') AND operating_date BETWEEN $3::date AND $2::date`, [`${operatingDate.slice(0, 7)}-01`, operatingDate, priorFrom, priorTo])).rows[0];
     return { operatingDate, calendarDate, bookings: { month: Number(row.current), priorMonthToDate: Number(row.prior) } };
   });
   if (!owner) return base;

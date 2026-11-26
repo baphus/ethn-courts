@@ -1,21 +1,20 @@
 import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
-import { toIso } from "../calendar/date-utils";
+import { eventRange } from "../event-range";
 
 const endpoint = "/api/ethn/admin/blocks";
 type Kind = "maintenance" | "private";
 export type ClosureBlock = { id: string; courtName: string; startsAt: string; endsAt: string; kind: Kind; reason: string };
 type Court = { id: string; name: string; active: boolean };
-type ClosureInput = { courtIds: string[]; kind: Kind; reason: string; startDate: string; startTime: string; endDate: string; endTime: string };
+type ClosureInput = { courtIds: string[]; kind: Kind; reason: string; startDate: string; startTime: string; endDate: string; endTime: string; timing: "hours" | "days" };
 
 export function closurePayload(input: ClosureInput, courts: Court[]) {
   const { courtIds, kind } = input;
   const reason = input.reason.trim();
-  const startsAt = toIso(input.startDate, input.startTime);
-  const endsAt = toIso(input.endDate, input.endTime);
+  const range = eventRange({ ...input, eventType: "closure" });
   if (!courtIds.length || courtIds.some(id => !courts.some(court => court.id === id && court.active))) throw new Error("Select at least one active court.");
-  if (!startsAt || !endsAt || endsAt <= startsAt || !reason || reason.length > 500) throw new Error("Enter a reason and valid times. End must be after start.");
-  return { courtIds, kind, reason, startsAt, endsAt };
+  if (!range || !reason || reason.length > 500) throw new Error("Enter a reason and valid times. End must be after start.");
+  return { courtIds, kind, reason, ...range };
 }
 
 function closureError(status: number) {

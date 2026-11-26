@@ -108,6 +108,10 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
 
     const detail = await ethnBookingDetail(pool, async () => staff, overduePending);
     assert.ok(detail);
+    assert.equal(detail.items[0].durationMinutes, 60);
+    assert.equal(detail.items[0].intervalMinutes, 30);
+    assert.equal(detail.items[0].isExtension, false);
+    assert.equal(detail.paymentMethod, "GCash");
     assert.equal(detail.payments[0].claimedAmount, "100.00");
     const reviewedAt = detail.payments[0].reviewedAt;
     assert.ok(typeof reviewedAt === "string");

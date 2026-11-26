@@ -6,9 +6,9 @@ import { maskEmail } from "./redact";
 const uuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 export const receiptInput = z.object({ ownerToken: uuid, checkoutId: uuid, submitKey: uuid }).strict();
 
-type ReceiptItem = { court: string; startsAt: string; endsAt: string; amount: string };
+type ReceiptItem = { court: string; startsAt: string; endsAt: string; amount: string; durationMinutes: number; intervalMinutes: number; hourlyRate: string };
 export type CheckoutReceipt = { booked: false; checkoutId: string } | {
-  booked: true; trackingToken: string; code: string;
+  booked: true; trackingToken: string; code: string; openPlaySaved?: boolean;
   receipt: { status: string; customerName: string; maskedEmail: string; operatingDate: string; total: string; paymentMethod: string; items: ReceiptItem[] };
 };
 
@@ -18,10 +18,11 @@ export async function readCheckoutReceipt(pool: Pick<Pool, "query">, input: z.in
   const { rows: [row] } = await pool.query(`
     SELECT b.id, b.status, b.guest_name, b.guest_email, b.operating_date::text, b.total::text,
       b.tracking_code, s.result->>'trackingToken' AS tracking_token,
-      s.result->'booked' = 'true'::jsonb AS booked,
+      s.result->'booked' = 'true'::jsonb AS booked, s.result->'openPlaySaved' AS open_play_saved,
       COALESCE(m.value->>'name', p.method) AS payment_method,
       (SELECT jsonb_agg(jsonb_build_object('court', c.name, 'startsAt', i.starts_at,
-        'endsAt', i.ends_at, 'amount', i.amount::text) ORDER BY i.starts_at, c.name)
+        'endsAt', i.ends_at, 'amount', i.amount::text, 'durationMinutes', i.duration_minutes,
+         'intervalMinutes', i.interval_minutes, 'hourlyRate', i.hourly_rate::text) ORDER BY i.starts_at, c.name)
         FROM ethn.booking_items i JOIN ethn.courts c ON c.id=i.court_id WHERE i.booking_id=b.id) AS items
     FROM ethn.bookings b
     JOIN ethn.idempotency s ON s.owner_hash=b.owner_hash AND s.operation='submission' AND s.key=$3
@@ -32,7 +33,7 @@ export async function readCheckoutReceipt(pool: Pick<Pool, "query">, input: z.in
   `, [checkoutId.toLowerCase(), ownerHash, submitKey]);
   if (!row) return null;
   if (!row.booked) return { booked: false, checkoutId: row.id };
-  return { booked: true, trackingToken: row.tracking_token, code: row.tracking_code, receipt: {
+  return { booked: true, trackingToken: row.tracking_token, code: row.tracking_code, ...(typeof row.open_play_saved === "boolean" ? { openPlaySaved: row.open_play_saved } : {}), receipt: {
     status: row.status, customerName: row.guest_name, maskedEmail: maskEmail(row.guest_email),
     operatingDate: row.operating_date, total: row.total, paymentMethod: row.payment_method, items: row.items ?? [],
   } };

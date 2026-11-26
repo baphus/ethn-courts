@@ -33,7 +33,7 @@ export function summarize(data: Availability, date: string, selection: Selection
     const available = !!court && hours.every(h => !!cellWindow(court, h, now, data.settings.intervalMinutes));
     const eligible = !!window && validateRanges(date, new Date(now), data.settings.anchorMinutes, data.settings.intervalMinutes, data.settings.minimumMinutes, data.settings.horizonDays, [{ courtId, start: new Date(start), end: new Date(end), opens: new Date(window.opensAt), closes: new Date(window.closesAt) }]);
     let cents: bigint | null = null; try { if (window?.hourlyRate) cents = priceItems([{ rate: window.hourlyRate, minutes: hours.length * 60 }]); } catch { /* invalid rate */ }
-    return { courtId, name: court?.name || courtId, start, end, hours, available, eligible, cents };
+    return { courtId, name: court?.name || courtId, start, end, hours, available, eligible, cents, hourlyRate: window?.hourlyRate ?? undefined };
   }).sort((a, b) => a.courtId.localeCompare(b.courtId));
 }
 export function money(cents: bigint) { return `${cents / BigInt(100)}.${String(cents % BigInt(100)).padStart(2, "0")}`; }

@@ -16,8 +16,7 @@ type SidebarCounts = { pendingBookings: number; unreadNotifications: number };
 const SidebarActivity = createContext<{
   counts: SidebarCounts | null;
   refreshCounts: () => Promise<void>;
-  syncInbox: () => Promise<void>;
-}>({ counts: null, refreshCounts: async () => {}, syncInbox: async () => {} });
+}>({ counts: null, refreshCounts: async () => {} });
 export const useSidebarActivity = () => useContext(SidebarActivity);
 
 export default function AdminShell({ email, name, children }: Props) {
@@ -39,36 +38,21 @@ export default function AdminShell({ email, name, children }: Props) {
     finally { if (request.current === controller) request.current = null; }
   }, []);
 
-  const reconciliation = useRef<{ controller: AbortController; done: Promise<void> } | null>(null);
-  const syncInbox = useCallback(() => {
-    if (reconciliation.current) return reconciliation.current.done;
-    // Use existing reconciliation when the inbox cron isn't scheduled.
-    const controller = new AbortController();
-    const done = fetch("/api/ethn/admin/notifications/reconcile", { method: "POST", signal: controller.signal })
-      .catch(() => null)
-      .then(() => { if (!controller.signal.aborted) return refreshCounts(); })
-      .finally(() => { if (reconciliation.current?.controller === controller) reconciliation.current = null; });
-    reconciliation.current = { controller, done };
-    return done;
-  }, [refreshCounts]);
-
   useEffect(() => {
-    const sync = () => { if (!document.hidden) void syncInbox(); };
+    const sync = () => { if (!document.hidden) void refreshCounts(); };
     sync();
     const interval = window.setInterval(sync, 60_000);
     window.addEventListener("focus", sync);
     document.addEventListener("visibilitychange", sync);
     return () => {
-      reconciliation.current?.controller.abort();
-      reconciliation.current = null;
       request.current?.abort();
       window.clearInterval(interval);
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
     };
-  }, [syncInbox]);
+  }, [refreshCounts]);
 
-  return <SidebarActivity.Provider value={{ counts, refreshCounts, syncInbox }}><TooltipProvider>
+  return <SidebarActivity.Provider value={{ counts, refreshCounts }}><TooltipProvider>
     <NextTopLoader color="var(--primary)" showSpinner={false} />
     <SidebarProvider className="admin-shell-canvas" style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
       <div data-admin-shell className="contents">

@@ -5,7 +5,7 @@ export type DashboardOverview = {
   calendarDate: string;
   counts: { pending: number; confirmed: number; completed: number; expired: number; pendingReviewOverdue: number };
   periods: { current: number; prior: number; today: number };
-  recentBookings: BookingSummary[];
+  recentBookings: (BookingSummary & { slotCount: number })[];
   finance?: { current: string; prior: string; month: { collected: string; expenses: string; net: string } };
 };
 

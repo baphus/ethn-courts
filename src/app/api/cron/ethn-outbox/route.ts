@@ -1,5 +1,6 @@
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { getCheckoutPool } from "@/db/checkout-client";
+import { getOwnerAlertEmail } from "@/lib/admin/ethn-staff-server";
 import { getSharedTransport } from "@/lib/mail/transport";
 import { drainEthnBackstop, ethnBackstopConfig } from "@/lib/mail/ethn-backstop";
 
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   const config = ethnBackstopConfig(process.env);
   if (!config || (!process.env.SMTP_HOST && !(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD))) return Response.json({ ok: false }, { status: 503 });
   try {
-    const result = await drainEthnBackstop(getCheckoutPool(), getSharedTransport(), config);
+    const result = await drainEthnBackstop(getCheckoutPool(), getSharedTransport(), { ...config, ownerEmail: getOwnerAlertEmail });
     return Response.json({ ok: true, ...result });
   } catch {
     console.error("ETHN outbox backstop unavailable");

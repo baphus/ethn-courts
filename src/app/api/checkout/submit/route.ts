@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { sendEthnMailBestEffort } from "@/lib/mail/ethn-hook-server";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { submitBooking } from "@/lib/booking/submission";
+import { openPlayDetails } from "@/lib/booking/ethn-tracking";
 import { proofStorage } from "@/lib/booking/proof-storage";
 import { gcashReference, validateGuest } from "@/lib/booking/core";
 
@@ -17,6 +18,7 @@ const bodySchema = z.object({
   idempotencyKey: z.string().regex(/^[\x21-\x7e]{1,200}$/),
   customer: z.object({ name: z.string().max(200), email: z.string().max(254), phone: z.string().max(50) }).strict(),
   paymentMethodId: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/), reference: z.string().max(200).optional(), claimedAmount: amount.optional(), acknowledgedTotal: amount.optional(),
+  openPlay: openPlayDetails.optional(),
 }).strict();
 const fail = (error: string, status: number) => Response.json({ error }, { status });
 

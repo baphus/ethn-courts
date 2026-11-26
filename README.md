@@ -16,7 +16,7 @@ npm run build
 
 Availability needs `ETHN_DATABASE_URL` for a restricted `ethn_checkout` login, not a postgres, owner, or migration credential. Remote database connections require verified TLS using `ETHN_DATABASE_CA_FILE`; the explicit local exception is for development/test loopback only. Browser Auth and private Storage must use the same ETHN Supabase project. Keep `ETHN_STORAGE_SERVICE_ROLE_KEY` server-only. See `.env.example` for configuration; legacy variable names there are not active ETHN fallbacks.
 
-Mail is opt-in (`ETHN_MAIL_ENABLED`); configure sender, origin and transport deliberately. `GET /api/cron/ethn-outbox` requires `CRON_SECRET`, but no scheduler is provisioned. See `docs/ethn-mail.md`.
+Mail is opt-in (`ETHN_MAIL_ENABLED`); configure sender, origin and transport deliberately. `GET /api/cron/ethn-outbox` requires `CRON_SECRET`; a Vercel schedule is configured but deployment and delivery must be verified. See `docs/ethn-mail.md`.
 
 ## First owner setup
 

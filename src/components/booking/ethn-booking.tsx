@@ -14,6 +14,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { checkoutFailure, holdExpiry } from "./checkout-feedback";
+import { BookingInvoice } from "@/components/booking/ethn-booking-invoice";
 import EthnBookingReceipt from "./ethn-booking-receipt";
 import type { CheckoutReceipt } from "@/lib/booking/ethn-receipt";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Clock3, CreditCard, Download, Image as ImageIcon } from "lucide-react";
@@ -27,11 +28,14 @@ import { VENUE_ADDRESS, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
 
 type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
 type Checkout = { checkoutId: string; total: string; expiresAt: string; intervalMinutes?: number; paymentMethods?: {id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[]; acknowledgementRequired: boolean; items: { courtId: string; start: string; end: string; rate: string; minutes: number; amount: string }[] };
-type Progress = { name: string; email: string; phone: string; reference: string; methodId: string; ack: boolean };
-const emptyProgress: Progress = { name: "", email: "", phone: "", reference: "", methodId: "", ack: false };
+type OpenPlay = { title: string; description: string; eventUrl: string };
+type Progress = { name: string; email: string; phone: string; reference: string; methodId: string; ack: boolean; openPlayEnabled: boolean; openPlay: OpenPlay };
+const reclubMeet = /^https:\/\/reclub\.co\/m\/[A-Za-z0-9_-]+$/;
+const validOpenPlay = ({ title, description, eventUrl }: OpenPlay) => Boolean(title.trim()) && title.trim().length <= 100 && description.length <= 500 && !title.includes("\0") && !description.includes("\0") && eventUrl.trim().length <= 256 && reclubMeet.test(eventUrl.trim());
+const emptyProgress: Progress = { name: "", email: "", phone: "", reference: "", methodId: "", ack: false, openPlayEnabled: false, openPlay: { title: "", description: "", eventUrl: "" } };
 type Draft = { owner: string; checkout: Checkout; date: string; progress?: Progress; releaseRequested?: boolean; reservationId?: string; uploaded?: boolean; proofFile?: string; proofKey?: string; submitHash?: string; submitKey?: string };
 type ReceiptRef = { checkoutId: string; submitKey: string };
-type Result = CheckoutReceipt | { booked: true; trackingToken: string; code: string };
+type Result = CheckoutReceipt | { booked: true; trackingToken: string; code: string; openPlaySaved?: boolean };
 const STORAGE = "ethn-checkout-v1";
 const OWNER = "ethn-owner-v1";
 const RECEIPT = "ethn-checkout-receipt-v1";
@@ -118,7 +122,9 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const [draft, setDraft] = useState<Draft | null>(null);
   const [restored, setRestored] = useState(false);
   const [progress, setProgress] = useState(emptyProgress);
-  const { name, email, phone, reference, methodId, ack } = progress;
+  const [openPlayInfo, setOpenPlayInfo] = useState(false);
+  const [openPlayError, setOpenPlayError] = useState("");
+  const { name, email, phone, reference, methodId, ack, openPlayEnabled, openPlay } = progress;
   const [now, setNow] = useState(0);
   const [clockReady, setClockReady] = useState(false);
   const [feedback, setFeedback] = useState({ message: "", toasted: false });
@@ -248,7 +254,6 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   const nextDate = validDate(chosenDate) ? addDays(chosenDate, 1) : "";
 
   const selectionSlots = gridSlotCount(ranges.reduce((minutes, range) => minutes + rangeMinutes(range), 0), availability?.settings.intervalMinutes);
-  const checkoutSlots = draft && gridSlotCount(draft.checkout.items.reduce((minutes, item) => minutes + item.minutes, 0), draft.checkout.intervalMinutes);
   const validRanges = availability && ranges.length > 0 && ranges.length <= 100 && ranges.every(r => Date.parse(r.end) - Date.parse(r.start) >= availability.settings.minimumMinutes * 60_000 && Date.parse(r.start) >= now);
   let total = "0.00";
   try { if (ranges.length) total = pesos(priceItems(ranges.map(r => ({ rate: r.rate, minutes: (Date.parse(r.end) - Date.parse(r.start)) / 60_000 })))); } catch { total = ""; }
@@ -271,6 +276,22 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     if (outcome === "already-submitted") toast.info("This checkout was already submitted.");
     else if (outcome === "rejected") toast.error(`${action} was not accepted. See details below.`);
     else toast.warning(`Could not confirm ${action.toLowerCase()}. See details below.`);
+  }
+
+  function reviewSelection() {
+    if (openPlayEnabled) {
+      const orderedRanges = [...ranges].sort((a, b) => a.courtId.localeCompare(b.courtId) || a.start.localeCompare(b.start));
+      const windows = new Map<string, { start: string; end: string }>();
+      const continuous = orderedRanges.every(range => {
+        const window = windows.get(range.courtId);
+        if (window && window.end !== range.start) return false;
+        windows.set(range.courtId, { start: window?.start ?? range.start, end: range.end });
+        return true;
+      }) && new Set(Array.from(windows.values(), window => `${window.start}/${window.end}`)).size === 1;
+      if (!continuous) { setOpenPlayError("Open Plays need one continuous time shared by every selected court. Turn off Open Play or change your selection."); return; }
+      if (!validOpenPlay(openPlay)) { setOpenPlayError("Enter an Open Play title and a direct Reclub event link. Notes are optional (up to 500 characters)."); return; }
+    }
+    setOpenPlayError(""); setError(""); setReviewing(true);
   }
 
   async function beginCheckout() {
@@ -349,7 +370,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     if (!validateGuest({ kind: "online", name, email, phone }) || !checkoutMethods?.some(m => m.id === methodId)) { setError("Enter your contact details and choose a payment method."); return; }
     lock.current = true; setBusy(true); setError("");
     try {
-      const payload = { ownerToken: draft.owner, checkoutId: draft.checkout.checkoutId, reservationId: draft.reservationId, customer: { name: name.trim(), email: email.trim(), phone: phone.trim() }, paymentMethodId: methodId, ...(reference.trim() ? { reference: reference.trim() } : {}), ...(draft.checkout.acknowledgementRequired ? { acknowledgedTotal: draft.checkout.total } : {}) };
+      const payload = { ownerToken: draft.owner, checkoutId: draft.checkout.checkoutId, reservationId: draft.reservationId, customer: { name: name.trim(), email: email.trim(), phone: phone.trim() }, paymentMethodId: methodId, ...(reference.trim() ? { reference: reference.trim() } : {}), ...(draft.checkout.acknowledgementRequired ? { acknowledgedTotal: draft.checkout.total } : {}), ...(openPlayEnabled ? { openPlay: { title: openPlay.title.trim(), description: openPlay.description, eventUrl: openPlay.eventUrl.trim() } } : {}) };
+      if (openPlayEnabled && !validOpenPlay(openPlay)) { setError("Enter an Open Play title and a direct Reclub event link. Notes are optional (up to 500 characters)."); return; }
       const hash = await digest(JSON.stringify(payload));
       const key = draft.submitHash === hash && draft.submitKey ? draft.submitKey : crypto.randomUUID();
       save({ ...draft, submitHash: hash, submitKey: key });
@@ -469,7 +491,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       })}
     </ol>}
     {bookingPage && (receiptRef || result) ? (
-      result?.booked && "receipt" in result ? <EthnBookingReceipt receipt={result.receipt} trackingToken={result.trackingToken} code={result.code} onAnotherBooking={anotherBooking} /> :
+      result?.booked && "receipt" in result ? <EthnBookingReceipt receipt={result.receipt} trackingToken={result.trackingToken} code={result.code} openPlaySaved={result.openPlaySaved} onAnotherBooking={anotherBooking} /> :
         <section className="mx-auto w-full max-w-3xl space-y-3 rounded-2xl border bg-white p-6 text-ink">
           {result && !result.booked ? <>
             <h2 className="text-xl font-bold">Not booked</h2>
@@ -490,7 +512,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-2"><h2 className="font-display text-3xl font-bold text-[#17252e]">Payment &amp; proof</h2><p className="rounded-lg border border-[#f2d8b4] bg-[#fff0dc] px-4 py-3 text-sm font-bold text-[#8a4a00]">{!clockReady ? "Time unavailable; refresh availability" : expired ? "Hold expired" : `Hold remaining ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}</p></div>
       <div className="min-w-0 space-y-4 lg:col-start-2 lg:row-start-2">{restored && <p className="rounded-lg bg-[#edf3e8] p-3 text-sm">Checkout restored in this tab. Refreshing does not reset your hold timer. If you already paid, do not pay again.</p>}
       {!clockReady && <Button variant="outline" className="public-cta-secondary mx-auto flex" disabled={loading} onClick={() => void load()}>Refresh server time</Button>}
-      <div className="space-y-3"><p className="text-sm font-semibold text-[#17252e]">Booking date: {formatDisplayDate(draft.date)}{checkoutSlots != null && ` · ${slotLabel(checkoutSlots)} selected`}</p><ul className="space-y-2">{draft.checkout.items.map((item, i) => <li key={i} className="flex items-start justify-between gap-4 rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><div className="min-w-0"><strong className="text-[#17252e]">{availability?.courts.find(c => c.id === item.courtId)?.name ?? `Court ${item.courtId}`}</strong><p className="mt-1 text-[#17252e]"><time dateTime={item.start}>{manilaDateStr(new Date(item.start)) !== draft.date && `${formatDisplayDate(manilaDateStr(new Date(item.start)))} · `}{formatTime(Date.parse(item.start))}</time> – <time dateTime={item.end}>{manilaDateStr(new Date(item.end)) !== draft.date && `${formatDisplayDate(manilaDateStr(new Date(item.end)))} · `}{formatTime(Date.parse(item.end))}</time>{slotDetail(item.minutes, draft.checkout.intervalMinutes)}</p></div><strong className="shrink-0 text-right tabular-nums text-[#17252e]">{money(item.amount)}</strong></li>)}</ul><div className="flex justify-between gap-4 border-t border-[#d5e2ce] pt-4 font-bold text-[#17252e]"><span>Total due</span><span className="shrink-0 tabular-nums">{money(draft.checkout.total)}</span></div></div>
+      <BookingInvoice heading="Booking summary" date={draft.date} total={draft.checkout.total} totalLabel="Total due" items={draft.checkout.items.map(item => ({ court: availability?.courts.find(c => c.id === item.courtId)?.name ?? `Court ${item.courtId}`, startsAt: item.start, endsAt: item.end, durationMinutes: item.minutes, intervalMinutes: draft.checkout.intervalMinutes, hourlyRate: item.rate, amount: item.amount }))} />
       </div><div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2">{draft.checkout.acknowledgementRequired && <label className="flex gap-2 rounded-lg border border-primary p-4 text-sm"><input type="checkbox" checked={ack} disabled={busy || draft.releaseRequested} onChange={e => updateProgress({ ack: e.target.checked })} /><span>Price or settings changed. I acknowledge the updated total of {money(draft.checkout.total)}.</span></label>}
       {draft.releaseRequested && <p role="status" className="rounded-lg bg-[#edf3e8] p-4 text-sm">Release not confirmed yet. Retry leaving checkout. Do not send another payment.</p>}
       {clockReady && !expired && !draft.releaseRequested && <p className="text-sm">Pay, upload your screenshot, and submit it before the hold timer ends. If you don’t have enough time to finish, don’t send payment.</p>}
@@ -522,11 +544,11 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <div className="flex flex-wrap justify-center gap-3 border-t border-[#d5e2ce] pt-5"><Button className="public-cta-primary" disabled={busy || draft.releaseRequested || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => void leaveCheckout()}>{draft.releaseRequested ? "Retry leaving checkout" : "Leave checkout"}</Button></div>
     </div></section> : bookingPage && reviewing && availability ? <form className="mx-auto grid w-full max-w-6xl gap-4 rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-4 shadow-sm sm:p-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]" onSubmit={e => { e.preventDefault(); void beginCheckout(); }}>
       <div className="lg:col-span-2"><h2 ref={reviewHeading} tabIndex={-1} className="font-display text-3xl font-bold text-[#447244] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Review your selection</h2><p className="mt-2 text-sm text-[#405966]">Your times are not held yet. Confirm below to hold them while you complete payment.</p></div>
-      <div className="space-y-3 lg:col-start-2 lg:row-start-2"><p className="text-sm font-semibold text-[#405966]">Booking date: {formatDisplayDate(chosenDate)}{selectionSlots !== undefined && ` · ${slotLabel(selectionSlots)} selected`}</p>
-      <ul className="space-y-2">{ranges.map(r => <li key={`${r.courtId}:${r.start}`} className="flex items-start justify-between gap-4 rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><div className="min-w-0"><strong className="text-[#294d2e]">{availability.courts.find(c => c.id === r.courtId)?.name}</strong><p className="mt-1 text-[#405966]"><time dateTime={r.start}>{manilaDateStr(new Date(r.start)) !== chosenDate && `${formatDisplayDate(manilaDateStr(new Date(r.start)))} · `}{formatTime(Date.parse(r.start))}</time> – <time dateTime={r.end}>{manilaDateStr(new Date(r.end)) !== chosenDate && `${formatDisplayDate(manilaDateStr(new Date(r.end)))} · `}{formatTime(Date.parse(r.end))}</time>{slotDetail(rangeMinutes(r), availability.settings.intervalMinutes)}</p></div><strong className="shrink-0 text-right tabular-nums text-[#294d2e]">{money(r.rate)} /hr</strong></li>)}</ul>
-      <div className="flex justify-between gap-4 border-t border-[#d5e2ce] pt-4 font-bold text-[#294d2e]"><span>Estimated total</span><span className="shrink-0 tabular-nums">{total ? money(total) : "Unavailable"}</span></div>
+      <div className="space-y-3 lg:col-start-2 lg:row-start-2">{total ? <BookingInvoice heading="Booking summary" date={chosenDate} total={total} totalLabel="Estimated total" items={ranges.map(r => ({ court: availability.courts.find(c => c.id === r.courtId)?.name ?? r.courtId, startsAt: r.start, endsAt: r.end, durationMinutes: rangeMinutes(r), intervalMinutes: availability.settings.intervalMinutes, hourlyRate: r.rate, amount: pesos(priceItems([{ rate: r.rate, minutes: rangeMinutes(r) }])) }))} /> : <p className="text-sm text-[#405966]">Booking price unavailable.</p>}
+
       <p className="text-xs text-[#405966]">Final amount confirmed at checkout.</p></div>
       <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2"><div className="rounded-xl border border-[#d5e2ce] bg-white p-4 sm:p-5"><h3 className="mb-3 text-lg font-bold text-[#294d2e]">Your contact details</h3><div className="text-left [&_input]:min-h-11 [&_input]:border-[#a7c5a0] [&_input]:bg-white [&_label]:text-[#294d2e]">{contactFields}</div></div>
+
       {!validRanges && <p role="status" className="text-sm text-destructive">Selected times are no longer valid. Return to slots and choose again.</p>}
       <div className="flex flex-wrap gap-3"><Button type="submit" className="public-cta-primary" disabled={busy || !clockReady || !availability.configured || !validRanges || !total}>{busy ? "Starting checkout…" : "Confirm and hold"}</Button><Button type="button" variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => { setReviewing(false); setError(""); requestAnimationFrame(() => document.getElementById("court-availability")?.focus()); }}>Back to slots</Button></div>
     </div></form> : <div className={`grid items-start gap-4 ${ranges.length ? "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,23rem)]" : ""}`}><section className={`min-w-0 space-y-3 ${card}`}>
@@ -546,6 +568,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       {loading ? <LoadingAnimation label="Loading availability" className="py-6" /> : !availability ? <div className="space-y-3"><p className="text-sm">Availability is unavailable.</p><Button className="public-cta-primary" onClick={() => void load(chosenDate || undefined)}>Retry availability</Button></div> : !chosenDate ? <p className="rounded-lg bg-[#edf3f5] p-4 text-sm text-[#405966]">Choose a date to see available times.</p> : <>{!availability.configured && <p className="rounded-lg bg-muted p-4 text-sm">{availability.message || "Booking and payment are not configured yet."}</p>}{(availability.courts.length === 0 || availability.courts.every(c => c.windows.length === 0)) && <p className="py-6 text-sm text-muted-foreground">Courts are closed on this date.</p>}
       {availability.courts.some(c => c.windows.length > 0) && gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).length === 0 && <p role="status" className="py-4 text-sm text-[#405966] text-center"><EmptyIcon /> No upcoming slots for this date.</p>}
       {bookingPage && ranges.length === 0 && <p className="text-sm font-medium text-[#405966]">0 slots selected</p>}
+      {bookingPage && <section className="rounded-xl border border-[#d5e2ce] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><label className="flex min-h-11 cursor-pointer items-center gap-3 font-semibold text-[#294d2e]"><input type="checkbox" checked={openPlayEnabled} disabled={busy} onChange={e => { setOpenPlayError(""); updateProgress({ openPlayEnabled: e.target.checked }); }} className="size-5 accent-[#447244]" />Hosting an Open Play?</label><button type="button" aria-label="About public Open Plays" aria-expanded={openPlayInfo} aria-controls="open-play-info" onClick={() => setOpenPlayInfo(value => !value)} className="grid size-11 shrink-0 place-items-center rounded-full text-[#447244] hover:bg-[#edf3e8] focus-visible:outline-2 focus-visible:outline-[#447244]">ⓘ</button></div><p hidden={!openPlayInfo} id="open-play-info" className="mt-2 rounded-lg bg-[#edf3e8] p-3 text-sm text-[#405966]">After your booking is confirmed, we’ll publish this Open Play on our site so other players can find and join it via Reclub. Notes are public. Do not include contact or payment details. You can edit the listing later with your tracking code and booking email.</p>{openPlayEnabled && <div className="mt-4 grid gap-3"><label className={field}>Open Play title<Input required maxLength={100} value={openPlay.title} disabled={busy} onChange={e => updateProgress({ openPlay: { ...openPlay, title: e.target.value } })} /></label><label className={field}>Reclub event link<Input required type="url" maxLength={256} placeholder="https://reclub.co/m/..." value={openPlay.eventUrl} disabled={busy} onChange={e => updateProgress({ openPlay: { ...openPlay, eventUrl: e.target.value } })} /></label><label className={field}>Public notes<textarea maxLength={500} rows={3} value={openPlay.description} disabled={busy} onChange={e => updateProgress({ openPlay: { ...openPlay, description: e.target.value } })} className="min-h-20 rounded-md border border-[#a7c5a0] bg-white px-3 py-2 font-normal focus-visible:outline-2 focus-visible:outline-[#447244]" /><span className="text-xs font-normal text-[#405966]">{openPlay.description.length}/500 · Visible to everyone.</span></label></div>}{openPlayError && <p role="alert" className="mt-3 text-sm text-destructive">{openPlayError}</p>}</section>}
       <div id="court-availability" role="region" aria-label="Court availability" tabIndex={0} className="overflow-x-auto">
         <table className="w-full table-fixed border-separate border-spacing-0 text-sm"><caption className="sr-only">Court availability by time</caption><thead className="text-[#447244]"><tr><th scope="col" className="px-1 py-3 text-center text-xs sm:p-3 sm:text-sm"><span className="inline-flex items-center justify-center gap-1"><Clock3 aria-hidden="true" className="size-4 shrink-0" />Time</span></th>{availability.courts.map(c => <th scope="col" key={c.id} className="px-0.5 py-1 text-center text-xs sm:px-2 sm:text-sm"><span className="inline-flex items-center justify-center"><span>{c.name}</span><button type="button" aria-label={`View ${c.name} photo`} onClick={() => { setPreviewCourt(c.name); previewDialog.current?.showModal(); }} className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#447244] hover:bg-[#edf3f5] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#ffad4c]`}><ImageIcon aria-hidden="true" className="size-4" /></button></span></th>)}</tr></thead><tbody>
           {gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).map(start => {
@@ -578,8 +601,8 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       {!validRanges && <p className="mt-2 text-xs">Select at most 100 blocks. Each block must be at least {availability.settings.minimumMinutes} minutes and start in the future.</p>}{feedback.message && bookingPage && <p role={feedback.toasted ? undefined : "alert"} className="mt-2 text-sm text-destructive">{feedback.message}</p>}
       </div>
       <div className="shrink-0 pt-2">{bookingPage && selectionSlots !== undefined && <p className="text-sm font-semibold text-[#447244]">{slotLabel(selectionSlots)} selected</p>}<div className="flex flex-wrap items-baseline justify-between gap-x-3"><p className="text-sm">Estimated total</p><p className="text-base font-bold text-[#447244]">{total ? money(total) : "Unavailable"}</p></div></div>
-      <div className={bookingPage ? "mt-2 hidden shrink-0 lg:block" : "mt-2 shrink-0"}>{bookingPage ? <Button className="public-cta-primary min-h-11 w-full" disabled={busy || !availability.configured || !validRanges || !total} onClick={() => { setError(""); setReviewing(true); }}>Review selection</Button> : validRanges && total && availability.configured ? <a className="inline-flex min-h-11 w-full items-center justify-center rounded-md public-cta-primary px-4 text-sm font-bold transition-colors" href={`/book?${new URLSearchParams({ date: chosenDate, ranges: JSON.stringify(ranges.map(({ courtId, start, end }) => ({ courtId, start, end }))) })}`}>Continue booking</a> : <p className="text-sm">Choose valid times to continue.</p>}</div>
-    </div>{bookingPage && <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d5e2ce] bg-white px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl lg:hidden"><div className="flex items-center justify-between gap-3"><div className="min-w-0 text-sm"><p className="font-semibold text-[#447244]">{selectionSlots !== undefined ? slotLabel(selectionSlots) : ranges.length} selected</p><p>Estimated total <strong className="tabular-nums">{total ? money(total) : "Unavailable"}</strong></p></div><Button className="public-cta-primary min-h-11 shrink-0" disabled={busy || !availability.configured || !validRanges || !total} onClick={() => { setError(""); setReviewing(true); }}>Review</Button></div></div>}</aside>}
+      <div className={bookingPage ? "mt-2 hidden shrink-0 lg:block" : "mt-2 shrink-0"}>{bookingPage ? <Button className="public-cta-primary min-h-11 w-full" disabled={busy || !availability.configured || !validRanges || !total} onClick={reviewSelection}>Review selection</Button> : validRanges && total && availability.configured ? <a className="inline-flex min-h-11 w-full items-center justify-center rounded-md public-cta-primary px-4 text-sm font-bold transition-colors" href={`/book?${new URLSearchParams({ date: chosenDate, ranges: JSON.stringify(ranges.map(({ courtId, start, end }) => ({ courtId, start, end }))) })}`}>Continue booking</a> : <p className="text-sm">Choose valid times to continue.</p>}</div>
+    </div>{bookingPage && <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d5e2ce] bg-white px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl lg:hidden"><div className="flex items-center justify-between gap-3"><div className="min-w-0 text-sm"><p className="font-semibold text-[#447244]">{selectionSlots !== undefined ? slotLabel(selectionSlots) : ranges.length} selected</p><p>Estimated total <strong className="tabular-nums">{total ? money(total) : "Unavailable"}</strong></p></div><Button className="public-cta-primary min-h-11 shrink-0" disabled={busy || !availability.configured || !validRanges || !total} onClick={reviewSelection}>Review</Button></div></div>}</aside>}
     </div>}
         </div>
       </section>

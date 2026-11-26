@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useSidebarActivity } from "@/components/admin/admin-shell";
@@ -9,8 +9,17 @@ const success = {
   cancel: "Booking cancelled.", archive: "Booking archived.",
 };
 type Action = keyof typeof success;
+const rejectionReasons = [
+  "We could not find the payment in our receiving account.",
+  "The payment amount does not match the booking total.",
+  "The payment proof is incomplete or unreadable.",
+  "The payment was sent to a different account.",
+];
 export default function BookingDecision({id,status,proof,internal,archived,beforeStart,extensionsClear,onSaved}:{id:string;status:string;proof:boolean;internal:boolean;archived:boolean;beforeStart:boolean;extensionsClear:boolean;onSaved:()=>void}) {
  const [action,setAction]=useState<Action|null>(null);const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [pending,setPending]=useState<{url:string;body:Record<string,unknown>}|null>(null);const lock=useRef(false);
+ const [rejectionReason,setRejectionReason]=useState("");
+ const reasonId=useId();
+ const decisionReason=(action==="reject"&&rejectionReason!=="other"?rejectionReason:reason).trim();
   const [announceError,setAnnounceError]=useState(true);
  const { refreshCounts } = useSidebarActivity();
  async function send(url:string,body:Record<string,unknown>){
@@ -37,8 +46,19 @@ export default function BookingDecision({id,status,proof,internal,archived,befor
    if(action==="approve"||action==="reject")void refreshCounts();
    onSaved();
  }
- function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="cancel")&&!reason.trim()){setError("Enter a reason.");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:reason.trim()}:action==="cancel"?{key,reason:reason.trim()}:{key};setPending({url,body});void send(url,body);}
+ function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="cancel")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:action==="cancel"?{key,reason:decisionReason}:{key};setPending({url,body});void send(url,body);}
  const options:Action[]=status==="pending"&&proof?["approve","reject"]:status==="confirmed"&&internal&&beforeStart&&extensionsClear?["cancel"]:!archived&&["completed","expired","rejected","refunded","cancelled"].includes(status)?["archive"]:[];
  if(!options.length)return null;
- return <section className="space-y-4 rounded-xl border bg-card p-5"><h2 className="font-semibold">Booking actions</h2>{!action&&!pending&&<div className="flex flex-wrap gap-2">{options.map(a=><Button key={a} variant={a==="approve"?"default":"outline"} className={a==="approve"?"bg-green-700 text-white hover:bg-green-800":a==="reject"?"border-red-600 text-red-700 hover:bg-red-50 hover:text-red-800":""} onClick={()=>{setAction(a);setReason("");setError("");}}>{a==="approve"?<><svg aria-hidden="true" viewBox="0 0 24 24" className="mr-2 size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="m5 12 4 4L19 6" /></svg>Approve</>:a==="reject"?<><svg aria-hidden="true" viewBox="0 0 24 24" className="mr-2 size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 6 12 12M18 6 6 18" /></svg>Reject</>:a==="cancel"?"Cancel internal booking":a[0].toUpperCase()+a.slice(1)}</Button>)}</div>}{action&&!pending&&<div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold capitalize">Confirm {action}</h3>{action==="approve"&&<p className="text-sm">Verify the full receipt in the merchant account. A screenshot alone is not confirmation.</p>}{action==="cancel"&&<p className="text-sm">Only eligible internal bookings can be cancelled. Payment is retained; no refund is recorded.</p>}{action==="archive"&&<p className="text-sm">Archive hides this terminal booking from the default list. History remains available.</p>}{["reject","cancel"].includes(action)&&<label className="grid gap-1 text-sm">{action==="reject"?"Customer-visible reason":"Reason"}<textarea maxLength={500} className="rounded-md border bg-background p-2" value={reason} onChange={e=>setReason(e.target.value)} /></label>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"I verified full payment — approve booking":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
+ return <section className="space-y-4 rounded-xl border bg-card p-5"><h2 className="font-semibold">Booking actions</h2>{!action&&!pending&&<div className="flex flex-wrap gap-2">{options.map(a=><Button key={a} variant={a==="approve"?"default":"outline"} className={a==="approve"?"bg-green-700 text-white hover:bg-green-800":a==="reject"?"border-red-600 text-red-700 hover:bg-red-50 hover:text-red-800":""} onClick={()=>{setAction(a);setReason("");setRejectionReason("");setError("");}}>{a==="approve"?<><svg aria-hidden="true" viewBox="0 0 24 24" className="mr-2 size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="m5 12 4 4L19 6" /></svg>Approve</>:a==="reject"?<><svg aria-hidden="true" viewBox="0 0 24 24" className="mr-2 size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 6 12 12M18 6 6 18" /></svg>Reject</>:a==="cancel"?"Cancel internal booking":a[0].toUpperCase()+a.slice(1)}</Button>)}</div>}{action&&!pending&&<div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold capitalize">Confirm {action}</h3>{action==="approve"&&<p className="text-sm">Verify the full receipt in the merchant account. A screenshot alone is not confirmation.</p>}{action==="cancel"&&<p className="text-sm">Only eligible internal bookings can be cancelled. Payment is retained; no refund is recorded.</p>}{action==="archive"&&<p className="text-sm">Archive hides this terminal booking from the default list. History remains available.</p>}{action==="reject"&&<div className="grid gap-1 text-sm">
+   <label htmlFor={reasonId}>Rejection reason (required)</label>
+   <select id={reasonId} aria-describedby={`${reasonId}-hint`} required className="w-full rounded-md border bg-background p-2" value={rejectionReason} onChange={e=>{setRejectionReason(e.target.value);setReason("");setError("");}}>
+     <option value="" disabled>Select a reason</option>
+     {rejectionReasons.map(option=><option key={option} value={option}>{option}</option>)}
+     <option value="other">Other</option>
+   </select>
+   <p id={`${reasonId}-hint`} className="text-muted-foreground">The customer will see this reason. Do not include private payment details.</p>
+ </div>}{(action==="cancel"||(action==="reject"&&rejectionReason==="other"))&&<div className="grid gap-1 text-sm">
+   <label htmlFor={`${reasonId}-text`}>{action==="reject"?"Other reason (required)":"Reason (required)"}</label>
+   <textarea id={`${reasonId}-text`} required maxLength={500} className="rounded-md border bg-background p-2" value={reason} onChange={e=>setReason(e.target.value)} />
+ </div>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"I verified full payment — approve booking":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
 }

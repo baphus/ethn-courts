@@ -5,11 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { TrackingSummary, type Tracking } from "../src/components/booking/tracking-summary";
 
 test("tracking summary shows overnight dates, original total and guarded payment reason", () => {
-  const booking: Tracking = { status: "rejected", operatingDate: "2026-11-25", total: "500", items: [{ court: "Court 1", startsAt: "2026-11-25T15:00:00Z", endsAt: "2026-11-25T17:00:00Z", amount: "600" }], payments: [{ method: "bank_transfer", status: "rejected", reviewReason: "Unreadable" }] };
+  const booking: Tracking = { status: "rejected", operatingDate: "2026-11-25", total: "500", items: [{ court: "Court 1", startsAt: "2026-11-25T15:00:00Z", endsAt: "2026-11-25T17:00:00Z", amount: "600", durationMinutes: 120, intervalMinutes: 30, hourlyRate: "300.00", isExtension: false }], payments: [{ method: "bank_transfer", status: "rejected", reviewReason: "Unreadable" }] };
   const render = () => renderToStaticMarkup(createElement(TrackingSummary, { booking }));
   const html = render();
-  assert.match(html, /Nov 25, 2026/);
-  assert.match(html, /Nov 26, 2026/);
+  assert.match(html, /November 25, 2026/);
+  assert.match(html, /November 26, 2026/);
   assert.match(html, /Original booking total/);
   assert.match(html, /Bank Transfer/);
   assert.match(html, /Reason: Unreadable/);

@@ -47,7 +47,7 @@ test("integrated ETHN allocation, calendar, extension, completion, and finance w
     const availability = await getAvailability(pool,futureDate), publicCourt = availability.courts.find(c=>c.id==="2")!;
     assert.ok(publicCourt.occupied.some(o=>o.startsAt===future.toISOString())); assert.equal(JSON.stringify(publicCourt).includes("private maintenance fixture"),false);
     const calendar = (await getEthnCalendar(pool,verify,futureDate)).courts.flatMap(c=>c.intervals);
-    assert.ok(calendar.some(i=>i.kind==="maintenance"&&i.reason==="private maintenance fixture")); assert.ok(calendar.some(i=>i.kind==="booking"&&i.bookingId===ids.booking)); assert.ok((await listPublicOpenPlays(pool)).some(p=>p.id===openPlayId));
+    assert.ok(calendar.some(i=>i.kind==="maintenance"&&i.reason==="private maintenance fixture"&&i.slotCount===undefined)); assert.equal(calendar.find(i=>i.kind==="booking"&&i.bookingId===ids.booking)?.slotCount,2); assert.ok((await listPublicOpenPlays(pool)).some(p=>p.id===openPlayId));
     await assert.rejects(releaseEthnBlock(pool,verify,(await admin.query("SELECT id FROM ethn.court_blocks WHERE open_play_id=$1",[openPlayId])).rows[0].id),/BLOCK_NOT_FOUND/);
     const current = (await getEthnCalendar(pool,verify,extensionDate)).courts.flatMap(c=>c.intervals);
     assert.ok(current.some(i=>i.bookingId===ids.extensionBooking&&i.guestName==="extension guest")); assert.ok(current.some(i=>i.bookingId===ids.extensionBooking&&i.startsAt===hold.startsAt));

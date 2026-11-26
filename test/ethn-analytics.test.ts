@@ -46,6 +46,13 @@ test("staff cannot obtain finance; strict query validation and schedule segments
   assert.ok(db.releases() > 0);
 });
 
+test("monthly dashboard counts only confirmed and completed bookings in both periods", async () => {
+  const db = mock("staff");
+  await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=hero"));
+  const sql = db.queries.find(q => q.includes("AS current") && q.includes("AS prior"))!;
+  assert.match(sql, /FROM ethn\.bookings WHERE status IN \('confirmed', 'completed'\) AND operating_date BETWEEN/);
+});
+
 test("owner hero uses finance and before-anchor chart remains valid", async () => {
   const db = mock("owner", "2026-10-31T17:00:00Z");
   const hero = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=hero"));

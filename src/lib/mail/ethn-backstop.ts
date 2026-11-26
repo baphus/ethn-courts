@@ -10,7 +10,7 @@ export function ethnBackstopConfig(env: Record<string, string | undefined>) {
   } catch { return null; }
 }
 
-export async function drainEthnBackstop(pool: Pool, transport: Parameters<typeof drainEthnOutbox>[1], config: { from: string; appUrl: string }) {
+export async function drainEthnBackstop(pool: Pool, transport: Parameters<typeof drainEthnOutbox>[1], config: Omit<Parameters<typeof drainEthnOutbox>[2], "bookingId">) {
   const { rows } = await pool.query<{ booking_id: string }>(`SELECT booking_id FROM ethn.email_outbox
     WHERE (status = 'pending' AND available_at <= now()) OR (status = 'sending' AND claimed_at < now() - interval '15 minutes')
     GROUP BY booking_id ORDER BY min(available_at), booking_id LIMIT 5`);

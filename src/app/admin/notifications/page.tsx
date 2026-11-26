@@ -23,24 +23,31 @@ export default function NotificationsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const sequence = useRef(0);
-  const { counts, refreshCounts, syncInbox } = useSidebarActivity();
+  const { counts, refreshCounts } = useSidebarActivity();
   const unreadCount = counts?.unreadNotifications || (items?.some(item => !item.readAt) ? 1 : 0);
 
-  const load = useCallback(async (unread: boolean, reconcile = true) => {
+  const load = useCallback(async (unread: boolean, background = false) => {
     const current = ++sequence.current;
-    setItems(null); setError("");
+    if (!background) { setItems(null); setError(""); }
     try {
-      if (reconcile) await syncInbox();
-      if (sequence.current !== current) return;
       const response = await fetch(`/api/ethn/admin/notifications?unreadOnly=${unread}`, { cache: "no-store" });
       if (!response.ok) throw new Error(message(response.status));
       const data: Notification[] = await response.json();
-      if (sequence.current === current) setItems(data);
+      if (sequence.current === current) { setItems(data); setError(""); }
     } catch (e) { if (sequence.current === current) setError(e instanceof Error ? e.message : "Service unavailable. Please try again."); }
-  }, [syncInbox]);
+  }, []);
   useEffect(() => { void load(unreadOnly); return () => { sequence.current++; }; }, [load, unreadOnly]);
 
+  useEffect(() => {
+    if (busy) return;
+    const refresh = () => { if (!document.hidden) void load(unreadOnly, true); };
+    const interval = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", refresh); };
+  }, [busy, load, unreadOnly]);
+
   async function markRead(id: string) {
+    sequence.current++;
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/ethn/admin/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" });
@@ -55,19 +62,20 @@ export default function NotificationsPage() {
   }
 
   async function markAllRead() {
+    sequence.current++;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/ethn/admin/notifications/read-all", { method: "PATCH" });
       if (response.status >= 500) throw new Error();
       if (!response.ok) { toast.error("Notifications were not marked as read."); setError(message(response.status)); return; }
       toast.success("All notifications marked as read.");
-      void Promise.all([refreshCounts(), load(unreadOnly, false)]).catch(() => setError("Notifications were marked as read, but the inbox could not refresh."));
+      void Promise.all([refreshCounts(), load(unreadOnly, true)]).catch(() => setError("Notifications were marked as read, but the inbox could not refresh."));
     } catch { toast.warning("Read status could not be confirmed."); setError("Reload the inbox to check the current read status."); }
     finally { setBusy(false); }
   }
 
   return <div className="w-full space-y-5 pb-24">
-    <header className="space-y-2"><h1 className="text-2xl font-semibold tracking-tight">Notifications</h1><p className="max-w-2xl text-muted-foreground">Review updates for your staff account. This inbox works without browser push.</p></header>
+    <header className="space-y-2"><h1 className="text-2xl font-semibold tracking-tight">Notifications</h1><p className="max-w-2xl text-muted-foreground">See new bookings for your owner account. Browser push is optional.</p></header>
     <PushControls />
     <section aria-label="Notifications" className="overflow-hidden rounded-xl border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="text-lg font-semibold">Your inbox</h2><p className="text-sm text-muted-foreground">Most recent 50 notifications</p></div><div className="flex flex-wrap items-center gap-3"><label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={unreadOnly} disabled={busy} onChange={event => setUnreadOnly(event.target.checked)} className="h-4 w-4 accent-primary" /> Unread only</label><Button type="button" variant="outline" disabled={busy || !unreadCount} onClick={() => void markAllRead()}>Mark all as read</Button></div></div>

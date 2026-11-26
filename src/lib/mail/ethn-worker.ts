@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
+import { formatDisplayDate } from "../display-date";
+import { gridSlotCount, invoiceMoney, invoiceSlotRate, invoiceTimeRange } from "../booking/invoice-format";
 import { parsePesos } from "../booking/core";
 import { VENUE_ADDRESS, VENUE_MAP_LINK } from "../venue";
 import { isEthnMailAddress } from "./ethn-address";
 
-type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?: boolean };
-type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; messageId: string }): Promise<unknown> };
+type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?: boolean; ownerEmail?: (id: string) => Promise<string | null> };
+type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html?: string; messageId: string }): Promise<unknown> };
 const notices: Record<string, { title: string; status: string; amount?: string }> = {
   booking_submission: { title: "Payment proof received", status: "Your payment proof is pending review. Your booking is not confirmed yet.", amount: "Booking total" },
   booking_approved: { title: "Booking confirmed", status: "Your booking is confirmed and fully paid.", amount: "Total paid" },
@@ -20,6 +22,7 @@ function scheduleLine({ court, starts_at: start, ends_at: end }: { court: string
   const day = manilaDate.format(start), endDay = manilaDate.format(end);
   return `${court}: ${day}, ${manilaTime.format(start)} – ${day === endDay ? "" : `${endDay}, `}${manilaTime.format(end)}`;
 }
+const escapeHtml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function validateEthnOutboxConfig(config: Config) {
@@ -54,6 +57,18 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
     const schedule = claims.length ? (await client.query(`SELECT c.name AS court, i.starts_at, i.ends_at
       FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id
       WHERE i.booking_id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows.map(scheduleLine) : [];
+    const invoice = claims.some(row => row.kind === "booking_approved") ? (await client.query<{
+      court: string; starts_at: Date; ends_at: Date; duration_minutes: number; interval_minutes: number;
+      hourly_rate: string; amount: string; booking_date: string; method_name: string | null;
+    }>(`SELECT c.name AS court, i.starts_at, i.ends_at, i.duration_minutes, i.interval_minutes,
+        i.hourly_rate::text, i.amount::text, b.operating_date::text AS booking_date,
+        COALESCE(m.value->>'name', pm.name, CASE p.method WHEN 'cash' THEN 'Cash' WHEN 'gcash' THEN 'GCash' ELSE p.method END) AS method_name
+      FROM ethn.booking_items i JOIN ethn.bookings b ON b.id = i.booking_id JOIN ethn.courts c ON c.id = i.court_id
+      LEFT JOIN LATERAL (SELECT method FROM ethn.payments WHERE booking_id = b.id AND extension_id IS NULL
+        AND status = 'accepted' ORDER BY id LIMIT 1) p ON true
+      LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(b.payment_methods_snapshot) WHERE value->>'id' = p.method LIMIT 1) m ON true
+      LEFT JOIN ethn.payment_methods pm ON pm.id = p.method
+      WHERE b.id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
     committing = true; await client.query("COMMIT"); committing = false; transaction = false;
     const contact = `Contact ETHN Courts: ${new URL("/contact", origin).href}`;
     for (const row of claims) {
@@ -67,18 +82,40 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
         (!rejected || (typeof p.reason === "string" && p.reason.trim().length > 0 && p.reason.length <= 500));
       if (valid) { try { parsePesos(p!.total as string); } catch { valid = false; } }
       let status: "sent" | "pending" | "dead" = "dead";
-      if (valid && notice && p && isEthnMailAddress(p.email)) {
+      if (row.kind === "booking_owner_alert" && typeof p?.ownerId === "string" && uuid.test(p.ownerId) && (p.source === "online" || p.source === "internal")) {
+        try {
+          if (!config.ownerEmail) throw new Error("OWNER_LOOKUP_UNAVAILABLE");
+          const enabled = (await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [p.ownerId])).rows.length > 0;
+          const email = enabled ? await config.ownerEmail(p.ownerId) : null;
+          if (isEthnMailAddress(email)) {
+            const text = [
+              p.source === "online" ? "A customer submitted a booking. Payment needs review." : "Staff added a confirmed booking.",
+              ...schedule, "", `View booking: ${new URL(`/admin/bookings/${config.bookingId}`, origin).href}`,
+            ].join("\n");
+            await transport.sendMail({ from: config.from, to: email, subject: "New booking | ETHN Courts", text: `${text}\n`, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
+            status = "sent";
+          }
+        } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
+      } else if (valid && notice && p && isEthnMailAddress(p.email)) {
         try {
           const tracking = token ? `Track booking: ${new URL(`/checkout/track/${token}`, origin).href}` : code ? `Track with your code and email: ${new URL("/track", origin).href}` : null;
+          const invoiceLines = approved && invoice.length ? [
+            "Booking invoice", `Booking date: ${formatDisplayDate(invoice[0].booking_date)}`, "",
+            ...invoice.map(item => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)} · ${invoiceSlotRate(item.duration_minutes, item.interval_minutes, item.hourly_rate)} · ${invoiceMoney(item.amount)}`),
+            "", `Total slots: ${invoice.reduce((total, item) => total + (gridSlotCount(item.duration_minutes, item.interval_minutes) ?? 0), 0)}`,
+            invoice[0].method_name ? `Payment method: ${invoice[0].method_name}` : null,
+            `Total paid: ${invoiceMoney(p.total as string)}`,
+          ] : [];
           const text = [
             notice.status, rejected ? `Reason: ${p.reason}` : null, "",
             code ? `Booking code: ${code}` : null,
-            ...(schedule.length ? ["Court schedule (Philippine time):", ...schedule] : []),
-            notice.amount ? `${notice.amount}: PHP ${p.total}` : null, "",
+            ...invoiceLines,
+            ...(!approved && schedule.length ? ["Court schedule:", ...schedule] : []),
+            !invoiceLines.length && notice.amount ? `${notice.amount}: PHP ${p.total}` : null, "",
             tracking, tracking ? "" : null, "ETHN Courts", VENUE_ADDRESS,
             approved ? `Directions: ${VENUE_MAP_LINK}` : null, contact,
           ].filter(line => line !== null).join("\n");
-          await transport.sendMail({ from: config.from, to: p.email, subject: `${notice.title} | ETHN Courts`, text: `${text}\n`, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
+          await transport.sendMail({ from: config.from, to: p.email, subject: `${notice.title} | ETHN Courts`, text: `${text}\n`, ...(invoiceLines.length ? { html: `<div style="font:16px/1.5 Arial,sans-serif;color:#17252e">${text.split("\n\n").map(block => `<p>${escapeHtml(block).replaceAll("\n", "<br>")}</p>`).join("")}</div>` } : {}), messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
           status = "sent";
         } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
       }

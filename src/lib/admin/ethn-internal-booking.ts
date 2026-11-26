@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { parsePesos, priceItems } from '../booking/core';
 import { resolveSchedule } from '../booking/schedule';
 import { expireExtensionHolds } from '../booking/extension-expiry';
+import { lockBookingAlertOwners, recordNewBookingAlerts } from '../booking/ethn-booking-alerts';
 import type { StaffVerifier } from './ethn-payments';
 import { isEthnMailAddress } from '../mail/ethn-address';
 const money=(v:bigint)=>`${v/BigInt(100)}.${(v%BigInt(100)).toString().padStart(2,'0')}`;
@@ -45,7 +46,8 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
  const c=await pool.connect();let discard=false,committing=false;
  try{
   await c.query('BEGIN');
-  if(!(await c.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner' FOR UPDATE",[actor])).rowCount)throw new Error('FORBIDDEN');
+  const owners = await lockBookingAlertOwners(c);
+  if (!owners.includes(actor.toLowerCase())) throw new Error('FORBIDDEN');
   const inserted=await c.query("INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,'internal.create',$2,$3,NULL) ON CONFLICT DO NOTHING RETURNING key",[owner,idempotencyKey,fingerprint]);
   const prior=(await c.query("SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='internal.create' AND key=$2 FOR UPDATE",[owner,idempotencyKey])).rows[0];
   if(!prior||prior.fingerprint!==fingerprint)throw new Error('IDEMPOTENCY_MISMATCH');
@@ -75,6 +77,7 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   await c.query("INSERT INTO ethn.payments(id,booking_id,method,merchant_snapshot,status,accepted_reference,collected_amount,received_at,verified_at,verified_by) VALUES($1,$2,$3,$4,'accepted',$5,$6,$7,$8,$9)",[randomUUID(),id,input.method,merchant,input.reference,total,input.receivedAt,now,actor]);
   await c.query("INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,'internal.create',$3::jsonb)",[id,actor,JSON.stringify({method:input.method,total,paymentReceived:true})]);
   if (input.guestEmail) await c.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,'booking_approved',$3::jsonb)", [randomUUID(),id,JSON.stringify({email:input.guestEmail,total,staff:true})]);
+  await recordNewBookingAlerts(c, id, "internal", owners);
   const result={bookingId:id,status:'confirmed',total,method:input.method};
   await c.query("UPDATE ethn.idempotency SET result=$3::jsonb WHERE owner_hash=$1 AND operation='internal.create' AND key=$2",[owner,idempotencyKey,JSON.stringify(result)]);
   committing=true;await c.query('COMMIT');return result;

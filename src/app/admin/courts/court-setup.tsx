@@ -15,6 +15,7 @@ import { type Snapshot } from "../settings/pricing-payload";
 import EditCourtDialog from "./edit-court-dialog";
 import { courtDetailsVersion, withCourtSchedule } from "./court-edit-save";
 import { schedulePayload } from "./schedule-payload";
+import { EventDialog } from "../event-dialog";
 import { useCourtClosures } from "./use-court-closures";
 
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -44,9 +45,7 @@ export default function CourtSetup() {
   const [pendingCourt, setPendingCourt] = useState<NewCourt | null>(null);
   const [details, setDetails] = useState<CourtDetails[] | null>(null);
   const closures = useCourtClosures(details ?? []);
-  const [closureOpen, setClosureOpen] = useState(false);
   const [releaseId, setReleaseId] = useState<string | null>(null);
-  const [closure, setClosure] = useState<{ courtIds: string[]; kind: "maintenance" | "private"; reason: string; startDate: string; startTime: string; endDate: string; endTime: string }>({ courtIds: [], kind: "maintenance", reason: "", startDate: "", startTime: "", endDate: "", endTime: "" });
   const [detailsError, setDetailsError] = useState("");
   const [editing, setEditing] = useState<CourtDetails | null>(null);
   const [editName, setEditName] = useState("");
@@ -272,7 +271,18 @@ export default function CourtSetup() {
       </div>
       </section>
       <section className="rounded-xl border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="font-semibold">Closures</h2><p className="text-sm text-muted-foreground">Maintenance and private use, including ongoing closures. Times are in Manila.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/calendar" />}>Open calendar</Button><Button size="sm" disabled={closures.busy || !details} onClick={() => { setClosure(current => ({ ...current, courtIds: current.courtIds.filter(id => closures.courts.some(court => court.id === id && court.active)) })); setClosureOpen(true); }}>Add closure</Button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5"><div><h2 className="font-semibold">Closures</h2><p className="text-sm text-muted-foreground">Maintenance and private use, including ongoing closures. Times are in Manila.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" nativeButton={false} render={<Link href="/admin/calendar" />}>Open calendar</Button><EventDialog
+          closureOnly
+          courts={closures.courts}
+          disabled={!details}
+          busy={closures.busy}
+          blocked={closures.uncertain}
+          onSubmit={closures.create}
+          notice={<>
+            {closures.error && <p role="alert" className="text-sm text-destructive">{closures.error}</p>}
+            {closures.uncertain && <Button type="button" variant="outline" size="sm" onClick={closures.acknowledge}>I checked the list or calendar</Button>}
+          </>}
+        /></div></div>
         <div className="space-y-3 p-5 text-sm">
           {closures.error && <p role="alert" className="text-destructive">{closures.error}</p>}
           {closures.uncertain && <Button variant="outline" size="sm" onClick={closures.acknowledge}>I checked the list or calendar</Button>}
@@ -285,7 +295,6 @@ export default function CourtSetup() {
       </section>
     </>}
 
-    <Dialog open={closureOpen} onOpenChange={open => { if (!closures.busy) setClosureOpen(open); }}><DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md"><DialogTitle>Add closure</DialogTitle><DialogDescription>Block selected active courts for maintenance or private use. Times are in Manila. This is separate from the weekly schedule.</DialogDescription><form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (await closures.create(closure)) { setClosureOpen(false); setClosure({ courtIds: [], kind: "maintenance", reason: "", startDate: "", startTime: "", endDate: "", endTime: "" }); } }}><fieldset disabled={closures.busy}><legend className="text-sm font-medium">Courts</legend><div className="mt-2 grid gap-2">{closures.courts.filter(court => court.active).map(court => <label key={court.id} className="flex gap-2 text-sm"><input type="checkbox" checked={closure.courtIds.includes(court.id)} onChange={e => setClosure({ ...closure, courtIds: e.target.checked ? [...closure.courtIds, court.id] : closure.courtIds.filter(id => id !== court.id) })} />{court.name}</label>)}{!closures.courts.some(court => court.active) && <p className="text-sm text-muted-foreground">No saved active courts available.</p>}</div></fieldset><label className="grid gap-1 text-sm">Type<select className="h-9 rounded-md border border-input bg-transparent px-3" value={closure.kind} onChange={e => setClosure({ ...closure, kind: e.target.value as "maintenance" | "private" })}><option value="maintenance">Maintenance</option><option value="private">Private use</option></select></label><label className="grid gap-1 text-sm">Reason<Input required maxLength={500} value={closure.reason} onChange={e => setClosure({ ...closure, reason: e.target.value })} /></label><div className="grid grid-cols-2 gap-3">{([['startDate', 'Start date', 'date'], ['startTime', 'Start time', 'time'], ['endDate', 'End date', 'date'], ['endTime', 'End time', 'time']] as const).map(([key, label, type]) => <label key={key} className="grid gap-1 text-sm">{label}<Input required type={type} value={closure[key]} onChange={e => setClosure({ ...closure, [key]: e.target.value })} /></label>)}</div>{closures.error && <p role="alert" className="text-sm text-destructive">{closures.error}</p>}{closures.uncertain && <p className="text-sm text-muted-foreground">Close this dialog and check the list or calendar before retrying.</p>}<div className="flex gap-2"><Button type="submit" disabled={closures.busy || closures.uncertain || !closure.courtIds.length}>Add closure</Button><Button type="button" variant="outline" disabled={closures.busy} onClick={() => setClosureOpen(false)}>Cancel</Button></div></form></DialogContent></Dialog>
     <Dialog open={releaseId !== null} onOpenChange={open => { if (!open && !closures.busy) setReleaseId(null); }}><DialogContent className="sm:max-w-md"><DialogTitle>Release closure?</DialogTitle><DialogDescription>This releases only the selected court closure. Other court closures remain in place.</DialogDescription>{closures.blocks?.filter(block => block.id === releaseId).map(block => <p key={block.id} className="text-sm"><strong>{block.courtName}</strong> · {kindLabel(block.kind)}<br />{stamp(block.startsAt)} to {stamp(block.endsAt)}</p>)}{closures.error && <p role="alert" className="text-sm text-destructive">{closures.error}</p>}<div className="flex gap-2"><Button variant="destructive" disabled={closures.busy || closures.uncertain || !closures.blocks?.some(block => block.id === releaseId)} onClick={async () => { if (releaseId && await closures.release(releaseId)) setReleaseId(null); }}>Release closure</Button><Button variant="outline" disabled={closures.busy} onClick={() => setReleaseId(null)}>Cancel</Button></div></DialogContent></Dialog>
 
     {editing && <EditCourtDialog name={editName} description={editDescription} photoVersion={editing.photoVersion} hours={editHours} busy={busy} blocked={stale || detailsStale || (!detailsDirty && !hoursDirty)} error={dialogError} notice={editNotice} onName={setEditName} onDescription={setEditDescription} onPhoto={setPhoto} onHours={setEditHours} onSave={saveCourt} onClose={closeEdit} />}

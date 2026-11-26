@@ -13,7 +13,8 @@ test("submission rejects malformed input before acquiring connection", async () 
 });
 
 test("submission decides timeliness under the booking lock before checking proof storage", async () => {
-  for (const scenario of ["on-time", "expired", "bad-proof"] as const) {
+  for (const scenario of ["on-time", "open-play", "ineligible-open-play", "expired", "bad-proof"] as const) {
+    const openPlay = scenario === "open-play" || scenario === "ineligible-open-play" ? { title: "Evening Open Play", description: "", eventUrl: "https://reclub.co/m/ABC123" } : undefined;
     const calls: string[] = [];
     let fingerprint: string;
     let now = scenario === "expired" ? 3000 : 2000;
@@ -24,6 +25,7 @@ test("submission decides timeliness under the booking lock before checking proof
         : sql.startsWith("SELECT fingerprint") ? [{ fingerprint }]
         : sql.includes("FROM ethn.bookings") ? [{ status: "held", expires_at: new Date(3000), total: "100.00", price_acknowledged: true, payment_methods_snapshot: [{ id: "gcash" }] }]
         : sql.includes("FROM ethn.proof_reservations") ? [{ state: "reserved", object_path: `incoming/${"a".repeat(64)}.png`, mime_type: "image/png", byte_size: "123" }]
+        : sql.startsWith("INSERT INTO ethn.booking_open_plays") ? (assert.deepEqual(params, [input.checkoutId, openPlay?.title, openPlay?.description, openPlay?.eventUrl]), scenario === "open-play" ? [{ booking_id: input.checkoutId }] : [])
         : sql.includes("clock_timestamp") ? [{ now: new Date(now) }] : [];
       return { rows };
     } }) } as unknown as Pick<Pool, "connect">;
@@ -31,14 +33,16 @@ test("submission decides timeliness under the booking lock before checking proof
       calls.push("inspect");
       now = 4000;
       return { bytes: scenario === "bad-proof" ? 124 : 123, mimeType: "image/png" };
-    } }, input);
+    } }, { ...input, openPlay });
     if (scenario === "bad-proof") {
       await assert.rejects(submission, /PROOF_METADATA_MISMATCH/);
       assert.equal(calls.at(-1), "ROLLBACK");
       assert(!calls.some(sql => sql.startsWith("UPDATE ethn.court_allocations")));
     } else {
-      const result = await submission as { booked: boolean };
-      assert.equal(result.booked, scenario === "on-time");
+      const result = await submission as { booked: boolean; openPlaySaved?: boolean };
+      assert.equal(result.booked, scenario !== "expired");
+      assert.equal(result.openPlaySaved, openPlay ? scenario === "open-play" : undefined);
+      assert.equal(calls.some(sql => sql.startsWith("INSERT INTO ethn.booking_open_plays")), Boolean(openPlay));
       assert.equal(calls.at(-1), "COMMIT");
     }
     const locked = calls.findIndex(sql => sql.includes("FROM ethn.bookings") && sql.includes("FOR UPDATE"));
