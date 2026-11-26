@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { manilaDateStr, manilaWallClock } from "../booking/slots";
 import { scheduleWindows } from "../booking/schedule";
+import { openPlayEventUrl } from "../booking/ethn-tracking";
 import type { StaffVerifier } from "./ethn-payments";
 
 type Db = Pick<Pool, "connect">;
@@ -22,13 +23,15 @@ async function actorId(verify: StaffVerifier) {
 function validate(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("INVALID_INPUT");
   const b = value as Record<string, unknown>;
-  const keys=Object.keys(b).sort().join(",");
+  const keys=Object.keys(b).filter(key => key !== "eventUrl").sort().join(",");
   if (keys !== "courtIds,description,endsAt,fee,startsAt,title" && keys !== "courtIds,description,endsAt,expectedVersion,fee,startsAt,title") throw new Error("INVALID_INPUT");
   if (!Array.isArray(b.courtIds) || !b.courtIds.length || b.courtIds.length > 100 || b.courtIds.some(id => typeof id !== "string" || !/^[1-9]\d{0,18}$/.test(id) || BigInt(id) > BigInt("9223372036854775807")) || new Set(b.courtIds).size !== b.courtIds.length) throw new Error("INVALID_INPUT");
   if (typeof b.title !== "string" || !b.title.trim() || b.title.trim().length > 100 || typeof b.description !== "string" || b.description.length > 2000 || typeof b.fee !== "string" || !decimal.test(b.fee) || typeof b.startsAt !== "string" || !iso.test(b.startsAt) || typeof b.endsAt !== "string" || !iso.test(b.endsAt)) throw new Error("INVALID_INPUT");
+  const eventUrl = openPlayEventUrl.safeParse(b.eventUrl);
+  if (!eventUrl.success) throw new Error("INVALID_INPUT");
   const start = new Date(b.startsAt), end = new Date(b.endsAt);
   if (!Number.isFinite(start.getTime()) || start.toISOString() !== b.startsAt || !Number.isFinite(end.getTime()) || end.toISOString() !== b.endsAt || end <= start) throw new Error("INVALID_INPUT");
-  return { courtIds: [...b.courtIds] as string[], title: b.title.trim(), description: b.description.trim(), fee: b.fee, start, end };
+  return { courtIds: [...b.courtIds] as string[], title: b.title.trim(), description: b.description.trim(), fee: b.fee, eventUrl: eventUrl.data, start, end };
 }
 
 function eventDto(row: { id: string; title: string; description: string; starts_at: Date; ends_at: Date; court_names: string[]; court_ids: string[] }, fee: string | null, version: number) {
@@ -53,25 +56,29 @@ export async function hideBookingOpenPlay(pool: Db, verify: StaffVerifier, id: s
   } catch (error) { serviceError(error); } finally { client.release(); }
 }
 
-export async function listPublicOpenPlays(pool: Db, includeHidden = false): Promise<(ReturnType<typeof eventDto> & { eventUrl?: string; hidden?: boolean })[]> {
+export async function listPublicOpenPlays(pool: Db, includeHidden = false, upcomingOnly = false): Promise<(ReturnType<typeof eventDto> & { eventUrl?: string; hidden?: boolean })[]> {
   const client = await pool.connect();
   try {
-    const rows = (await client.query(`SELECT p.id::text,p.title,p.description,p.starts_at,p.ends_at,p.informational_fee::text,p.version,
+    const rows = (await client.query(`SELECT p.id::text,p.title,p.description,p.starts_at,p.ends_at,p.informational_fee::text,p.version,p.event_url,
       array_agg(c.name ORDER BY c.id) AS court_names, array_agg(c.id::text ORDER BY c.id) AS court_ids
       FROM ethn.open_plays p JOIN ethn.court_blocks b ON b.open_play_id=p.id AND b.removed_at IS NULL
       JOIN ethn.court_allocations a ON a.block_id=b.id AND a.state='confirmed'
       JOIN ethn.courts c ON c.id=b.court_id
       WHERE p.removed_at IS NULL
-      GROUP BY p.id ORDER BY p.starts_at,p.id LIMIT 100`)).rows;
+      GROUP BY p.id ORDER BY p.starts_at,p.id LIMIT 100`, [upcomingOnly])).rows;
     const customerRows = (await client.query(`SELECT p.id::text,p.title,p.description,p.event_url,p.hidden,s.starts_at,s.ends_at,s.court_names,s.court_ids
       FROM ethn.booking_open_plays p JOIN ethn.bookings b ON b.id=p.booking_id
       JOIN ethn.booking_open_play_sessions s ON s.booking_id=p.booking_id
       WHERE NOT p.removed AND b.status='confirmed' AND s.ends_at > clock_timestamp() AND ($1 OR NOT p.hidden)
       ORDER BY s.starts_at,p.booking_id LIMIT 100`, [includeHidden])).rows;
-    const venueEvents = rows.map(row => eventDto(row, row.informational_fee, row.version));
+    const venueEvents = rows.map(row => ({ ...eventDto(row, row.informational_fee, row.version), ...(row.event_url ? { eventUrl: row.event_url as string } : {}) }));
     const customerEvents = customerRows.map(row => ({ ...eventDto(row, null, 1), eventUrl: row.event_url as string, ...(includeHidden ? { hidden: row.hidden as boolean } : {}) }));
     return [...venueEvents, ...customerEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   } catch (error) { serviceError(error); } finally { client.release(); }
+}
+
+export async function listUpcomingOpenPlays(pool: Db, limit = 3) {
+  return (await listPublicOpenPlays(pool, false, true)).slice(0, limit);
 }
 
 async function allocateOpenPlay(client: PoolClient, playId: string, actor: string, input: ReturnType<typeof validate>) {
@@ -118,10 +125,10 @@ export async function createOpenPlay(pool: Db, verify: StaffVerifier, body: unkn
     const courts = (await client.query("SELECT id::text,name,active FROM ethn.courts ORDER BY id FOR UPDATE")).rows;
     await validateAllocation(client,input,settings,courts);
     const playId = randomUUID();
-    await client.query("INSERT INTO ethn.open_plays(id,title,description,starts_at,ends_at,informational_fee,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)", [playId,input.title,input.description,input.start,input.end,input.fee,actor]);
+    await client.query("INSERT INTO ethn.open_plays(id,title,description,starts_at,ends_at,informational_fee,created_by,event_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", [playId,input.title,input.description,input.start,input.end,input.fee,actor,input.eventUrl]);
     await allocateOpenPlay(client,playId,actor,input);
     await client.query("INSERT INTO ethn.audit(actor,action,detail) VALUES($1,'open_play.create',$2::jsonb)", [actor,JSON.stringify({openPlayId:playId,courtIds:input.courtIds})]);
-    committing=true; await client.query("COMMIT"); return {id:playId,title:input.title,description:input.description,startsAt:input.start.toISOString(),endsAt:input.end.toISOString(),fee:input.fee,courtIds:input.courtIds,version:1};
+    committing=true; await client.query("COMMIT"); return {id:playId,title:input.title,description:input.description,startsAt:input.start.toISOString(),endsAt:input.end.toISOString(),fee:input.fee,...(input.eventUrl ? {eventUrl:input.eventUrl} : {}),courtIds:input.courtIds,version:1};
   } catch(error) { if(committing) discard=true; else try { await client.query("ROLLBACK"); } catch { discard=true; } serviceError(error); } finally { client.release(discard); }
 }
 
@@ -141,7 +148,7 @@ export async function editOpenPlay(pool: Db, verify: StaffVerifier, playId: stri
     await validateAllocation(client,input,settings,courts,playId);
     await client.query("UPDATE ethn.court_blocks SET removed_by=$2,removed_at=clock_timestamp() WHERE open_play_id=$1 AND removed_at IS NULL",[playId,actor]);
     await client.query("UPDATE ethn.court_allocations SET state='released' WHERE block_id IN (SELECT id FROM ethn.court_blocks WHERE open_play_id=$1) AND state='confirmed'",[playId]);
-    await client.query("UPDATE ethn.open_plays SET title=$2,description=$3,starts_at=$4,ends_at=$5,informational_fee=$6,version=version+1 WHERE id=$1",[playId,input.title,input.description,input.start,input.end,input.fee]);
+    await client.query("UPDATE ethn.open_plays SET title=$2,description=$3,starts_at=$4,ends_at=$5,informational_fee=$6,event_url=$7,version=version+1 WHERE id=$1",[playId,input.title,input.description,input.start,input.end,input.fee,input.eventUrl]);
     await allocateOpenPlay(client,playId,actor,input);
     await client.query("INSERT INTO ethn.audit(actor,action,detail) VALUES($1,'open_play.edit',$2::jsonb)",[actor,JSON.stringify({openPlayId:playId,version:event.version+1,courtIds:input.courtIds})]);
     committing=true;await client.query("COMMIT");return {id:playId,title:input.title,description:input.description,startsAt:input.start.toISOString(),endsAt:input.end.toISOString(),fee:input.fee,courtIds:input.courtIds,version:event.version+1};

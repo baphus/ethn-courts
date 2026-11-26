@@ -15,6 +15,8 @@ type InlineImage = { filename: string; cid: string; content: Buffer; contentType
 type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html: string; messageId: string; attachments: InlineImage[] }): Promise<unknown> };
 const notices: Record<string, { title: string; preheader: string; status: string; amount?: string }> = {
   booking_submission: { title: "Payment proof received", preheader: "Your booking isn’t confirmed yet.", status: "We received your payment proof. Our team will review it and email you with the outcome. Your booking isn’t confirmed yet.", amount: "Booking total" },
+  open_play_submitted: { title: "Open Play booking request received", preheader: "Your booking isn?t confirmed yet.", status: "We received your payment proof and Open Play details. The listing stays private until your booking is confirmed.", amount: "Booking total" },
+  open_play_added: { title: "Open Play added to your booking", preheader: "Your Open Play details are saved.", status: "Your Open Play details are saved. An eligible listing appears on the site once your booking is confirmed." },
   booking_approved: { title: "You’re booked at ETHN Courts", preheader: "Your court time is confirmed and paid in full.", status: "Your payment has been verified and your court time is confirmed.", amount: "Total paid" },
   booking_rejected: { title: "Your booking wasn’t confirmed", preheader: "We couldn’t verify your payment proof.", status: "We couldn’t verify your payment proof, so your court time isn’t booked. See the reason below. If you believe you already paid, contact us before paying again." },
   booking_cancelled: { title: "Booking cancelled", preheader: "Your court time has been released.", status: "Your booking was cancelled and your court time was released. No refund has been recorded for this booking." },
@@ -108,7 +110,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
     const schedule = claims.length ? (await client.query<ScheduleItem>(`SELECT c.name AS court, i.starts_at, i.ends_at
       FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id
       WHERE i.booking_id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
-    const invoice = claims.some(row => row.kind === "booking_approved" || row.kind === "booking_submission") ? (await client.query<{
+    const invoice = claims.some(row => row.kind === "booking_approved" || row.kind === "booking_submission" || row.kind === "open_play_submitted") ? (await client.query<{
       court: string; starts_at: Date; ends_at: Date; duration_minutes: number; interval_minutes: number;
       hourly_rate: string; amount: string; booking_date: string; method_name: string | null;
     }>(`SELECT c.name AS court, i.starts_at, i.ends_at, i.duration_minutes, i.interval_minutes,
@@ -129,7 +131,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
     for (const row of claims) {
       const p = row.payload as Record<string, unknown> | null;
       const notice = Object.hasOwn(notices, row.kind) ? notices[row.kind] : undefined;
-      const submission = row.kind === "booking_submission", approved = row.kind === "booking_approved", rejected = row.kind === "booking_rejected";
+      const submission = row.kind === "booking_submission" || row.kind === "open_play_submitted", approved = row.kind === "booking_approved", rejected = row.kind === "booking_rejected";
       const code = typeof p?.code === "string" && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/.test(p.code) ? p.code : undefined;
       const token = typeof p?.trackingToken === "string" && /^[0-9a-f]{64}$/.test(p.trackingToken) ? p.trackingToken : undefined;
       let valid = !!notice && !!p && (p.code === undefined || !!code) && (!!code || (p.staff === true && !submission && !rejected && !token)) &&
@@ -145,12 +147,12 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
           if (isEthnMailAddress(email)) {
             const online = p.source === "online";
             const message = await renderEmail({
-              title: online ? "Payment review needed" : "Staff booking confirmed",
-              preheader: online ? "An online booking is waiting for payment review." : "No payment review is needed.",
-              status: online ? "A customer submitted payment proof. Open the booking to review it." : "Your team added a confirmed booking. No payment review is needed.",
+              title: p.event === "open_play_submitted" ? "New booking with Open Play" : p.event === "open_play_added" ? "Open Play added to booking" : online ? "Payment review needed" : "Staff booking confirmed",
+              preheader: p.event === "open_play_added" ? "A customer updated their booking listing." : online ? "An online booking is waiting for payment review." : "No payment review is needed.",
+              status: p.event === "open_play_submitted" ? "Review payment proof. Booking approval publishes the Open Play." : p.event === "open_play_added" ? "A customer added an Open Play through booking tracking." : online ? "A customer submitted payment proof. Open the booking to review it." : "Your team added a confirmed booking. No payment review is needed.",
               audience: "Owner notification",
               sections: scheduleSections,
-              action: { label: online ? "Review payment" : "View booking", href: new URL(`/admin/bookings/${config.bookingId}`, origin).href },
+              action: { label: online && p.event !== "open_play_added" ? "Review payment" : "View booking", href: new URL(`/admin/bookings/${config.bookingId}`, origin).href },
               links: [], footer: ["ETHN Courts"],
             });
             await transport.sendMail({ from: config.from, to: email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
@@ -185,10 +187,11 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
           if (approved) {
             links.push(directions);
             if (calendar) links.push(calendar);
+             if (p.openPlayPublished === true) links.push({ label: "View public Open Plays", href: new URL("/open-plays", origin).href });
           }
           const message = await renderEmail({
             ...notice,
-            status: approved && p.staff === true ? "Our team booked your court time and recorded your payment in full." : notice.status,
+            status: approved && p.staff === true ? "Our team booked your court time and recorded your payment in full." : approved && p.openPlayPublished === true ? `${notice.status} Your Open Play is now listed on our site.` : notice.status,
             audience: "Booking update", sections, action, links: links.filter(link => link !== action), footer,
           }, approved ? notice.title : undefined, token && p.staff !== true && (submission || approved) ? tracking?.href : undefined);
           await transport.sendMail({ from: config.from, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });

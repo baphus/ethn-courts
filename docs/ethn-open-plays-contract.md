@@ -1,4 +1,10 @@
-# Open Plays backend contract (partial)
+# Open Plays backend contract
+
+Current booking-backed behavior: Reclub links are optional for both customer and venue listings; when present, only direct HTTPS Reclub meet links are accepted. Customer listings publish when the booking is confirmed and eligible, unless staff hides them. The landing page reads the first three current or upcoming public events; `/open-plays` is the full public page.
+
+A checkout with a saved Open Play queues an Open Play–specific customer receipt and Owner notification instead of the ordinary submission alerts. The first add through tracking queues distinct notices once; edits and re-adds do not. When approval publishes the listing, the existing approval email links to the public page. Email still depends on the ETHN outbox and mail configuration.
+
+## Original venue event contract (historical)
 
 Migration: apply `db/ethn/0019_open_plays.sql` after `0017_expenses.sql` on a fresh ETHN chain. It is standalone after 0017; do not assume or require `0018_booking_outcomes.sql`.
 

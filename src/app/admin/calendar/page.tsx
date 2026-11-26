@@ -46,7 +46,7 @@ export default function CalendarPage() {
     if (!courtIds.length || courtIds.some(id => !calendar.courts.some(court => court.active && court.id === id))) { setError({ message: "Select at least one active court.", inlineOnly: true }); return false; }
     setBusy(true); setError(null);
     try {
-      const body = eventType === "closure" ? { courtIds, ...range, reason: reason.trim(), kind } : { courtIds, ...range, title: title.trim(), description: description.trim(), fee };
+      const body = eventType === "closure" ? { courtIds, ...range, reason: reason.trim(), kind } : { courtIds, ...range, title: title.trim(), description: description.trim(), fee, eventUrl: draft.eventUrl };
       const response = await fetch(eventType === "closure" ? "/api/ethn/admin/blocks" : "/api/ethn/admin/open-plays", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (response.status >= 500) throw new Error();
       if (!response.ok) {

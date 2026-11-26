@@ -50,7 +50,7 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
    if (isEthnMailAddress(b.guest_email)) {
     let trackingToken: string | undefined;
     if (b.tracking_code) {
-     const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_submission' ORDER BY id LIMIT 1",[id])).rows[0];
+     const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind IN ('booking_submission','open_play_submitted') ORDER BY id LIMIT 1",[id])).rows[0];
      const token = submission?.payload?.trackingToken;
      if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token) && createHash('sha256').update(token).digest('hex') === b.tracking_hash) trackingToken = token;
     }

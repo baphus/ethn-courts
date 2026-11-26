@@ -3,6 +3,8 @@ import type { PoolClient } from "pg";
 type Client = Pick<PoolClient, "query">;
 type BookingAlert = keyof typeof alerts;
 const alerts = {
+  open_play_submitted: ["New booking with Open Play", "Review payment proof. Booking approval publishes the Open Play."],
+  open_play_added: ["Open Play added to booking", "A customer added an Open Play through booking tracking."],
   proof_submitted: ["Payment proof submitted", "Review payment proof for this booking."],
   booking_confirmed: ["Booking confirmed", "This booking is confirmed."],
   booking_cancelled: ["Booking cancelled", "The booking was cancelled and its court time released."],
@@ -28,10 +30,10 @@ export async function recordBookingAlerts(client: Client, bookingIds: string[], 
     ON CONFLICT(recipient,event_key) DO NOTHING RETURNING recipient,event_key
   )
   INSERT INTO ethn.email_outbox(id,booking_id,kind,payload)
-  SELECT gen_random_uuid(),split_part(event_key,':',2)::uuid,'booking_owner_alert',jsonb_build_object('ownerId',recipient,'source',$3::text)
+  SELECT gen_random_uuid(),split_part(event_key,':',2)::uuid,'booking_owner_alert',jsonb_build_object('ownerId',recipient,'source',$3::text,'event',$5::text)
   FROM alerts WHERE $3::text IS NOT NULL`, [bookingIds, alerts[kind][0], source ?? null, owners, kind, alerts[kind][1]]);
 }
 
-export function recordNewBookingAlerts(client: Client, bookingId: string, source: "online" | "internal", owners: string[]) {
-  return recordBookingAlert(client, bookingId, source === "online" ? "proof_submitted" : "booking_confirmed", owners, source);
+export function recordNewBookingAlerts(client: Client, bookingId: string, source: "online" | "internal", owners: string[], openPlay = false) {
+  return recordBookingAlert(client, bookingId, source === "online" ? openPlay ? "open_play_submitted" : "proof_submitted" : "booking_confirmed", owners, source);
 }

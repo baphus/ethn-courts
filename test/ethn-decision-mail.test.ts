@@ -13,7 +13,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     { court: "Court 2", starts_at: new Date("2026-01-01T18:00:00Z"), ends_at: new Date("2026-01-01T19:30:00Z"), duration_minutes: 90, interval_minutes: 30, hourly_rate: "0.01", amount: "0.02" },
   ];
   const rows = [
-    { id: "1", kind: "booking_submission", payload: { ...base, trackingToken: "a".repeat(64) }, attempts: 0 },
+    { id: "1", kind: "open_play_submitted", payload: { ...base, trackingToken: "a".repeat(64) }, attempts: 0 },
     { id: "2", kind: "booking_approved", payload: base, attempts: 0 },
     { id: "3", kind: "booking_rejected", payload: { ...base, reason: "Receipt <unclear> & cropped.\nPlease resubmit." }, attempts: 0 },
     { id: "4", kind: "booking_rejected", payload: { ...base, reason: "", trackingToken: "bad" }, attempts: 0 },
@@ -21,7 +21,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     { id: "6", kind: "booking_refunded", payload: { ...base, trackingToken: "a".repeat(64), reference: "private reference" }, attempts: 0 },
     { id: "7", kind: "booking_approved", payload: { email: base.email, staff: true, total: base.total }, attempts: 0 },
     { id: "8", kind: "booking_approved", payload: { ...base, email: "one,two@example.com" }, attempts: 0 },
-    { id: "9", kind: "booking_approved", payload: { ...base, trackingToken: token }, attempts: 0 },
+    { id: "9", kind: "booking_approved", payload: { ...base, trackingToken: token, openPlayPublished: true }, attempts: 0 },
   ];
   const statuses: unknown[] = [], messages: Parameters<Parameters<typeof drainEthnOutbox>[1]["sendMail"]>[0][] = [];
   const pool = { connect: async () => ({ query: async (sql: string, args?: unknown[]) => {
@@ -32,8 +32,10 @@ test("decision mail validates kinds and optional token without breaking submissi
     return { rows: [] };
   }, release() {} }) };
   await drainEthnOutbox(pool as never, { sendMail: async m => { messages.push(m); } }, { bookingId, from: "mail@example.com", appUrl: "https://example.com" });
+  assert.match(messages.at(-1)!.text, /View public Open Plays: https:\/\/example\.com\/open-plays/);
+  assert.doesNotMatch(messages[1].text, /View public Open Plays/);
   assert.deepEqual(statuses, ["sent", "sent", "sent", "dead", "sent", "sent", "sent", "dead", "sent"]);
-  assert.deepEqual(messages.map(m => m.subject), ["Payment proof received — ETHN Courts", "You’re booked at ETHN Courts", "Your booking wasn’t confirmed — ETHN Courts", "Booking cancelled — ETHN Courts", "Refund recorded — ETHN Courts", "You’re booked at ETHN Courts", "You’re booked at ETHN Courts"]);
+  assert.deepEqual(messages.map(m => m.subject), ["Open Play booking request received — ETHN Courts", "You’re booked at ETHN Courts", "Your booking wasn’t confirmed — ETHN Courts", "Booking cancelled — ETHN Courts", "Refund recorded — ETHN Courts", "You’re booked at ETHN Courts", "You’re booked at ETHN Courts"]);
   const actions = [
     `/checkout/track/${token}`, "/track", "/contact", "/contact", `/checkout/track/${token}`,
   ].map(path => `https://example.com${path}`).concat(VENUE_MAP_LINK, `https://example.com/checkout/track/${token}`);
@@ -73,7 +75,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     assert.equal(message.text.includes(`Get directions: ${VENUE_MAP_LINK}`), approved);
     assert.doesNotMatch(`${message.text}\n${message.html}`, /private note|private reference/);
   }
-  assert.match(messages[0].text, /booking isn’t confirmed yet/);
+  assert.match(messages[0].text, /listing stays private until your booking is confirmed/);
   assert.match(messages[0].text, /Booking total: ₱100\.02/);
   assert.doesNotMatch(messages[0].text, /Total paid/);
   assert.match(messages[1].text, /Total paid: ₱100\.02/);

@@ -61,9 +61,11 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
     const status = decision.action === "approve" ? "confirmed" : "rejected", paymentStatus = decision.action === "approve" ? "accepted" : "rejected";
     await client.query("UPDATE ethn.bookings SET status=$2 WHERE id=$1", [bookingId, status]);
     await client.query("UPDATE ethn.court_allocations SET state=$2 WHERE state='pending' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id=$1)", [bookingId, status]);
-    const submission = (await client.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_submission' ORDER BY id LIMIT 1", [bookingId])).rows[0];
+    const submission = (await client.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind IN ('booking_submission','open_play_submitted') ORDER BY id LIMIT 1", [bookingId])).rows[0];
     const token = submission?.payload?.trackingToken;
-    const payload = { email: booking.guest_email, name: booking.guest_name, code: booking.tracking_code, total: booking.total, ...(typeof token === "string" && /^[0-9a-f]{64}$/.test(token) && hash(token) === booking.tracking_hash ? { trackingToken: token } : {}), ...(decision.action === "reject" ? { reason: decision.reason } : {}) };
+    const openPlayPublished = decision.action === "approve" && (await client.query(`SELECT 1 FROM ethn.booking_open_plays p JOIN ethn.booking_open_play_sessions s USING (booking_id)
+      WHERE p.booking_id=$1 AND NOT p.removed AND NOT p.hidden AND s.ends_at > clock_timestamp()`, [bookingId])).rows.length > 0;
+    const payload = { email: booking.guest_email, name: booking.guest_name, code: booking.tracking_code, total: booking.total, ...(openPlayPublished ? { openPlayPublished: true } : {}), ...(typeof token === "string" && /^[0-9a-f]{64}$/.test(token) && hash(token) === booking.tracking_hash ? { trackingToken: token } : {}), ...(decision.action === "reject" ? { reason: decision.reason } : {}) };
     await client.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,$3,$4::jsonb)", [randomUUID(), bookingId, decision.action === "approve" ? "booking_approved" : "booking_rejected", JSON.stringify(payload)]);
     await client.query("INSERT INTO ethn.audit (booking_id,actor,action,detail) VALUES ($1,$2,$3,$4::jsonb)", [bookingId, actor, `payment.${decision.action}`, JSON.stringify({ paymentId: payment.id })]);
     if (decision.action === "approve") await recordBookingAlert(client, bookingId, "booking_confirmed", owners);

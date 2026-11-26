@@ -8,7 +8,7 @@ const owners = Array.from({ length: 5 }, (_, i) => `00000000-0000-4000-8000-0000
 test("new booking email goes only to eligible owner accounts and retries temporary failures", async () => {
   const statuses: unknown[] = [], lookedUp: string[] = [], messages: { to: string; subject: string; text: string; html: string }[] = [];
   const pool = { connect: async () => ({ query: async (sql: string, args?: unknown[]) => {
-    if (sql.includes("SELECT id, kind")) return { rows: owners.map((ownerId, i) => ({ id: `message-${i}`, kind: "booking_owner_alert", payload: { ownerId, source: i === 0 ? "online" : "internal", trackingToken: "secret", proof: "secret" }, attempts: 0 })) };
+    if (sql.includes("SELECT id, kind")) return { rows: owners.map((ownerId, i) => ({ id: `message-${i}`, kind: "booking_owner_alert", payload: { ownerId, source: i === 0 ? "online" : "internal", event: i === 0 ? "open_play_submitted" : undefined, trackingToken: "secret", proof: "secret" }, attempts: 0 })) };
     if (sql.includes("FROM ethn.staff_access")) {
       assert.match(sql, /enabled AND role='owner'/);
       return { rows: args?.[0] === owners[2] ? [] : [{}] };
@@ -27,9 +27,9 @@ test("new booking email goes only to eligible owner accounts and retries tempora
   assert.deepEqual(lookedUp, [owners[0], owners[1], owners[3], owners[4]]);
   assert.deepEqual(statuses, ["sent", "sent", "dead", "pending", "dead"]);
   assert.deepEqual(messages.map(m => m.to), ["owner0@example.com", "owner1@example.com"]);
-  assert.match(messages[0].text, /submitted payment proof/);
+  assert.match(messages[0].text, /Booking approval publishes the Open Play/);
   assert.match(messages[1].text, /No payment review is needed/);
-  assert.deepEqual(messages.map(m => m.subject), ["Payment review needed — ETHN Courts", "Staff booking confirmed — ETHN Courts"]);
+  assert.deepEqual(messages.map(m => m.subject), ["New booking with Open Play — ETHN Courts", "Staff booking confirmed — ETHN Courts"]);
   for (const [index, message] of messages.entries()) {
     assert.ok(message.html.includes(`href="https://example.com/admin/bookings/${bookingId}"`));
     assert.ok(message.html.includes(`>${index === 0 ? "Review payment" : "View booking"}</a>`));

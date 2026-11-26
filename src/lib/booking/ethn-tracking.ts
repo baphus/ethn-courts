@@ -1,16 +1,18 @@
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import { z } from "zod";
+import { lockBookingAlertOwners, recordBookingAlert } from "./ethn-booking-alerts";
 
 const codeCredential = z.object({ code: z.string().regex(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/i), email: z.string().trim().email().max(254) }).strict();
 export const trackingInput = z.union([
   z.object({ token: z.string().regex(/^[0-9a-f]{64}$/i) }).strict(),
   codeCredential,
 ]);
+export const openPlayEventUrl = z.string().trim().max(256).regex(/^(?:https:\/\/reclub\.co\/m\/[A-Za-z0-9_-]+)?$/).default("");
 export const openPlayDetails = z.object({
   title: z.string().trim().min(1).max(100).refine(value => !value.includes("\0")),
   description: z.string().trim().max(500).refine(value => !value.includes("\0")),
-  eventUrl: z.string().trim().max(256).regex(/^https:\/\/reclub\.co\/m\/[A-Za-z0-9_-]+$/),
+  eventUrl: openPlayEventUrl,
 }).strict();
 export const openPlayUpdate = codeCredential.extend({ listing: openPlayDetails.nullable() });
 
@@ -25,7 +27,8 @@ export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, 
   let committing = false, discard = false;
   try {
     if (update) await client.query("BEGIN");
-    const booking = (await client.query(`SELECT id, operating_date::text, status, total::text FROM ethn.bookings WHERE ${token ? "tracking_hash = $1" : "tracking_code = $1 AND lower(guest_email) = lower($2)"} AND status IN ('pending','confirmed','completed','rejected','cancelled','refunded')${update ? " FOR UPDATE" : ""}`, values)).rows[0];
+    const owners = mutation?.success && mutation.data.listing ? await lockBookingAlertOwners(client) : [];
+    const booking = (await client.query(`SELECT id, operating_date::text, status, total::text, guest_email, tracking_code FROM ethn.bookings WHERE ${token ? "tracking_hash = $1" : "tracking_code = $1 AND lower(guest_email) = lower($2)"} AND status IN ('pending','confirmed','completed','rejected','cancelled','refunded')${update ? " FOR UPDATE" : ""}`, values)).rows[0];
     if (!booking) {
       if (update) await client.query("ROLLBACK");
       return null;
@@ -37,9 +40,16 @@ export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, 
       if (mutation?.success) {
         if (!editable) throw new Error("OPEN_PLAY_NOT_EDITABLE");
         const listing = mutation.data.listing;
-        if (listing) await client.query(`INSERT INTO ethn.booking_open_plays (booking_id,title,description,event_url) VALUES ($1,$2,$3,$4)
-          ON CONFLICT (booking_id) DO UPDATE SET title=excluded.title,description=excluded.description,event_url=excluded.event_url,removed=false`, [booking.id, listing.title, listing.description, listing.eventUrl]);
-        else await client.query("UPDATE ethn.booking_open_plays SET removed=true WHERE booking_id=$1", [booking.id]);
+        if (listing) {
+          const args = [booking.id, listing.title, listing.description, listing.eventUrl];
+          const first = (await client.query(`INSERT INTO ethn.booking_open_plays (booking_id,title,description,event_url) VALUES ($1,$2,$3,$4)
+            ON CONFLICT (booking_id) DO NOTHING RETURNING booking_id`, args)).rows.length > 0;
+          if (!first) await client.query("UPDATE ethn.booking_open_plays SET title=$2,description=$3,event_url=$4,removed=false WHERE booking_id=$1", args);
+          else {
+            await recordBookingAlert(client, booking.id, "open_play_added", owners, "online");
+            await client.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES (gen_random_uuid(),$1,'open_play_added',$2::jsonb)", [booking.id, JSON.stringify({ email: booking.guest_email, code: booking.tracking_code, total: booking.total })]);
+          }
+        } else await client.query("UPDATE ethn.booking_open_plays SET removed=true WHERE booking_id=$1", [booking.id]);
       }
       const listing = (await client.query('SELECT title,description,event_url AS "eventUrl",hidden FROM ethn.booking_open_plays WHERE booking_id=$1 AND NOT removed', [booking.id])).rows[0];
       if (editable || listing) openPlay = { editable, listing: listing ?? null };

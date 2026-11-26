@@ -19,7 +19,10 @@ test("refresh restores the existing checkout and payment fields; only explicit l
 });
 
 test("only review confirmation calls the checkout hold endpoint", () => {
-  assert.match(booking, /onClick=\{\(\) => \{[^}]*setReviewing\(true\);[^}]*\}\}>Review selection/);
+  assert.match(booking, /onClick=\{reviewSelection\}>Review selection/);
+  const reviewSelection = booking.slice(booking.indexOf("function reviewSelection()"), booking.indexOf("async function beginCheckout()"));
+  assert.match(reviewSelection, /setReviewing\(true\)/);
+  assert.doesNotMatch(reviewSelection, /beginCheckout\(|\/api\/checkout/);
   assert.match(booking, /reviewing && availability \? <form[^\n]*onSubmit=\{e => \{ e\.preventDefault\(\); void beginCheckout\(\); \}\}>[\s\S]*?\{contactFields\}[\s\S]*?<Button type="submit"[^\n]*"Confirm and hold"/);
   assert.match(booking, /async function beginCheckout\(\)[\s\S]*?if \(!validateGuest\(\{ kind: "online", name, email, phone \}\)\) \{[^}]*return;[^}]*\}[\s\S]*?await post<Checkout>\("\/api\/checkout"/);
   assert.equal(booking.match(/\bbeginCheckout\(/g)?.length, 2, "one definition and one call site");

@@ -5,7 +5,7 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 
 test("fresh ETHN migration includes full ordered chain and court migration matches reviewed SQL", () => {
   const migrations = readMigrationFiles({ migrationsFolder: "db/ethn-migrations" });
-  assert.equal(migrations.length, 9);
+  assert.equal(migrations.length, 10);
   assert.ok(migrations[8].folderMillis > migrations[7].folderMillis);
   assert.equal(readFileSync('db/ethn-migrations/0002_sloppy_machine_man.sql','utf8'),readFileSync('db/ethn/0030_unified_bookings.sql','utf8'));
   const files = readdirSync("db/ethn").filter(name => /^00\d\d_.*\.sql$/.test(name) && name < "0029_").sort();
