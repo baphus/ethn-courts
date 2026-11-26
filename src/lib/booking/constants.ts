@@ -49,13 +49,6 @@ export const PROOF_READ_TTL_SECONDS = 300;
 // (rpc_delete_expired_proofs + /api/cron/proof-prune).
 export const PROOF_RETENTION_DAYS = 90;
 
-// Outbox templates written by the submit transaction (ADR-05: customer
-// submission email + owner alert; the approve/reject email is written by the
-// admin-decision lane, not here).
-export const OUTBOX_TEMPLATE_CUSTOMER_SUBMITTED = "booking_customer_submitted";
-export const OUTBOX_TEMPLATE_OWNER_ALERT = "booking_owner_alert";
-export const OWNER_ALERT_EMAIL = "ckgrounds1@gmail.com";
-
 // Venue contact number for user-facing pages + email footers.
 export const VENUE_PHONE_DISPLAY = "09171640092";
 export const VENUE_PHONE_LINK = `tel:${VENUE_PHONE_DISPLAY}`;

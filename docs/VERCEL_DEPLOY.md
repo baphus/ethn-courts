@@ -1,4 +1,6 @@
-# Vercel Deployment Guide — CK Grounds
+# Vercel Deployment Guide — CK Grounds (historical)
+
+> Do not use this guide to deploy ETHN Courts. The legacy mail scheduler and invite flow are retired. See [ETHN booking mail](ethn-mail.md) for current setup.
 
 Complete setup checklist for deploying to Vercel after the Drizzle → Supabase-JS migration.
 Follow these steps **in order**. Each section has a verification step — do not skip them.

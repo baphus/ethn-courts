@@ -33,6 +33,8 @@ The following methods return uncached `410 {"error":"RETIRED"}` without legacy d
 - POST/DELETE `/api/holds`; POST `/api/holds/reclaim`, `/api/proofs/upload-url`, `/api/submit`.
 - POST `/api/admin/bookings`, `/api/admin/bookings/proof-upload-url`, `/api/admin/bookings/:id/{approve,reject,refund,delete}`; GET `/api/admin/proofs/read`.
 - POST `/api/admin/closures`, `/api/admin/courts`, `/api/admin/expenses`, `/api/admin/pricing`; POST/PUT `/api/admin/hours`; PATCH/DELETE `/api/admin/expenses/:id`, `/api/admin/hours/:id`, `/api/admin/pricing/:id`; PATCH `/api/admin/courts/:id`; DELETE `/api/admin/closures/:id`.
-- POST `/api/admin/outbox/process`, `/api/admin/users`, `/api/admin/users/:userId/{deactivate,reactivate}`; DELETE `/api/admin/users/:userId`.
+- GET `/api/cron/outbox`; POST `/api/admin/outbox/process`.
+- POST `/api/auth/register`; GET and POST `/api/auth/invites`; GET `/api/auth/invites/validate`; DELETE `/api/auth/invites/revoke`.
+- POST `/api/admin/users`, `/api/admin/users/:userId/{deactivate,reactivate}`; DELETE `/api/admin/users/:userId`.
 
 Other legacy reads remain legacy and may require Supabase. Unsupported legacy UI must not advertise these retired actions during cutover. Existing records and proof objects are not migrated or deleted by retirement.

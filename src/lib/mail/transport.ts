@@ -10,7 +10,7 @@ import type { Transporter } from "nodemailer";
 // not implemented — App Password path only).
 //
 // Local dev (e.g. Mailpit on 127.0.0.1:1025, no auth):
-//   SMTP_HOST=127.0.0.1 SMTP_PORT=1025 SMTP_SECURE=false MAIL_FROM=noreply@localhost
+//   SMTP_HOST=127.0.0.1 SMTP_PORT=1025 SMTP_SECURE=false ETHN_MAIL_FROM=bookings@example.test
 // When SMTP_HOST is unset, falls back to the Gmail path (GMAIL_USER +
 // GMAIL_APP_PASSWORD) so production is untouched.
 export function getTransport(): Transporter {
@@ -63,11 +63,4 @@ export function getSharedTransport(): Transporter {
 // without a process restart.
 export function resetSharedTransport(): void {
   shared = null;
-}
-
-export function fromAddress(): string {
-  const from =
-    process.env.MAIL_FROM ?? process.env.SMTP_USER ?? process.env.GMAIL_USER;
-  if (!from) throw new Error("NOT_CONFIGURED");
-  return from;
 }

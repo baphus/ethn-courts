@@ -5,15 +5,16 @@ import { gridSlotCount, invoiceMoney, invoiceSlotRate, invoiceTimeRange } from "
 import { parsePesos } from "../booking/core";
 import { VENUE_ADDRESS, VENUE_MAP_LINK } from "../venue";
 import { isEthnMailAddress } from "./ethn-address";
+import { renderEthnEmailHtml } from "./ethn-email-layout";
 
 type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?: boolean; ownerEmail?: (id: string) => Promise<string | null> };
-type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html?: string; messageId: string }): Promise<unknown> };
-const notices: Record<string, { title: string; status: string; amount?: string }> = {
-  booking_submission: { title: "Payment proof received", status: "Your payment proof is pending review. Your booking is not confirmed yet.", amount: "Booking total" },
-  booking_approved: { title: "Booking confirmed", status: "Your booking is confirmed and fully paid.", amount: "Total paid" },
-  booking_rejected: { title: "Booking not confirmed", status: "We could not verify your payment proof. Your court is not booked." },
-  booking_cancelled: { title: "Booking cancelled", status: "Your court time was released. No refund was recorded for this cancellation." },
-  booking_refunded: { title: "Booking refund recorded", status: "Your booking is no longer active. ETHN Courts recorded a refund made outside the booking website.", amount: "Refund recorded" },
+type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html: string; messageId: string }): Promise<unknown> };
+const notices: Record<string, { title: string; preheader: string; status: string; amount?: string }> = {
+  booking_submission: { title: "Payment proof received", preheader: "Your booking isn’t confirmed yet.", status: "We received your payment proof. Our team will review it and email you with the outcome. Your booking isn’t confirmed yet.", amount: "Booking total" },
+  booking_approved: { title: "You’re booked at ETHN Courts", preheader: "Your court time is confirmed and paid in full.", status: "Your payment has been verified and your court time is confirmed.", amount: "Total paid" },
+  booking_rejected: { title: "Your booking wasn’t confirmed", preheader: "We couldn’t verify your payment proof.", status: "We couldn’t verify your payment proof, so your court time isn’t booked. See the reason below. If you believe you already paid, contact us before paying again." },
+  booking_cancelled: { title: "Booking cancelled", preheader: "Your court time has been released.", status: "Your booking was cancelled and your court time was released. No refund has been recorded for this booking." },
+  booking_refunded: { title: "Refund recorded", preheader: "Your booking is no longer active.", status: "Your booking is no longer active. Our team recorded a refund made outside the booking site. The recorded amount is below.", amount: "Refund recorded" },
 };
 const manilaDate = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" });
 const manilaTime = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
@@ -22,7 +23,15 @@ function scheduleLine({ court, starts_at: start, ends_at: end }: { court: string
   const day = manilaDate.format(start), endDay = manilaDate.format(end);
   return `${court}: ${day}, ${manilaTime.format(start)} – ${day === endDay ? "" : `${endDay}, `}${manilaTime.format(end)}`;
 }
-const escapeHtml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+type EmailContent = Parameters<typeof renderEthnEmailHtml>[0];
+
+function renderEmail(email: EmailContent, subject = `${email.title} — ETHN Courts`) {
+  const { status, sections, action, links, footer } = email;
+  const text = [status, ...sections.map(({ title, lines }) => [title, ...lines].join("\n")),
+    `${action.label}: ${action.href}`, [...footer, ...links.map(link => `${link.label}: ${link.href}`)].join("\n")]
+    .filter(Boolean).join("\n\n");
+  return { subject, text: `${text}\n`, html: renderEthnEmailHtml(email) };
+}
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function validateEthnOutboxConfig(config: Config) {
@@ -70,7 +79,10 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
       LEFT JOIN ethn.payment_methods pm ON pm.id = p.method
       WHERE b.id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
     committing = true; await client.query("COMMIT"); committing = false; transaction = false;
-    const contact = `Contact ETHN Courts: ${new URL("/contact", origin).href}`;
+    const contact = { label: "Contact ETHN Courts", href: new URL("/contact", origin).href };
+    const directions = { label: "Get directions", href: VENUE_MAP_LINK };
+    const scheduleSections = schedule.length ? [{ title: "Court schedule", lines: schedule }] : [];
+    const footer = ["ETHN Courts", VENUE_ADDRESS];
     for (const row of claims) {
       const p = row.payload as Record<string, unknown> | null;
       const notice = Object.hasOwn(notices, row.kind) ? notices[row.kind] : undefined;
@@ -88,34 +100,51 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
           const enabled = (await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [p.ownerId])).rows.length > 0;
           const email = enabled ? await config.ownerEmail(p.ownerId) : null;
           if (isEthnMailAddress(email)) {
-            const text = [
-              p.source === "online" ? "A customer submitted a booking. Payment needs review." : "Staff added a confirmed booking.",
-              ...schedule, "", `View booking: ${new URL(`/admin/bookings/${config.bookingId}`, origin).href}`,
-            ].join("\n");
-            await transport.sendMail({ from: config.from, to: email, subject: "New booking | ETHN Courts", text: `${text}\n`, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
+            const online = p.source === "online";
+            const message = renderEmail({
+              title: online ? "Payment review needed" : "Staff booking confirmed",
+              preheader: online ? "An online booking is waiting for payment review." : "No payment review is needed.",
+              status: online ? "A customer submitted payment proof. Open the booking to review it." : "Your team added a confirmed booking. No payment review is needed.",
+              audience: "Owner notification",
+              sections: scheduleSections,
+              action: { label: online ? "Review payment" : "View booking", href: new URL(`/admin/bookings/${config.bookingId}`, origin).href },
+              links: [], footer: ["ETHN Courts"],
+            });
+            await transport.sendMail({ from: config.from, to: email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
             status = "sent";
           }
         } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
       } else if (valid && notice && p && isEthnMailAddress(p.email)) {
         try {
-          const tracking = token ? `Track booking: ${new URL(`/checkout/track/${token}`, origin).href}` : code ? `Track with your code and email: ${new URL("/track", origin).href}` : null;
-          const invoiceLines = approved && invoice.length ? [
-            "Booking invoice", `Booking date: ${formatDisplayDate(invoice[0].booking_date)}`, "",
-            ...invoice.map(item => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)} · ${invoiceSlotRate(item.duration_minutes, item.interval_minutes, item.hourly_rate)} · ${invoiceMoney(item.amount)}`),
-            "", `Total slots: ${invoice.reduce((total, item) => total + (gridSlotCount(item.duration_minutes, item.interval_minutes) ?? 0), 0)}`,
-            invoice[0].method_name ? `Payment method: ${invoice[0].method_name}` : null,
-            `Total paid: ${invoiceMoney(p.total as string)}`,
-          ] : [];
-          const text = [
-            notice.status, rejected ? `Reason: ${p.reason}` : null, "",
-            code ? `Booking code: ${code}` : null,
-            ...invoiceLines,
-            ...(!approved && schedule.length ? ["Court schedule:", ...schedule] : []),
-            !invoiceLines.length && notice.amount ? `${notice.amount}: PHP ${p.total}` : null, "",
-            tracking, tracking ? "" : null, "ETHN Courts", VENUE_ADDRESS,
-            approved ? `Directions: ${VENUE_MAP_LINK}` : null, contact,
-          ].filter(line => line !== null).join("\n");
-          await transport.sendMail({ from: config.from, to: p.email, subject: `${notice.title} | ETHN Courts`, text: `${text}\n`, ...(invoiceLines.length ? { html: `<div style="font:16px/1.5 Arial,sans-serif;color:#17252e">${text.split("\n\n").map(block => `<p>${escapeHtml(block).replaceAll("\n", "<br>")}</p>`).join("")}</div>` } : {}), messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
+          const tracking = token
+            ? { label: submission ? "Track booking" : "View booking", href: new URL(`/checkout/track/${token}`, origin).href }
+            : code ? { label: "Track with your code and email", href: new URL("/track", origin).href } : null;
+          const hasInvoice = approved && invoice.length > 0;
+          const sections: EmailContent["sections"] = [];
+          if (rejected) sections.push({ title: "Reason", lines: [p.reason as string] });
+          if (code) sections.push({ title: "Booking code", lines: [code] });
+          if (hasInvoice) {
+            sections.push({ title: "Booking invoice", lines: [
+              `Booking date: ${formatDisplayDate(invoice[0].booking_date)}`,
+              ...invoice.map(item => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)} · ${invoiceSlotRate(item.duration_minutes, item.interval_minutes, item.hourly_rate)} · ${invoiceMoney(item.amount)}`),
+              `Total slots: ${invoice.reduce((total, item) => total + (gridSlotCount(item.duration_minutes, item.interval_minutes) ?? 0), 0)}`,
+              ...(invoice[0].method_name ? [`Payment method: ${invoice[0].method_name}`] : []),
+              `Total paid: ${invoiceMoney(p.total as string)}`,
+            ] });
+          } else {
+            sections.push(...scheduleSections);
+            if (notice.amount) sections.push({ title: notice.amount, lines: [invoiceMoney(p.total as string)] });
+          }
+          const action = rejected ? contact : tracking ?? (approved ? directions : contact);
+          const links = [contact];
+          if (tracking) links.unshift(tracking);
+          if (approved) links.push(directions);
+          const message = renderEmail({
+            ...notice,
+            status: approved && p.staff === true ? "Our team booked your court time and recorded your payment in full." : notice.status,
+            audience: "Booking update", sections, action, links: links.filter(link => link !== action), footer,
+          }, approved ? notice.title : undefined);
+          await transport.sendMail({ from: config.from, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
           status = "sent";
         } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
       }

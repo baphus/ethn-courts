@@ -24,7 +24,7 @@ export function CashActivity({ from, to }: { from: string; to: string }) {
   return <section className="space-y-4" aria-labelledby="cash-activity-heading" aria-busy={loading}>
     <div className="flex items-center gap-2"><h2 id="cash-activity-heading" className="text-lg font-semibold">Cash activity</h2><FinanceInfo label="About cash activity">Verified receipts use Manila receipt dates, or the verification date if no receipt time was recorded. Historical extension receipts are included. Net recorded cash subtracts expenses and historical refunds. See the export for ledger detail.</FinanceInfo></div>
     {error && <p role="alert">{error} <Button variant="link" onClick={retry}>Retry</Button></p>}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">{metrics.map(([key, label]) => {
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{metrics.map(([key, label]) => {
         const change = report && cashChange(report.current[key], report.previous[key]);
         return <KpiCard key={key} label={label} Icon={Wallet} value={report ? formatCashAmount(report.current[key]) : error ? "Unavailable" : <Skeleton className="h-7 w-24 motion-reduce:animate-none" />}>{change && <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{change} vs previous period</span>}</KpiCard>;
       })}</div>

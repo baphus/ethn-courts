@@ -24,7 +24,7 @@ No Supabase dashboard account creation is needed. Configure existing ETHN Auth/S
 
 Setup is allowed only when **no ETHN staff rows exist** and no `owner.bootstrap` audit marker exists; disabled staff/owners do not reopen setup. Missing configuration or database errors never open setup. Existing accounts can be claimed only with their correct password and setup key. New accounts are email-confirmed by this operator-authorized flow; setup does not verify inbox ownership. Staff membership and bootstrap audit commit together, serialized by existing settings lock. No schema migration is added; existing staff-management/audit grants and RLS are required.
 
-Supabase Auth and SQL cannot commit atomically. If Auth succeeds but SQL fails, account may exist without staff access; retry using the same email/password/key. Never automatically delete accounts after uncertain commits. If response is lost after SQL commits, sign in instead. Legacy invite minting no longer permits unauthenticated first-admin bootstrap.
+Supabase Auth and SQL cannot commit atomically. If Auth succeeds but SQL fails, account may exist without staff access; retry using the same email/password/key. Never automatically delete accounts after uncertain commits. If response is lost after SQL commits, sign in instead. Legacy invite registration is retired. Use the ETHN staff workflow to manage access.
 
 ## Database and scope
 

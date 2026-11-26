@@ -14,6 +14,6 @@ export function KpiCard({ label, value, Icon, href, warn, children }: Kpi) {
   return href ? <Link href={href} className={`${className} focus-visible:outline-2 focus-visible:outline-ring`}>{content}</Link> : <div className={className}>{content}</div>;
 }
 
-export function KpiRow({ items }: { items: Kpi[] }) {
-  return <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{items.map(item => <KpiCard key={item.label} {...item} />)}</div>;
+export function KpiRow({ items, className = "grid-cols-2 xl:grid-cols-4" }: { items: Kpi[]; className?: string }) {
+  return <div className={`grid gap-3 ${className}`}>{items.map(item => <KpiCard key={item.label} {...item} />)}</div>;
 }
