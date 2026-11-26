@@ -7,7 +7,8 @@ const owners = Array.from({ length: 5 }, (_, i) => `00000000-0000-4000-8000-0000
 
 test("new booking email goes only to eligible owner accounts and retries temporary failures", async () => {
   const statuses: unknown[] = [], lookedUp: string[] = [], messages: { to: string; subject: string; text: string; html: string }[] = [];
-  const pool = { connect: async () => ({ query: async (sql: string, args?: unknown[]) => {
+  let released = false;
+  const query = async (sql: string, args?: unknown[]) => {
     if (sql.includes("SELECT id, kind")) return { rows: owners.map((ownerId, i) => ({ id: `message-${i}`, kind: "booking_owner_alert", payload: { ownerId, source: i === 0 ? "online" : "internal", event: i === 0 ? "open_play_submitted" : undefined, trackingToken: "secret", proof: "secret" }, attempts: 0 })) };
     if (sql.includes("FROM ethn.staff_access")) {
       assert.match(sql, /enabled AND role='owner'/);
@@ -15,8 +16,9 @@ test("new booking email goes only to eligible owner accounts and retries tempora
     }
     if (sql.includes("SET status = $3")) statuses.push(args?.[2]);
     return { rows: [] };
-  }, release() {} }) };
-  await drainEthnOutbox(pool as never, { sendMail: async m => { messages.push(m); } }, {
+  };
+  const pool = { query, connect: async () => ({ query, release() { released = true; } }) };
+  await drainEthnOutbox(pool as never, { sendMail: async m => { assert.equal(released, true); messages.push(m); } }, {
     bookingId, from: "mail@example.com", appUrl: "https://example.com",
     ownerEmail: async id => {
       lookedUp.push(id);

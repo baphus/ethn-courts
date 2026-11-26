@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-test('pending extension review is excluded from both completion selection and update',()=>{
+test('manual completion blocks unresolved extensions',()=>{
  const source=readFileSync(new URL('../src/lib/admin/ethn-outcomes.ts',import.meta.url),'utf8');
- assert.equal(source.match(/pending_extension\.status='pending'/g)?.length,2);
+ assert.ok(source.includes("AND NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending'))"));
 });

@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { gcashReference, parsePesos, validateGuest } from "./core";
 import { openPlayDetails } from "./ethn-tracking";
-import { lockBookingAlertOwners, recordNewBookingAlerts } from "./ethn-booking-alerts";
+import { lockBookingAlertOwners, recordBookingAlert, recordNewBookingAlerts } from "./ethn-booking-alerts";
 
 type Input = { ownerToken: string; checkoutId: string; idempotencyKey: string; customer: { name: string; email: string; phone: string }; reservationId: string; paymentMethodId?: string; reference?: string; claimedAmount?: string; acknowledgedTotal?: string; openPlay?: { title: string; description: string; eventUrl: string } };
 type Inspector = { inspect(path: string): Promise<{ bytes: number; mimeType: string }> };
@@ -76,10 +76,11 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
       if (booking.status === "held") await client.query("UPDATE ethn.bookings SET status = 'expired' WHERE id = $1", [checkout]);
       await client.query("UPDATE ethn.bookings SET guest_name = $2, guest_email = $3, guest_phone = $4, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone]);
       await client.query("UPDATE ethn.court_allocations SET state = 'expired' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = $1)", [checkout]);
-      result = { booked: false, checkoutId: checkout, status: "payment_exception", requiresStaffReview: true, message: "Not booked. Staff review required." };
+      result = { booked: false, checkoutId: checkout, status: "payment_exception", requiresStaffReview: true, message: "Not booked. Contact the venue to reconcile payment." };
     }
     await client.query("INSERT INTO ethn.payments (id, booking_id, method, merchant_snapshot, status, claimed_reference, claimed_amount, proof_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", [randomUUID(), checkout, method.id, JSON.stringify({name:method.name,instructions:method.instructions}), timely ? "unverified" : "exception", reference, claimedAmount, reservation]);
     if (timely) await recordNewBookingAlerts(client, checkout, "online", owners, "openPlaySaved" in result && result.openPlaySaved === true);
+    else await recordBookingAlert(client, checkout, "late_payment_recorded", owners);
     await client.query("INSERT INTO ethn.audit (booking_id, actor, action, detail) VALUES ($1,$2,'booking.submit',$3::jsonb)", [checkout, owner, JSON.stringify({ outcome: timely ? "pending" : "payment_exception", reservationId: reservation })]);
     await client.query("UPDATE ethn.idempotency SET result = $4::jsonb WHERE owner_hash = $1 AND operation = 'submission' AND key = $2 AND fingerprint = $3", [owner, input.idempotencyKey, fingerprint, JSON.stringify(result)]);
     committing = true; await client.query("COMMIT"); return result;

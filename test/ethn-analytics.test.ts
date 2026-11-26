@@ -21,8 +21,8 @@ function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false)
     if (sql.includes("SELECT 1 FROM ethn.staff_access")) return { rows: [{ '?column?': 1 }] };
     if (sql.includes("transaction_timestamp() AS now")) return { rows: [{ now }] };
     if (sql.includes("revenue AS")) return { rows: [{ date: "2026-11-01", revenue: "12500", expenses: "1000", bookings: 1 }] };
-    if (sql.includes("WITH entries AS")) return { rows: [{ id: "cash", name: "Cash", amount: "0.00" }, { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" }, { id: "custom", name: "Custom QR", amount: "0.00" }, { id: "gcash", name: "GCash", amount: "-0.25" }] };
-    if (sql.includes("WITH days AS")) return { rows: [{ date: "2026-11-01", bookingcash: "0.00", bookinggcash: "0.00", salescash: "0.00", salesgcash: "0.00", cash: "0.00", gcash: "0.00", other:'0.00', refunds:'0.00', collected: "0.00", expenses: "0.00" }] };
+    if (sql.includes("WITH entries AS") && !sql.includes("sales_totals AS")) return { rows: [{ id: "cash", name: "Cash", amount: "0.00" }, { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" }, { id: "custom", name: "Custom QR", amount: "0.00" }, { id: "gcash", name: "GCash", amount: "-0.25" }] };
+    if (sql.includes("sales_totals AS")) return { rows: [{ date: "2026-11-01", bookingcash: "0.00", bookinggcash: "0.00", salescash: "0.00", salesgcash: "0.00", cash: "0.00", gcash: "0.00", other:'0.00', refunds:'0.00', collected: "0.00", expenses: "0.00" }] };
     return { rows: [] };
   }, release: () => { released++; } }) } as unknown as Pick<Pool, "connect">;
   return { pool, queries, releases: () => released };
@@ -42,7 +42,7 @@ test("staff cannot obtain finance; strict query validation and schedule segments
   assert.match(sql, /WHERE b\.status = 'confirmed'/);
   assert.match(sql, /p\.starts_at >= \$3/);
   assert.match(sql, /LIMIT 301/); assert.doesNotMatch(sql, /min\(p\.starts_at\)/);
-  assert.ok(!db.queries.some(q => q.includes("WITH days AS")));
+  assert.ok(!db.queries.some(q => q.includes("sales_totals AS")));
   assert.ok(db.releases() > 0);
 });
 

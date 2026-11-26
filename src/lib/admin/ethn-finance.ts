@@ -233,6 +233,7 @@ export async function changeExpense(pool: Db, verify: StaffVerifier, id: string,
       if (b.paidDate > today) throw new Error('INVALID_INPUT');
       await c.query('UPDATE ethn.expenses SET title=$2,category=$3,amount=$4,paid_date=$5,description=$6,vendor=$7,notes=$8,revision=$9 WHERE id=$1',[id,b.title.trim(),b.category,b.amount,b.paidDate,...expenseMetadata(b),randomUUID()]);
     } else {
+      if (correction) throw new Error('EXPENSE_HAS_CORRECTIONS');
       await c.query('DELETE FROM ethn.expenses WHERE id=$1',[id]);
     }
     await c.query('INSERT INTO ethn.audit(actor,action,detail) VALUES($1,$2,$3::jsonb)',[actor,`expense.${operation}`,JSON.stringify({ expenseId:id, previous:old, lastCorrectionId:correction, ...(operation==='edit'?{ amount:b.amount,category:b.category,paidDate:b.paidDate }:{}) })]);

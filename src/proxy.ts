@@ -19,6 +19,8 @@ const WRITE_LIMITS: Array<{
   methods?: string[];
 }> = [
   { prefix: "/api/ethn/availability", limit: 60, windowMs: 60_000, methods: ["GET"] },
+  { prefix: "/api/checkout/submit", limit: 20, windowMs: 60_000, methods: ["POST"] },
+  { prefix: "/api/checkout/track", limit: 10, windowMs: 60_000, methods: ["POST", "PUT"] },
   { prefix: "/api/checkout", limit: 10, windowMs: 60_000, methods: ["POST", "PUT"] },
   { prefix: "/api/ethn/setup", limit: 5, windowMs: 60_000, methods: ["GET", "POST"] },
   { prefix: "/api/submit", limit: 10, windowMs: 60_000 },

@@ -91,7 +91,7 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   assert.equal(submitted.booked,true);
   assert.equal(await competitor,'SLOT_TAKEN');
   assert.equal(await releaseCheckout(pool,{ownerToken,checkoutId:checkout.checkoutId}),false);
-  await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true});
+  await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-online-transfer'});
   const online=(await admin.query('SELECT method,claimed_reference,collected_amount::text,received_at,merchant_snapshot FROM ethn.payments WHERE booking_id=$1',[checkout.checkoutId])).rows[0];
   assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
   await bookingAction(pool,verify,checkout.checkoutId,'refund',{key:randomUUID(),reason:'Internal note',reference:'External transfer'});
@@ -117,7 +117,7 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
    ) UPDATE ethn.court_allocations a SET starts_at=m.starts_at,ends_at=m.ends_at FROM moved m WHERE a.item_id=m.id`,[pending.checkoutId,slot.start]);
   await movePast(early);
   await movePast(late);
-  await assert.rejects(decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true}),/DECISION_ALREADY_FINAL/);
+  await assert.rejects(decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-ended-transfer'}),/DECISION_ALREADY_FINAL/);
   const overdue=(await admin.query(`SELECT b.status,p.status AS payment_status,p.proof_id,
     ARRAY(SELECT a.state FROM ethn.court_allocations a JOIN ethn.booking_items i ON i.id=a.item_id WHERE i.booking_id=b.id) AS allocations,
     (SELECT count(*)::int FROM ethn.audit WHERE booking_id=b.id AND action='booking.cancel' AND actor='system:cancellation') AS audits

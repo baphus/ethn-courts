@@ -5,6 +5,7 @@ type BookingAlert = keyof typeof alerts;
 const alerts = {
   open_play_submitted: ["New booking with Open Play", "Review payment proof. Booking approval publishes the Open Play."],
   open_play_added: ["Open Play added to booking", "A customer added an Open Play through booking tracking."],
+  late_payment_recorded: ["Late payment evidence recorded", "Court time was not booked. Check the receiving account and contact the customer to reconcile payment."],
   proof_submitted: ["Payment proof submitted", "Review payment proof for this booking."],
   booking_confirmed: ["Booking confirmed", "This booking is confirmed."],
   booking_cancelled: ["Booking cancelled", "The booking was cancelled and its court time released."],

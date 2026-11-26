@@ -20,6 +20,8 @@ test("submission decides timeliness under the booking lock before checking proof
     let now = scenario === "expired" ? 3000 : 2000;
     const pool = { connect: async () => ({ release() {}, async query(sql: string, params: string[] = []) {
       calls.push(sql);
+      if (sql.includes("FOR SHARE")) return { rows: [{ user_id: input.ownerToken }] };
+      if (sql.includes("INSERT INTO ethn.notifications")) assert.equal(params[4], scenario === "expired" ? "late_payment_recorded" : scenario === "open-play" ? "open_play_submitted" : "proof_submitted");
       if (sql.startsWith("INSERT INTO ethn.idempotency")) fingerprint = params[2];
       const rows = sql.startsWith("INSERT INTO ethn.idempotency") ? [{ key: input.idempotencyKey }]
         : sql.startsWith("SELECT fingerprint") ? [{ fingerprint }]
@@ -43,7 +45,8 @@ test("submission decides timeliness under the booking lock before checking proof
       assert.equal(result.booked, scenario !== "expired");
       assert.equal(result.openPlaySaved, openPlay ? scenario === "open-play" : undefined);
       assert.equal(calls.some(sql => sql.startsWith("INSERT INTO ethn.booking_open_plays")), Boolean(openPlay));
-      assert.equal(calls.at(-1), "COMMIT");
+      assert(calls.some(sql => sql.includes("INSERT INTO ethn.notifications")));
+       assert.equal(calls.at(-1), "COMMIT");
     }
     const locked = calls.findIndex(sql => sql.includes("FROM ethn.bookings") && sql.includes("FOR UPDATE"));
     assert(locked > 0 && locked < calls.indexOf("inspect"));

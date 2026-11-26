@@ -24,14 +24,16 @@ test("decision mail validates kinds and optional token without breaking submissi
     { id: "9", kind: "booking_approved", payload: { ...base, trackingToken: token, openPlayPublished: true }, attempts: 0 },
   ];
   const statuses: unknown[] = [], messages: Parameters<Parameters<typeof drainEthnOutbox>[1]["sendMail"]>[0][] = [];
-  const pool = { connect: async () => ({ query: async (sql: string, args?: unknown[]) => {
+  let released = false;
+  const query = async (sql: string, args?: unknown[]) => {
     if (sql.includes("SELECT id, kind")) return { rows };
     if (sql.includes("AS booking_date")) return { rows: items.map(item => ({ ...item, booking_date: "2026-01-01", method_name: "GCash" })) };
     if (sql.includes("FROM ethn.booking_items")) return { rows: items };
     if (sql.includes("SET status = $3")) statuses.push(args?.[2]);
     return { rows: [] };
-  }, release() {} }) };
-  await drainEthnOutbox(pool as never, { sendMail: async m => { messages.push(m); } }, { bookingId, from: "mail@example.com", appUrl: "https://example.com" });
+  };
+  const pool = { query, connect: async () => ({ query, release() { released = true; } }) };
+  await drainEthnOutbox(pool as never, { sendMail: async m => { assert.equal(released, true); messages.push(m); } }, { bookingId, from: "mail@example.com", appUrl: "https://example.com" });
   assert.match(messages.at(-1)!.text, /View public Open Plays: https:\/\/example\.com\/open-plays/);
   assert.doesNotMatch(messages[1].text, /View public Open Plays/);
   assert.deepEqual(statuses, ["sent", "sent", "sent", "dead", "sent", "sent", "sent", "dead", "sent"]);

@@ -15,5 +15,5 @@ test("worker rejects unsafe configuration before connecting", async () => {
     { from: "mail@example.com", appUrl: "https://user@example.com", bookingId },
     { from: "mail@example.com", appUrl: "https://example.com?x=1", bookingId },
     { from: "mail@example.com", appUrl: "https://example.com", bookingId: "" },
-  ]) await assert.rejects(drainEthnOutbox(pool, transport, config), /INVALID_OUTBOX_CONFIG/);
+  ]) await assert.rejects(drainEthnOutbox({ ...pool, query: (() => { throw new Error("unexpected query"); }) as never }, transport, config), /INVALID_OUTBOX_CONFIG/);
 });

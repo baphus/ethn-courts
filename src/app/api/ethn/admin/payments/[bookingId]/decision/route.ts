@@ -8,7 +8,7 @@ import { sendEthnMailBestEffort } from "@/lib/mail/ethn-hook-server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const input = z.discriminatedUnion("action", [
-  z.object({ key: z.string(), action: z.literal("approve"), paymentReceived: z.literal(true).optional(), acceptedReference: z.string().optional(), collectedAmount: z.string().optional(), receivedAt: z.string().optional() }).strict(),
+  z.object({ key: z.string(), action: z.literal("approve"), paymentReceived: z.literal(true).optional(), acceptedReference: z.string().trim().min(1).max(200), collectedAmount: z.string().optional(), receivedAt: z.string().optional() }).strict(),
   z.object({ key: z.string(), action: z.literal("reject"), reason: z.string() }).strict(),
 ]);
 

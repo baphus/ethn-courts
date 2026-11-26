@@ -12,7 +12,7 @@ function mock(fail = false) {
     if (sql.includes("AS held")) return { rows: [{}] };
     if (sql.includes("AS current")) return { rows: [{ current: 0, prior: 0, today: 0 }] };
     if (sql.includes("LIMIT 8")) return { rows: [] };
-    if (sql.includes("WITH days")) {
+    if (sql.includes("sales_totals AS")) {
       if (fail) throw new Error("finance unavailable");
       ranges.push(args!);
       return { rows: [{ bookingcash: "0.10", bookinggcash: "0.20", salescash: "0.03", salesgcash: "0.00", cash: "0.13", gcash: "0.20", other:'0.00', refunds:'0.00', collected: "0.33", expenses: "0.01", date: "2026-03-01" }] };

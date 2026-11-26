@@ -8,6 +8,8 @@
 
 Rates are decimal strings or null, never legacy fallback prices. IDs and settings version are strings. Instants are UTC ISO strings; windows and occupancy are half-open. Each booking range must fit one window and meet the configured minimum duration. Customer checkout accepts separate non-overlapping ranges for the same court; unselected gaps are not held. `configured=false` disables checkout when merchant or a displayed window rate is unset. Merchant is configured text, not a verified QR or GCash number; official payment instructions remain a launch gate. Invalid date returns 400 `INVALID_INPUT`; invalid configuration/schedule returns 503 `NOT_CONFIGURED`.
 
+`GET /api/ethn/availability?month=YYYY-MM` returns the same shared settings, server time, operating date, merchant and payment methods, plus `days` containing each eligible date's `date`, `configured`, `message` and `courts`. Results use one read snapshot and include only dates inside the Manila booking horizon. `month` and `date` are mutually exclusive; an invalid month or one with no eligible days returns 400. HTTP responses remain `no-store`; public booking reuses the snapshot in page memory for up to 30 seconds. Checkout still checks live availability before holding slots.
+
 ## Staff profile
 
 Enabled staff and owners can edit their own display name from **Edit profile** in the staff portal header. `GET /api/auth/profile` returns the current `{userId, role, email, name}`. `PATCH /api/auth/profile` accepts only `{name}` (trimmed, 1–100 characters); a successful update returns `{ok: true, name}`. The sign-in email, account ID and staff role are unchanged. Both responses are private and uncached.

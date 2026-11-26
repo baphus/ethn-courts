@@ -24,9 +24,13 @@ import { priceItems, validateGuest } from "@/lib/booking/core";
 import { manilaDateStr } from "@/lib/booking/slots";
 import { acceptedDate, addDays, bookingDate, gridSlotCount, gridTimes, handoffRanges, toggleSlot, slotDate, slotEndDate, slots, validDate, type Window, type Occupied, type Range } from "./ethn-selection";
 import { formatDisplayDate } from "@/lib/display-date";
+import { availabilityCache } from "./ethn-availability-cache";
 import { VENUE_ADDRESS, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
 
 type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
+type DayAvailability = Pick<Availability, "date" | "configured" | "message" | "courts">;
+type SharedAvailability = Omit<Availability, keyof DayAvailability>;
+type MonthAvailability = SharedAvailability & { days: DayAvailability[] };
 type Checkout = { checkoutId: string; total: string; expiresAt: string; intervalMinutes?: number; paymentMethods?: {id:string; name:string; instructions:string; qrAvailable:boolean; version:string}[]; acknowledgementRequired: boolean; items: { courtId: string; start: string; end: string; rate: string; minutes: number; amount: string }[] };
 type OpenPlay = { title: string; description: string; eventUrl: string };
 type Progress = { name: string; email: string; phone: string; reference: string; methodId: string; ack: boolean; openPlayEnabled: boolean; openPlay: OpenPlay };
@@ -169,10 +173,12 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
   useEffect(() => { if (reviewing && !draft) reviewHeading.current?.focus(); }, [reviewing, draft]);
   const clock = useRef({ server: 0, monotonic: 0 });
   const sequence = useRef(0);
+  const monthCache = useRef<ReturnType<typeof availabilityCache<DayAvailability, SharedAvailability>> | null>(null);
   const checkoutKeys = useRef<Record<string, string>>({});
 
   const save = (next: Draft) => { setDraft(next); sessionStorage.setItem(STORAGE, JSON.stringify(next)); };
   const finishCheckout = () => {
+    monthCache.current?.clear();
     checkoutKeys.current = {}; setDraft(null); setProgress(emptyProgress); setRestored(false);
     setProofPreview(undefined); setShowUploadSuccess(false);
     sessionStorage.removeItem("ethn-checkout-keys-v1"); sessionStorage.removeItem(STORAGE);
@@ -187,21 +193,43 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     }
   }
   const load = useCallback(async (date?: string, fallback = false, handoff?: { raw: string; date: string | null }) => {
-    const seq = ++sequence.current; setLoading(true); setClockReady(false); setError("");
+    const seq = ++sequence.current; setError("");
+    const cache = monthCache.current ??= availabilityCache<DayAvailability, SharedAvailability>();
     try {
-      let response = await fetch(`/api/ethn/availability${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store" });
-      const fellBack = response.status === 400 && fallback;
-      if (fellBack) response = await fetch("/api/ethn/availability", { cache: "no-store" });
-      if (!response.ok) throw new Error("UNAVAILABLE");
-      const data: Availability = await response.json();
+      let entry = date ? cache.get(date) : undefined;
+      let fellBack = false;
+      if (!entry) {
+        setLoading(true); setClockReady(false);
+        if (date && validDate(date)) {
+          const month = date.slice(0, 7);
+          const response = await fetch(`/api/ethn/availability?month=${month}`, { cache: "no-store" }).catch(() => null);
+          if (response?.ok) {
+            const snapshot: MonthAvailability = await response.json();
+            if (seq !== sequence.current) return;
+            cache.put(month, snapshot);
+            entry = cache.get(date);
+          }
+        }
+        if (!entry) {
+          if (seq !== sequence.current) return;
+          let response = await fetch(`/api/ethn/availability${date ? `?date=${encodeURIComponent(date)}` : ""}`, { cache: "no-store" });
+          fellBack = response.status === 400 && fallback;
+          if (fellBack) response = await fetch("/api/ethn/availability", { cache: "no-store" });
+          if (!response.ok) throw new Error("UNAVAILABLE");
+          entry = { data: await response.json() as Availability, monotonic: performance.now() };
+        }
+      }
       if (seq !== sequence.current) return;
-      clock.current = { server: Date.parse(data.serverNow), monotonic: performance.now() };
-      const selected = handoff ? handoffRanges(handoff.raw, handoff.date, data, clock.current.server) : [];
+      const { data, monotonic } = entry;
+      clock.current = { server: Date.parse(data.serverNow), monotonic };
+      const serverNow = clock.current.server + performance.now() - monotonic;
+      const selected = handoff ? handoffRanges(handoff.raw, handoff.date, data, serverNow) : [];
       const accepted = acceptedDate(date, data.date, fellBack);
-      setNow(clock.current.server); setClockReady(true); setAvailability(data); setChosenDate(accepted); setRanges(accepted ? selected || [] : []);
+      setNow(serverNow); setClockReady(true); setAvailability(data); setChosenDate(accepted); setRanges(accepted ? selected || [] : []);
       if (accepted) setDateStatus(`Availability updated for ${bookingDate(accepted)}.`);
       if (fellBack) setError("That date is unavailable. Choose another date.");
       if (handoff && !selected) setError("Your selected times are no longer available or could not be verified. Please select your times again.");
+      return true;
     } catch { if (seq === sequence.current) { setAvailability(null); setRanges([]); setError("Availability is unavailable. Please refresh and try again."); } }
     finally { if (seq === sequence.current) setLoading(false); }
   }, [setError]);
@@ -309,6 +337,13 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       checkoutKeys.current[fingerprint] = idempotencyKey;
       sessionStorage.setItem("ethn-checkout-keys-v1", JSON.stringify({ ...storedKeys, [fingerprint]: idempotencyKey }));
       const checkout = await post<Checkout>("/api/checkout", { ownerToken: owner, idempotencyKey, ...payload });
+      if (Date.parse(checkout.expiresAt) <= clock.current.server + performance.now() - clock.current.monotonic) {
+        delete storedKeys[fingerprint];
+        sessionStorage.setItem("ethn-checkout-keys-v1", JSON.stringify(storedKeys));
+        delete checkoutKeys.current[fingerprint];
+        setError(`This hold expired. If you already paid, contact the venue with checkout ID ${checkout.checkoutId} before paying again. Otherwise, confirm again for a new hold.`);
+        return;
+      }
       const checkoutProgress = { ...progress, ack: false };
       setProgress(checkoutProgress); setRestored(false); setReviewing(false);
       try { save({ owner, checkout, date: chosenDate, progress: checkoutProgress }); }
@@ -320,8 +355,14 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       } else {
         toast.success("Your selected times are temporarily held.");
       }
-    } catch (e) { reportFailure("Slot hold", e); }
-    finally { lock.current = false; setBusy(false); }
+    } catch (e) {
+      if (e instanceof Error && ["SLOT_TAKEN", "COURT_UNAVAILABLE", "CLOSED"].includes(e.message)) {
+        monthCache.current?.clear();
+        setReviewing(false);
+        if (await load(chosenDate)) setError("Those times are no longer available. Choose new times.");
+        requestAnimationFrame(() => document.getElementById("court-availability")?.focus());
+      } else reportFailure("Slot hold", e);
+    } finally { lock.current = false; setBusy(false); }
   }
   async function leaveCheckout() {
     if (!draft || lock.current) return;
@@ -386,7 +427,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       if (submitted.booked) {
         toast.success("Payment proof submitted for review.");
         await recoverReceipt(receiptReference, draft.owner);
-      } else toast.info("Payment proof sent for review. Your court is not booked.");
+      } else toast.info("Payment proof recorded. Contact the venue; your court is not booked.");
     } catch (e) {
       reportFailure("Payment proof submission", e, e instanceof Error && e.message === "STORAGE_UNAVAILABLE"
         ? "Could not verify your screenshot. Do not pay again. Retry submission or contact the venue if your hold expires."
@@ -541,7 +582,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         {uploading && <div className="absolute inset-0 grid place-content-center gap-1 rounded-xl bg-white text-center"><LoadingAnimation label="Uploading screenshot" /><p aria-hidden="true" className="text-sm font-semibold">Uploading screenshot…</p></div>}
       </section>
       <section className="rounded-xl border border-[#d5e2ce] bg-white p-4 text-sm"><h3 className="font-semibold text-[#17252e]">Contact details (edit if needed)</h3><p className="mt-2 text-[#17252e]">Checkout details are saved in this tab so you can refresh and continue.</p><fieldset disabled={busy || draft.releaseRequested} className="mt-4 text-left [&_input]:min-h-11 [&_input]:border-[#a7c5a0] [&_input]:bg-white [&_label]:text-[#17252e]">{contactFields}</fieldset></section>
-      <div className="flex flex-wrap justify-center gap-3 border-t border-[#d5e2ce] pt-5"><Button className="public-cta-primary" disabled={busy || draft.releaseRequested || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Submit evidence for staff review" : "Submit for review"}</Button><Button variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => void leaveCheckout()}>{draft.releaseRequested ? "Retry leaving checkout" : "Leave checkout"}</Button></div>
+      <div className="flex flex-wrap justify-center gap-3 border-t border-[#d5e2ce] pt-5"><Button className="public-cta-primary" disabled={busy || draft.releaseRequested || !draft.reservationId || (draft.checkout.acknowledgementRequired && !ack)} onClick={() => void submit()}>{busy ? "Please wait…" : expired ? "Record late payment evidence" : "Submit for review"}</Button><Button variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => void leaveCheckout()}>{draft.releaseRequested ? "Retry leaving checkout" : "Leave checkout"}</Button></div>
     </div></section> : bookingPage && reviewing && availability ? <form className="mx-auto grid w-full max-w-6xl gap-4 rounded-2xl border border-[#d5e2ce] bg-[#fffdf7] p-4 shadow-sm sm:p-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]" onSubmit={e => { e.preventDefault(); void beginCheckout(); }}>
       <div className="lg:col-span-2"><h2 ref={reviewHeading} tabIndex={-1} className="font-display text-3xl font-bold text-[#447244] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Review your selection</h2><p className="mt-2 text-sm text-[#405966]">Your times are not held yet. Confirm below to hold them while you complete payment.</p></div>
       <div className="space-y-3 lg:col-start-2 lg:row-start-2">{total ? <BookingInvoice heading="Booking summary" date={chosenDate} total={total} totalLabel="Estimated total" items={ranges.map(r => ({ court: availability.courts.find(c => c.id === r.courtId)?.name ?? r.courtId, startsAt: r.start, endsAt: r.end, durationMinutes: rangeMinutes(r), intervalMinutes: availability.settings.intervalMinutes, hourlyRate: r.rate, amount: pesos(priceItems([{ rate: r.rate, minutes: rangeMinutes(r) }])) }))} /> : <p className="text-sm text-[#405966]">Booking price unavailable.</p>}

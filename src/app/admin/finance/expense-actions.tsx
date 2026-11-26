@@ -43,7 +43,8 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
       if ([400, 401, 403, 404, 409].includes(response.status)) {
         const invalid = response.status === 400;
         setInvalid(invalid);
-        setMessage(response.status === 409 || response.status === 404 ? "This expense changed. Reload this page before trying again." : invalid ? "Check the expense details and try again." : "Check your access before trying again.");
+        const code = response.status === 409 ? (await response.json()).error : null;
+        setMessage(code === "EXPENSE_HAS_CORRECTIONS" ? "Expenses with corrections cannot be deleted." : response.status === 409 || response.status === 404 ? "This expense changed. Reload this page before trying again." : invalid ? "Check the expense details and try again." : "Check your access before trying again.");
         if (!invalid) toast.error(deleted ? "Expense deletion was not accepted." : "Expense edit was not accepted.");
         return;
       }
@@ -69,9 +70,9 @@ export function ExpenseActions({ expense, today, inputClass, onSaved }: { expens
           </form>
         </DialogContent>
       </Dialog>
-      <Button variant="destructive" size="sm" disabled={busy} onClick={() => { setMessage(""); setConfirm(true); }}>Delete<span className="sr-only"> {expense.title}</span></Button>
+      {expense.lastCorrectionId ? <span className="self-center text-xs text-muted-foreground">Correction history retained. Edit the amount instead.</span> : <Button variant="destructive" size="sm" disabled={busy} onClick={() => { setMessage(""); setConfirm(true); }}>Delete<span className="sr-only"> {expense.title}</span></Button>}
     </div>
-    <ConfirmDialog open={confirm} onOpenChange={setConfirm} title="Permanently delete expense?" description={`Delete “${expense.title}” and its corrections? This cannot be undone. Audit history is retained.`} onConfirm={() => void save("DELETE")} />
+    <ConfirmDialog open={confirm} onOpenChange={setConfirm} title="Permanently delete expense?" description={`Delete “${expense.title}”? This cannot be undone. The deletion stays in the audit log.`} onConfirm={() => void save("DELETE")} />
     {!edit && message && <p role={invalid ? "alert" : undefined} className="text-sm text-destructive">{message}</p>}
   </>;
 }

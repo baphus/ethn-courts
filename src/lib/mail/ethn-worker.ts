@@ -88,10 +88,10 @@ export function validateEthnOutboxConfig(config: Config) {
   return origin;
 }
 
-export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Transport, config: Config) {
+export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, transport: Transport, config: Config) {
   const origin = validateEthnOutboxConfig(config);
   const client = await pool.connect();
-  let transaction = false, committing = false, discard = false;
+  let transaction = false, committing = false, discard = false, released = false;
   try {
     await client.query("BEGIN"); transaction = true;
     const rows = (await client.query(`SELECT id, kind, payload, attempts FROM ethn.email_outbox
@@ -123,6 +123,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
       LEFT JOIN ethn.payment_methods pm ON pm.id = p.method
       WHERE b.id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
     committing = true; await client.query("COMMIT"); committing = false; transaction = false;
+    client.release(); released = true;
     const contact = { label: "Contact ETHN Courts", href: new URL("/contact", origin).href };
     const directions = { label: "Get directions", href: VENUE_MAP_LINK };
     const scheduleSections = schedule.length ? [{ title: "Court schedule", lines: schedule.map(scheduleLine) }] : [];
@@ -142,7 +143,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
       if (row.kind === "booking_owner_alert" && typeof p?.ownerId === "string" && uuid.test(p.ownerId) && (p.source === "online" || p.source === "internal")) {
         try {
           if (!config.ownerEmail) throw new Error("OWNER_LOOKUP_UNAVAILABLE");
-          const enabled = (await client.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [p.ownerId])).rows.length > 0;
+          const enabled = (await pool.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [p.ownerId])).rows.length > 0;
           const email = enabled ? await config.ownerEmail(p.ownerId) : null;
           if (isEthnMailAddress(email)) {
             const online = p.source === "online";
@@ -198,12 +199,12 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect">, transport: Tr
           status = "sent";
         } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
       }
-      await client.query("UPDATE ethn.email_outbox SET status = $3, available_at = CASE WHEN $3 = 'pending' THEN now() + ($4 * interval '1 second') ELSE available_at END WHERE id = $1 AND claim_token = $2 AND status = 'sending'", [row.id, row.token, status, Math.min(3600, 60 * 2 ** (row.attempts - 1))]);
+      await pool.query("UPDATE ethn.email_outbox SET status = $3, available_at = CASE WHEN $3 = 'pending' THEN now() + ($4 * interval '1 second') ELSE available_at END WHERE id = $1 AND claim_token = $2 AND status = 'sending'", [row.id, row.token, status, Math.min(3600, 60 * 2 ** (row.attempts - 1))]);
     }
     return { claimed: claims.length };
   } catch {
     if (committing) discard = true;
     else if (transaction) { try { await client.query("ROLLBACK"); } catch { discard = true; } }
     throw new Error("OUTBOX_UNAVAILABLE");
-  } finally { client.release(discard); }
+  } finally { if (!released) client.release(discard); }
 }

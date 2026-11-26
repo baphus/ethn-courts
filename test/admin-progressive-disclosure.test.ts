@@ -24,7 +24,8 @@ test('court editor treats null descriptions as blank when opening, saving and ch
 test('uncertain attendance changes cannot silently close or resubmit',()=>{
  const text=source('src/app/admin/bookings/outcome-controls.tsx');
  assert.match(text,/inflight\.current \|\| unknown/);
- assert.match(text,/Reload booking/);
+ assert.match(text,/Reload this page to verify current state/);
+ assert.match(text,/if\(inflight\.current\|\|unknown\|\|!reason\.trim\(\)\)return/);
  assert.match(text,/expectedNoShow:noShow/);
 });
 test('finance date range filters open from a trigger, not the page body',()=>{
@@ -35,5 +36,5 @@ test('finance date range filters open from a trigger, not the page body',()=>{
 });
 test('mobile sidebar sheet gets the dark admin palette',()=>{
  const css=source('src/app/globals.css');
- assert.match(css,/\[data-sidebar="sidebar"\]\[data-mobile="true"\]/);
+ assert.match(css,/\.dark \[data-sidebar="sidebar"\]:has\(\.admin-sidebar-nav\)\s*\{/);
 });

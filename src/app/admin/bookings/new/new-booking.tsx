@@ -1,10 +1,12 @@
 "use client";
 import { LoadingRows } from "@/components/admin/loading-slots";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { availabilityCache } from "@/components/booking/ethn-availability-cache";
 import { BookingInvoice } from "@/components/booking/ethn-booking-invoice";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { manilaDateStr } from "@/lib/booking/slots";
 import { cellWindow, hourLabel, money, rows, summarize, toggleHour, type Availability, type Selection } from "./selection";
 
 type Method = { id: string; name: string };
@@ -13,12 +15,34 @@ export default function NewBooking() {
   const [selection, setSelection] = useState<Selection>({});
   const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState("");
   const [method, setMethod] = useState("cash"); const [reference, setReference] = useState(""); const [receivedAt, setReceivedAt] = useState(""); const [received, setReceived] = useState(false);
-  const [data, setData] = useState<Availability | null>(null); const [methods, setMethods] = useState<Method[]>([]);
+  const [schedule, setData] = useState<Availability | null>(null);
+  const data = schedule && (!date || schedule.date === date) ? schedule : null; const [methods, setMethods] = useState<Method[]>([]);
   const [busy, setBusy] = useState(false); const [notice, setNotice] = useState({ message: "", announce: true }); const [result, setResult] = useState("");
   const setError = (message: string, announce = true) => setNotice({ message, announce });
   const [pending, setPending] = useState<{ body: Record<string, unknown>; key: string } | null>(null);
   const [revision, setRevision] = useState(0); const [review, setReview] = useState(false);
-  useEffect(() => { const c = new AbortController(); setData(null); fetch(date ? `/api/ethn/availability?date=${encodeURIComponent(date)}` : "/api/ethn/availability", { signal: c.signal, cache: "no-store" }).then(r => { if (!r.ok) throw Error(); return r.json(); }).then(value => { if (!c.signal.aborted) setData(value); }).catch(() => { if (!c.signal.aborted) setError("Schedule unavailable. Reload to view current availability."); }); return () => c.abort(); }, [date, revision]);
+  const monthCache = useRef<ReturnType<typeof availabilityCache<Pick<Availability, "date" | "courts">, Omit<Availability, "date" | "courts">>> | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    const cache = monthCache.current ??= availabilityCache<Pick<Availability, "date" | "courts">, Omit<Availability, "date" | "courts">>();
+    const wanted = date || manilaDateStr(new Date());
+    const cached = cache.get(wanted);
+    if (cached && (date || cached.data.operatingDate === wanted)) { setData(cached.data); return; }
+    setData(null);
+    async function load() {
+      const snapshot = await cache.load(wanted, signal);
+      if (signal.aborted) return;
+      if (snapshot && (date || snapshot.data.operatingDate === wanted)) { setData(snapshot.data); return; }
+      // Server chooses the operating day before the Manila day anchor.
+      const response = await fetch(date ? `/api/ethn/availability?date=${encodeURIComponent(date)}` : "/api/ethn/availability", { signal, cache: "no-store" });
+      if (!response.ok) throw Error();
+      const value: Availability = await response.json();
+      if (!signal.aborted) setData(value);
+    }
+    void load().catch(() => { if (!signal.aborted) setError("Schedule unavailable. Reload to view current availability."); });
+    return () => controller.abort();
+  }, [date, revision]);
   useEffect(() => { const c = new AbortController(); fetch("/api/ethn/payment-methods", { signal: c.signal, cache: "no-store" }).then(r => { if (!r.ok) throw Error(); return r.json(); }).then(d => setMethods(d.methods)).catch(() => { if (!c.signal.aborted) setError("Payment methods unavailable. Cash remains available."); }); return () => c.abort(); }, []);
   const operatingDate = date || data?.date || "";
   const now = Math.max(Date.now(), data ? Date.parse(data.serverNow) : 0);
@@ -35,6 +59,7 @@ export default function NewBooking() {
         if (r.status === 409 && (await r.json()).error === "IDEMPOTENCY_INCOMPLETE") throw Error();
         setPending(null);
         if (r.status === 409) {
+          monthCache.current?.clear();
           setReceived(false); setReview(true); setRevision(n => n + 1);
           setError("Booking conflict. Review the refreshed selection, total and payment details before saving.", false);
           toast.error("Booking not created.", { description: "Review the selection and payment details." });
@@ -46,6 +71,7 @@ export default function NewBooking() {
       }
       const value = await r.json();
       if (value?.status !== "confirmed" || typeof value.bookingId !== "string") throw Error();
+      monthCache.current?.clear();
       setPending(null); setSelection({}); setEmail(""); setReview(false); setResult(`Booking confirmed: ${value.bookingId} · ${value.status} · ₱${value.total} · ${value.method}`); setReceived(false); setRevision(n => n + 1);
       toast.success("Internal booking confirmed.");
     } catch {

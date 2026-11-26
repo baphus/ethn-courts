@@ -1,3 +1,4 @@
+import { readAdminJson as readJson } from "@/lib/admin/ethn-json";
 import { hasValidOrigin } from "@/lib/request-origin";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { openPlayUpdate, trackBooking, trackingInput } from "@/lib/booking/ethn-tracking";
@@ -12,22 +13,8 @@ export async function PUT(request: Request): Promise<Response> { return handle(r
 
 async function handle(request: Request, update: boolean): Promise<Response> {
   if (!hasValidOrigin(request)) return fail("INVALID_ORIGIN", 403);
-  if (!/^application\/json(?:\s*;|\s*$)/i.test(request.headers.get("content-type") ?? "")) return fail("INVALID_INPUT", 400);
   try {
-    const reader = request.body?.getReader();
-    if (!reader) return fail("INVALID_INPUT", 400);
-    const chunks: Uint8Array[] = []; let size = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > 32768) { await reader.cancel(); return fail("INVALID_INPUT", 400); }
-      chunks.push(value);
-    }
-    const bytes = new Uint8Array(size); let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-    let input: unknown;
-    try { input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { return fail("INVALID_INPUT", 400); }
+    const input = await readJson(request, 32768).catch(() => null);
     const parsed = (update ? openPlayUpdate : trackingInput).safeParse(input);
     if (!parsed.success) return fail("INVALID_INPUT", 400);
     const result = await trackBooking(getCheckoutPool(), parsed.data, update);

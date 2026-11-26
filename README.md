@@ -28,7 +28,7 @@ Supabase Auth and SQL cannot commit atomically. If Auth succeeds but SQL fails, 
 
 ## Database and scope
 
-For a fresh ETHN database, review the ordered `db/ethn/00*.sql` chain through the current feature migrations, using separate migration credentials. See `docs/LOCAL-CUTOVER-STATUS.md` and dated `docs/checks/` for scope and actual verification; historical hosted evidence stops before these new modules. Provision and verify a restricted `ethn_checkout` login separately; SQL grants do not replace server-side authorization. Never apply this chain to a legacy database without a separately reviewed migration plan. `db/ethn/README.md` contains historical offline-draft notes; current verification and cutover documents supersede its claims that services are disconnected.
+For a fresh ETHN database, use the active SQL-first chain in `db/ethn-migrations/`, with separate migration credentials. `db/ethn/00*.sql` is reference and test SQL; do not apply both chains. See `docs/LOCAL-CUTOVER-STATUS.md` and dated `docs/checks/` for scope and actual verification; historical hosted evidence stops before these new modules. Provision and verify a restricted `ethn_checkout` login separately; SQL grants do not replace server-side authorization. Never apply this chain to a legacy database without a separately reviewed migration plan. `db/ethn/README.md` contains historical offline-draft notes; current verification and cutover documents supersede its claims that services are disconnected.
 
 Active ETHN services use server-side SQL transactions, not the old RPC implementation. See `docs/ETHN-CUTOVER-API.md` for availability and retired endpoints returning 410; other legacy reads are not proof of supported workflows. Owner settings/staff, held walk-ins, calendar blocks, audit, finance/XLSX, sales/corrections, Open Plays, outcomes and extension services now have local implementation slices; use their dated checks for coverage and gaps. Persistent inbox exists; browser push is not configured. None of these statements establish hosted deployment or full browser acceptance. `supabase/` and `drizzle/` are legacy reference/archive, not ETHN setup instructions. `docs/DECISIONS.md` and other fork-era documents are historical references, not current requirements.
 
@@ -44,8 +44,13 @@ Contact details require `db/ethn/0026_contact_settings.sql` after the preceding 
 
 Booking refunds and extension management are retired. Before deploying that change, follow the [extension reconciliation checklist](docs/ethn-extension-refund-retirement.md).
 
-Late-payment exception review is removed: no staff screen, review APIs, navigation entry or exception alerts. Existing payment history and expired-hold safeguards remain; see `docs/ethn-exceptions-api.md`.
+The old late-payment queue and decision APIs are retired. Owners can open late proof from their private inbox or search by checkout ID and reconcile outside the app. Court time is not restored. See `docs/ethn-exceptions-api.md`.
 
 ## Verification and launch gates
+
+- Use a commercial hosting plan that supports the checked-in sub-daily jobs (not Vercel Hobby), or configure equivalent authenticated jobs on another eligible host. Verify the deployed runtime can read the trusted database CA file.
+- Before an existing-site upgrade, verify a restorable backup, review the Owner roster, reconcile held checkouts without payment snapshots, and complete the extension retirement checklist. Do not deploy if any extension is held or pending.
+- Approve real payment instructions before taking money. Keep the same payment method ID when changing instructions for the same receiving account. New online approvals require the verified transfer ID; reconcile historical approvals without references outside the app.
+- From the exact release commit, run the build, suite, and restricted-role database checks against a disposable target. In staging, verify checkout, proof, approval, tracking, late-payment reconciliation, and finance. Verify authenticated scheduled delivery for any enabled mail or push.
 
 `docs/checks/2026-11-20-browser-verification-repair.md` records previous hosted verification and regression results; it is not deployment approval. Real GCash recipient instructions and rates, production hosting and commercial eligibility, database pool lifecycle/limits, scheduler, and live mail delivery remain unresolved. Origin repair covers a narrow loopback development case, not production proxy or Host validation. Review those boundaries before deployment. Browser verification requires explicit permission for each request; users may verify UI themselves.
