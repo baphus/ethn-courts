@@ -5,6 +5,7 @@ import NextTopLoader from "nextjs-toploader";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AdminSidebar from "./admin-sidebar";
+import ThemeToggle from "./theme-toggle";
 
 interface Props {
   email: string;
@@ -59,7 +60,10 @@ export default function AdminShell({ email, name, children }: Props) {
         <AdminSidebar email={email} name={name} counts={counts} />
         <SidebarInset className="admin-frame min-w-0 overflow-x-clip">
           <div className="admin-workspace flex min-w-0 flex-1 flex-col gap-4 overflow-x-clip p-4 md:p-6">
-            <SidebarTrigger aria-label="Open sidebar" className="self-start md:hidden" />
+            <div className="flex items-center gap-1 self-start md:hidden">
+              <SidebarTrigger aria-label="Open sidebar" />
+              <ThemeToggle />
+            </div>
             {children}
           </div>
         </SidebarInset>

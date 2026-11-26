@@ -33,7 +33,8 @@ test("new booking email goes only to eligible owner accounts and retries tempora
   for (const [index, message] of messages.entries()) {
     assert.ok(message.html.includes(`href="https://example.com/admin/bookings/${bookingId}"`));
     assert.ok(message.html.includes(`>${index === 0 ? "Review payment" : "View booking"}</a>`));
-    assert.doesNotMatch(message.html, /secret|checkout\/track/);
+    assert.match(message.html, /cid:ethn-logo@ethn-courts/);
+    assert.doesNotMatch(message.html, /secret|checkout\/track|booking-tracking@|calendar\.google/);
     assert.ok(message.text.includes(`https://example.com/admin/bookings/${bookingId}`));
     assert.doesNotMatch(message.text, /secret|checkout\/track/);
   }
