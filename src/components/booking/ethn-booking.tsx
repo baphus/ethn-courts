@@ -1,7 +1,7 @@
 "use client";
 import { formatScheduleRange, formatScheduleTime } from "@/lib/booking/schedule-label";
 import { TrackingSummary, type Tracking } from "@/components/booking/tracking-summary";
-import { DateField } from "@/components/ui/date-field";
+import { BookingDateStrip } from "./booking-date-strip";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/confirm";
 
@@ -501,7 +501,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         <Guides />
 
 
-        <h1 className="relative z-10 mx-auto mt-4 w-[min(80%,38rem)]">
+        <h1 className="relative z-10 mx-auto w-[min(80%,38rem)]">
           <EthnHeroLogo />
         </h1>
 
@@ -510,7 +510,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
           <a href="/open-plays" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg public-cta-secondary public-cta-on-dark px-3 text-xs font-bold transition-colors sm:min-h-12 sm:w-auto sm:px-7 sm:text-sm">See open plays</a>
         </div>
 
-        <div className="ethn-court pointer-events-none mx-auto -mt-24 grid h-[min(62vw,22rem)] w-full max-w-5xl place-items-center sm:-mt-36 sm:h-[min(34vw,26rem)]">
+        <div className="ethn-court pointer-events-none mx-auto -mt-28 grid h-[min(62vw,22rem)] w-full max-w-5xl place-items-center sm:-mt-40 sm:h-[min(34vw,26rem)]">
           <img src="/pickleball_centered_animated.svg" alt="Isometric pickleball court with two paddles rallying a ball" className="h-full w-full object-contain" />
         </div>
       </section>
@@ -610,7 +610,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
       <div className="hidden flex-wrap gap-3 lg:flex"><Button type="submit" className="public-cta-primary" disabled={busy || !clockReady || !availability.configured || !validRanges || !total}>{busy ? "Starting checkout…" : "Confirm and hold"}</Button><Button type="button" variant="outline" className="public-cta-secondary" disabled={busy} onClick={() => { setReviewing(false); setError(""); requestAnimationFrame(() => document.getElementById("court-availability")?.focus()); }}>Back to slots</Button></div>
     </div><div data-daylight-booking-bar className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between gap-3 border-t bg-background px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl lg:hidden"><span className="text-sm">Estimated total <strong className="tabular-nums">{money(total)}</strong></span><Button type="submit" form="booking-review-form" className="public-cta-primary min-h-11" disabled={busy || !clockReady || !availability.configured || !validRanges || !total}>{busy ? "Starting…" : "Continue to payment"}</Button></div></form> : <div className={`grid items-start gap-4 ${bookingPage || showLandingSummary ? "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,23rem)]" : ""}`}><section className={`min-w-0 space-y-3 ${bookingPage ? "" : card}`}>
       <p id={`${dateId}-help`} className="sr-only">Times after midnight may appear under the previous booking date. “Plus one day” means the range ends on the next calendar day.</p>
-       {availability && <div role="group" aria-label="Booking date" aria-describedby={`${dateId}-help`} className="grid items-center gap-2 pb-2 sm:grid-cols-[minmax(0,1fr)_auto]"><div className={`flex min-w-0 flex-1 gap-2 overflow-x-auto ${bookingPage ? "py-2" : "p-1"}`}>{Array.from({ length: 7 }, (_, i) => addDays(chosenDate || availability.operatingDate, i - 3)).filter(d => d >= availability.operatingDate && d <= addDays(availability.operatingDate, availability.settings.horizonDays - 1)).map(d => <button key={d} type="button" aria-label={bookingDate(d)} disabled={loading || busy} aria-pressed={d === chosenDate} onClick={() => changeDate(d)} className={`shrink-0 rounded-full border focus-visible:outline-2 focus-visible:outline-ring ${bookingPage ? "min-h-11 min-w-[4.25rem] px-2 text-sm" : "min-h-14 min-w-20 px-3 text-base"} ${d === chosenDate ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-foreground"}`}><span className="block text-xs">{new Intl.DateTimeFormat("en-PH", { weekday: "short", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`))}</span><span className="font-semibold">{d.slice(8)}</span></button>)}</div><DateField className="justify-self-start sm:justify-self-end" value={chosenDate} onValueChange={changeDate} min={minDate} max={maxDate} disabled={loading || busy} required triggerLabel="Choose date" popupClassName="daylight" /></div>}
+      {availability && <BookingDateStrip value={chosenDate} anchor={chosenDate || availability.operatingDate} onChange={changeDate} min={minDate} max={maxDate} disabled={loading || busy} spacious={!bookingPage} describedBy={`${dateId}-help`} popupClassName="daylight" />}
       <p role="status" aria-live="polite" className="sr-only">{dateStatus}</p>
       {loading ? <LoadingAnimation label="Loading availability" className="py-6" /> : !availability ? <div className="space-y-3"><p className="text-sm">Availability is unavailable.</p><Button className="public-cta-primary" onClick={() => void load(chosenDate || undefined)}>Retry availability</Button></div> : !chosenDate ? <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">Choose a date to see available times.</p> : <>{!availability.configured && <p className="rounded-lg bg-muted p-4 text-sm">{availability.message || "Booking and payment are not configured yet."}</p>}{(availability.courts.length === 0 || availability.courts.every(c => c.windows.length === 0)) && <p className="py-6 text-sm text-muted-foreground">Courts are closed on this date.</p>}
       {availability.courts.some(c => c.windows.length > 0) && gridTimes(availability.courts.flatMap(c => c.windows), availability.settings.intervalMinutes, now).length === 0 && <p role="status" className="py-4 text-sm text-muted-foreground text-center"><EmptyIcon /> No upcoming slots for this date.</p>}

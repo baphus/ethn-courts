@@ -1,14 +1,11 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
-import { FormSelect } from "@/components/ui/form-select";
 import { useConfirm } from "@/components/ui/confirm";
-import { EmptyIcon } from "@/components/ui/empty-icon";
 
 import { useDashboardResource, useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 import { TablePager } from "@/components/admin/table-pager";
-import { LoadingRows } from "@/components/admin/loading-slots";
+import { ResultsTable, resultsCell as cell } from "@/components/admin/results-table";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -30,6 +27,9 @@ import { addDaysManilaStr, manilaTodayStr } from "@/lib/courts";
 import { buildCashWorkbook } from "@/lib/admin/finance-cash-workbook";
 import type { CashFinanceExport } from "@/lib/admin/finance-cash";
 import { ExpenseActions, ExpenseFields, type Expense } from "./expense-actions";
+import { LedgerControls, useLedgerSearch } from "./ledger-controls";
+
+const categoryOptions = [{ value: "", label: "All categories" }, ...categories.map(value => ({ value, label: value }))];
 type Expenses = { rows: Expense[]; page: number; limit: number; total: number };
 type Payload = { title: string; category: string; amount: string; paidDate: string; idempotencyKey: string; description?: string; vendor?: string; notes?: string };
 
@@ -40,17 +40,20 @@ export default function Finance() {
   const [today] = useState(() => manilaTodayStr());
   const params = useSearchParams();
   const filters = useMemo(() => financeFilters(params, today), [params, today]);
-  const [searchDraft, setSearchDraft] = useState(filters.q);
-  useEffect(() => { setSearchDraft(filters.q); }, [filters.q]);
+  const expenseSearch = useLedgerSearch(filters.q);
   const { from, to } = filters;
   const [draft, setDraft] = useState(filters);
-  const filterKey = JSON.stringify(filters);
+  const expenseFilters = { ...filters, q: expenseSearch.q };
+  const filterKey = JSON.stringify(expenseFilters);
   const [pagination, setPagination] = useState({ key: filterKey, page: 1 });
   const page = pagination.key === filterKey ? pagination.page : 1;
   const setPage = (page: number) => setPagination({ key: filterKey, page });
+  useEffect(() => {
+    setPagination(previous => previous.key === filterKey ? previous : { key: filterKey, page: 1 });
+  }, [filterKey]);
   const currentRange = useRef({ from, to });
   currentRange.current = { from, to };
-  const { data: fetchedExpenses, loading: listLoading, error: listError, retry: retryExpenses } = useDashboardResource<Expenses>(`/api/ethn/admin/expenses?${new URLSearchParams({ ...filters, page: String(page), limit: "20" })}`);
+  const { data: fetchedExpenses, loading: listLoading, error: listError, retry: retryExpenses } = useDashboardResource<Expenses>(`/api/ethn/admin/expenses?${new URLSearchParams({ ...expenseFilters, page: String(page), limit: "20" })}`);
   const previousExpenses = useRef<Expenses | null>(null);
   useEffect(() => { if (fetchedExpenses) previousExpenses.current = fetchedExpenses; }, [fetchedExpenses]);
   const expenses = fetchedExpenses ?? (listLoading ? previousExpenses.current : null);
@@ -132,8 +135,9 @@ export default function Finance() {
       return;
     }
     const query = new URLSearchParams();
-    if (next) for (const [key, value] of Object.entries(next)) if (value.trim()) query.set(key, value.trim());
+    if (next) for (const [key, value] of Object.entries(next)) if (key !== "q" && value.trim()) query.set(key, value.trim());
     window.history.pushState(null, "", query.size ? `?${query}` : "/admin/finance");
+    if (!next) expenseSearch.clearSearch();
     setPage(1); setRangeOpen(false);
   }
 
@@ -172,7 +176,7 @@ export default function Finance() {
     {!expenseOpen && saveMessage && <p role={announceSaveMessage ? "status" : undefined} className="text-sm text-slate-700">{saveMessage}</p>}
     {pending && !expenseOpen && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"><span>Review or retry the saved expense request before recording another.</span><Button onClick={() => setExpenseOpen(true)}>Resume pending expense</Button></div>}
     <div>
-      <section className="rounded-xl border bg-card p-5 shadow-sm">
+      <section aria-label="Recorded expenses" className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="font-semibold">Recorded expenses</h2><FinanceInfo label="About recorded expenses">Paid expenses in the selected period. Edits and deletes are audited.</FinanceInfo></div></div>
           <Dialog open={expenseOpen} onOpenChange={open => { if (open) setExpenseOpen(true); else if (!saving) setExpenseOpen(false); }}><DialogTrigger render={<Button />}>Add expense</DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><DialogTitle>Record expense</DialogTitle><DialogDescription>Expenses are recorded on the date paid.</DialogDescription>
 
@@ -183,8 +187,19 @@ export default function Finance() {
         </form>
       </DialogContent></Dialog>
         </div>
-        <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e => { e.preventDefault(); applyFilters({ ...filters, q: searchDraft.trim() }); }}><label className="grid min-w-0 flex-1 basis-56 gap-1 text-sm font-medium">Search expense title<Input type="search" maxLength={100} value={searchDraft} onChange={e => setSearchDraft(e.target.value)} /></label><Button variant="outline" type="submit">Search</Button><label className="grid gap-1 text-sm font-medium">Category<FormSelect aria-label="Category" value={filters.category} onValueChange={value => applyFilters({ ...filters, category: value ?? "" })} options={[{ value: "", label: "All categories" }, ...categories.map(value => ({ value, label: value }))]} /></label></form>
-        {listError ? <p role="alert" className="mt-5 text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <><div role="region" aria-label="Expense results table" tabIndex={0} className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"><table className="w-full text-left text-sm"><thead><tr><th scope="col">Expense</th><th scope="col">Paid date</th><th scope="col">Amount</th><th scope="col">Actions</th></tr></thead><tbody aria-busy={listLoading}>{listLoading ? <tr><td colSpan={4}><LoadingRows label="Loading expenses" /></td></tr> : expenses?.rows.map(row => <tr key={row.id} className="border-t"><th scope="row" className="py-3 pr-4 font-semibold">{row.title}<span className="block font-normal text-muted-foreground">{row.category}{row.vendor ? " ? " + row.vendor : ""}</span></th><td className="py-3 pr-4">{formatDisplayDate(row.paidDate)}</td><td className="py-3 pr-4 tabular-nums">{money(row.effectiveAmount)}</td><td className="py-3"><ExpenseActions expense={row} today={today} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td></tr>)}</tbody></table></div>{expenses && <div className="mt-4"><TablePager page={expenses.page} pageSize={expenses.limit} total={expenses.total} onPageChange={setPage} busy={listLoading} /></div>}{!listLoading && expenses?.rows.length === 0 && <p className="mt-5 text-sm text-slate-600 text-center"><EmptyIcon /> No recorded expenses in this date range.</p>}</>}
+        <LedgerControls {...expenseSearch} name="Expenses" placeholder="Expense title" filterLabel="Category" value={filters.category} options={categoryOptions} onApply={category => applyFilters({ ...filters, category })} />
+        {listError ? <p role="alert" className="text-red-700">{listError} <button className="underline" onClick={retryExpenses}>Retry</button></p> : <>
+          <ResultsTable label="Expense results table" loadingLabel="Loading expenses" headers={["Expense", "Paid date", "Amount", "Actions"]} numeric={["Amount"]} minWidth="min-w-[32rem]" loading={listLoading}>
+            {expenses?.rows.map(row => <tr key={row.id}>
+              <th scope="row" className={`${cell} min-w-40 wrap-anywhere font-medium`}>{row.title}<span className="block text-xs font-normal text-muted-foreground">{row.category}{row.vendor ? " · " + row.vendor : ""}</span></th>
+              <td className={`${cell} whitespace-nowrap`}>{formatDisplayDate(row.paidDate)}</td>
+              <td className={`${cell} whitespace-nowrap text-right font-medium tabular-nums`}>{money(row.effectiveAmount)}</td>
+              <td className={cell}><ExpenseActions expense={row} today={today} onSaved={deleted => { if (deleted && page > 1 && expenses.rows.length === 1) setPage(page - 1); invalidate?.(); }} /></td>
+            </tr>)}
+          </ResultsTable>
+          {!listLoading && expenses?.rows.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">{expenseSearch.q || filters.category ? "No expenses match your search or filters." : "No recorded expenses in this date range."}</p>}
+          {expenses && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={expenses.page} pageSize={expenses.limit} total={expenses.total} onPageChange={setPage} busy={listLoading} /></div>}
+        </>}
       </section>
 
     </div>

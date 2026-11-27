@@ -1,7 +1,6 @@
 "use client";
 
 import { formatScheduleRange } from "@/lib/booking/schedule-label";
-import { DateField } from "@/components/ui/date-field";
 import { Button } from "@/components/ui/button";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import "./court-view.css";
@@ -12,16 +11,13 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import type { Interval } from "@/app/admin/calendar/calendar-range";
 import type { DashboardOverview } from "@/app/admin/dashboard-overview-types";
 import { StatusBadge } from "./dashboard-status";
-import { CourtTimeline } from "./court-timeline";
+import { CourtSchedule } from "./court-schedule";
 import { CourtCard } from "./court-card";
 import { KpiRow, type Kpi } from "./kpi-row";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
-import { shiftDate } from "@/app/admin/calendar/date-utils";
+import { CheckCircle2, Clock } from "lucide-react";
 import { Avatar } from "./court-avatar";
 import { courtStatus, currentPosition, dashboardCourtSchedule, intervalLabel, timelineTime } from "./court-timeline-utils";
 import { useBookingDetail, useCourtDay, useNow } from "./use-court-day";
-
-const navBtn = "grid h-9 place-items-center rounded-lg border bg-background px-3 text-sm transition-colors hover:bg-muted disabled:opacity-50";
 
 function Skeleton() {
   return <div role="status" className="rounded-2xl border bg-card p-4 shadow-sm"><span className="sr-only">Loading court timeline</span>
@@ -68,15 +64,10 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
     {day && <section aria-label="Court summaries" className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
       {statuses.map(({ court, status }) => <CourtCard key={court.id} court={court} status={status} now={now} live={live} onOpen={setBooking} />)}
     </section>}
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-lg font-semibold">Court timeline</h2><p className="text-xs text-muted-foreground">Shows current and upcoming confirmed bookings and court blocks. Check the calendar for pending bookings and holds.</p></div>
-      <div className="flex items-center gap-2">
-        <button type="button" aria-label="Previous date" className={navBtn} disabled={!selectedDate} onClick={() => setDate(shiftDate(selectedDate, -1))}><ChevronLeft className="size-4" /></button>
-        <DateField aria-label="Court schedule date" value={selectedDate} required onValueChange={setDate} />
-        <button type="button" aria-label="Next date" className={navBtn} disabled={!selectedDate} onClick={() => setDate(shiftDate(selectedDate, 1))}><ChevronRight className="size-4" /></button>
-      </div>
-    </div>
-    {error ? <p role="alert" className="rounded-xl border border-destructive p-4">{error} Occupancy unknown.</p> : !day ? <Skeleton /> : <section aria-label="Court timeline"><CourtTimeline day={day} now={now} onBooking={setBooking} onBlock={(court, item) => setBlock({ court, item })} /></section>}
+    <CourtSchedule title="Court timeline" description="Shows current and upcoming confirmed bookings and court blocks. Check the calendar for pending bookings and holds."
+      date={selectedDate} onDateChange={setDate} day={error ? null : day} now={now} onBooking={setBooking} onBlock={(court, item) => setBlock({ court, item })}>
+      {error ? <p role="alert" className="rounded-xl border border-destructive p-4">{error} Occupancy unknown.</p> : <Skeleton />}
+    </CourtSchedule>
     <Dialog open={block !== null} onOpenChange={open => { if (!open) setBlock(null); }}>
       <DialogContent><DialogTitle>Scheduled allocation</DialogTitle><DialogDescription>{block?.court}</DialogDescription>
         {block && <><p className="capitalize">{intervalLabel(block.item)}</p><p className="text-sm">{formatScheduleRange(block.item.startsAt, block.item.endsAt)}</p><Link href="/admin/calendar" className="text-sm font-semibold text-primary underline">Open calendar for block actions</Link></>}

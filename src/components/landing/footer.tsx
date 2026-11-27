@@ -36,6 +36,7 @@ export default function Footer() {
               { href: "/#how-it-works", label: "How It Works" },
               { href: "/contact", label: "Contact" },
               { href: "/#faq", label: "FAQ" },
+              { href: "/login", label: "Staff Sign In" },
             ].map((l) => (
               <a
                 key={l.label}

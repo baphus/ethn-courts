@@ -34,7 +34,7 @@ function ConfirmProvider({ children }: { children: React.ReactNode }) {
 
   return <ConfirmContext.Provider value={confirm}>
     {children}
-    {active && createPortal(<dialog ref={dialog} aria-labelledby={titleId} aria-describedby={messageId} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-auto overscroll-contain rounded-xl bg-popover p-4 text-sm text-popover-foreground dialog-surface ring-1 ring-foreground/10 backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-black/60" onKeyDown={event => { if (event.key === "Escape") event.stopPropagation() }} onClose={event => {
+    {active && createPortal(<dialog ref={dialog} data-slot="dialog-content" aria-labelledby={titleId} aria-describedby={messageId} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-auto overscroll-contain rounded-xl bg-popover p-4 text-sm text-popover-foreground dialog-surface ring-1 ring-foreground/10 backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-black/60" onKeyDown={event => { if (event.key === "Escape") event.stopPropagation() }} onClose={event => {
       const answer = event.currentTarget.returnValue === "confirm"
       event.currentTarget.returnValue = ""
       if (pending.current !== active) return

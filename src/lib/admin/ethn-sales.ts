@@ -1,8 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
-import { validFinancePeriod } from "./finance-filters";
-import { manilaTodayStr } from "../courts";
 import { parsePesos } from "../booking/core";
+import { saleCategories, uncategorizedSale } from "./sale-details";
 import type { StaffVerifier } from "./ethn-payments";
 
 type Db = Pick<Pool, "connect">;
@@ -19,26 +18,55 @@ async function role(c: PoolClient, actor: string) {
 function amount(value: unknown) { if (typeof value !== "string") throw new Error("INVALID_INPUT"); try { const n=parsePesos(value); if(n<=BigInt(0)) throw 0; return money(n); } catch { throw new Error("INVALID_INPUT"); } }
 function exactObject(v: unknown, keys: string[]) { if (!v || typeof v!=="object" || Array.isArray(v) || Object.keys(v).sort().join(",")!==keys.slice().sort().join(",")) throw new Error("INVALID_INPUT"); return v as Record<string,unknown>; }
 export async function createSale(pool: Db, verify: StaffVerifier, body: unknown) {
-  const b=exactObject(body,["description","note","amount","method","receivedAt","idempotencyKey"]);
-  if(typeof b.description!=="string"||!b.description.trim()||b.description.trim().length>160||!(b.note===null||typeof b.note==="string"&&b.note.length<=500)||!(b.method==="cash"||b.method==="gcash")||typeof b.receivedAt!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(b.receivedAt)||!Number.isFinite(Date.parse(b.receivedAt))||new Date(b.receivedAt).toISOString()!==b.receivedAt||typeof b.idempotencyKey!=="string"||! /^[\x21-\x7e]{1,200}$/.test(b.idempotencyKey)) throw new Error("INVALID_INPUT");
-  const cents=amount(b.amount), receivedAt=b.receivedAt,description=b.description.trim(),note=(b.note as string|null)?.trim()||null,method=b.method, actor=actorId(await verify());
-  const c=await pool.connect(); let committed=false,committing=false; const ownerHash=sha(actor), fingerprint=sha(JSON.stringify({description,note,cents,method,receivedAt}));
+  const legacy = !!body && typeof body === "object" && !("itemName" in body) && !("category" in body);
+  const keys = ["description", "note", "amount", "method", "receivedAt", "idempotencyKey"];
+  const b = exactObject(body, legacy ? keys : [...keys, "itemName", "category"]);
+  const text = (value: unknown, max: number) => {
+    if (value === null) return null;
+    if (typeof value !== "string" || value.includes("\0") || value.trim().length > max) throw new Error("INVALID_INPUT");
+    return value.trim() || null;
+  };
+  const itemName = legacy ? null : text(b.itemName, 160);
+  const category = legacy ? null : saleCategories.find(value => value === b.category);
+  const description = text(b.description, 160);
+  if (legacy ? !description : !itemName || !category) throw new Error("INVALID_INPUT");
+  if(!(b.note===null||typeof b.note==="string"&&b.note.length<=500&&!b.note.includes("\0"))||!(b.method==="cash"||b.method==="gcash")||typeof b.receivedAt!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(b.receivedAt)||!Number.isFinite(Date.parse(b.receivedAt))||new Date(b.receivedAt).toISOString()!==b.receivedAt||typeof b.idempotencyKey!=="string"||! /^[\x21-\x7e]{1,200}$/.test(b.idempotencyKey)) throw new Error("INVALID_INPUT");
+  const cents=amount(b.amount), receivedAt=b.receivedAt,note=(b.note as string|null)?.trim()||null,method=b.method, actor=actorId(await verify());
+  const c=await pool.connect(); let committed=false,committing=false; const ownerHash=sha(actor), fingerprint=sha(JSON.stringify({description,note,cents,method,receivedAt,...(legacy ? {} : { itemName, category })}));
   try { await c.query("BEGIN"); await role(c,actor);
-    await c.query("INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,'sale.create',$2,$3,NULL) ON CONFLICT DO NOTHING",[ownerHash,b.idempotencyKey,fingerprint]);
-    const idem=(await c.query("SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='sale.create' AND key=$2 FOR UPDATE",[ownerHash,b.idempotencyKey])).rows[0]; if(!idem||idem.fingerprint!==fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
+    if (!legacy) await c.query("INSERT INTO ethn.idempotency(owner_hash,operation,key,fingerprint,result) VALUES($1,'sale.create',$2,$3,NULL) ON CONFLICT DO NOTHING",[ownerHash,b.idempotencyKey,fingerprint]);
+    const idem=(await c.query("SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation='sale.create' AND key=$2 FOR UPDATE",[ownerHash,b.idempotencyKey])).rows[0];
+    // Pre-upgrade requests may replay an already saved sale, but cannot create one.
+    if (legacy && !idem?.result) throw new Error("INVALID_INPUT");
+    if(!idem||idem.fingerprint!==fingerprint) throw new Error("IDEMPOTENCY_MISMATCH");
     if(idem.result){committing=true;await c.query("COMMIT");committed=true;return idem.result;}
     if(Date.parse(receivedAt)>(await c.query("SELECT clock_timestamp() now")).rows[0].now.getTime()) throw new Error("INVALID_INPUT");
-    const id=randomUUID(); await c.query("INSERT INTO ethn.sales(id,description,note,amount,method,received_at,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)",[id,description,note,cents,method,receivedAt,actor]);
+    const id=randomUUID(); await c.query("INSERT INTO ethn.sales(id,description,note,amount,method,received_at,created_by,item_name,category) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",[id,description,note,cents,method,receivedAt,actor,itemName,category ?? null]);
     await c.query("INSERT INTO ethn.audit(actor,action,detail) VALUES($1,'sale.create',$2::jsonb)",[actor,JSON.stringify({saleId:id,amount:cents,method,receivedAt})]);
-    const result=(await c.query("SELECT id,description,note,amount::text,method,received_at,created_at FROM ethn.sales WHERE id=$1",[id])).rows[0]; const saved={id,description,note,amount:result.amount,method,receivedAt:(result.received_at as Date).toISOString(),createdAt:(result.created_at as Date).toISOString()};
+    const result=(await c.query("SELECT id,description,note,amount::text,method,received_at,created_at FROM ethn.sales WHERE id=$1",[id])).rows[0]; const saved={id,description,note,...(legacy ? {} : { itemName, category }),amount:result.amount,method,receivedAt:(result.received_at as Date).toISOString(),createdAt:(result.created_at as Date).toISOString()};
     await c.query("UPDATE ethn.idempotency SET result=$4::jsonb WHERE owner_hash=$1 AND operation='sale.create' AND key=$2 AND fingerprint=$3",[ownerHash,b.idempotencyKey,fingerprint,JSON.stringify(saved)]); committing=true;await c.query("COMMIT");committed=true;return saved;
   } catch(e){if(!committing)try{await c.query("ROLLBACK")}catch{}fail(e)} finally {c.release(!committed)}
 }
-export async function listSales(pool: Db, verify: StaffVerifier, from: string | null = null, to: string | null = null) {
+export async function listSales(pool: Db, verify: StaffVerifier, from: string | null = null, to: string | null = null, { page = 1, limit = 20, method = "", category = "", q = "" } = {}) {
+ q = q.trim();
+ if (!Number.isInteger(page) || page < 1 || page > 1000 || !Number.isInteger(limit) || limit < 1 || limit > 50 || !["", "cash", "gcash"].includes(method) || (category !== "" && category !== uncategorizedSale && !saleCategories.some(value => value === category)) || q.length > 100 || q.includes("\0")) throw new Error("INVALID_INPUT");
  const actor=actorId(await verify()),c=await pool.connect();
- try { await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"); const r=await c.query("SELECT role FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'",[actor]); if(!r.rows.length)throw new Error("FORBIDDEN"); const rows=await c.query(`SELECT s.id,s.description,s.note,s.amount::text,s.method,s.received_at,s.created_at,s.created_by,
+ const filter = `($1::date IS NULL OR s.received_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila'))
+   AND ($2::date IS NULL OR s.received_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila'))
+   AND ($3 = '' OR s.method::text = $3)
+   AND ($4 = '' OR strpos(lower(s.description), lower($4)) > 0 OR strpos(lower(s.note), lower($4)) > 0 OR strpos(lower(s.item_name), lower($4)) > 0)
+   AND ($5 = '' OR s.category = $5 OR ($5 = 'uncategorized' AND s.category IS NULL))`;
+ const params = [from, to, method, q, category];
+ try {
+   await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+   const r = await c.query("SELECT role FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor]);
+   if (!r.rows.length) throw new Error("FORBIDDEN");
+   const total = Number((await c.query(`SELECT count(*) FROM ethn.sales s WHERE ${filter}`, params)).rows[0].count);
+   const { rows } = await c.query(`SELECT s.id,s.item_name,s.category,s.description,s.note,s.amount::text,s.method,s.received_at,s.created_at,s.created_by,
    coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'previousId',x.previous_id,'amountDelta',x.amount_delta::text,'cashDelta',x.cash_delta::text,'gcashDelta',x.gcash_delta::text,'reason',x.reason,'createdAt',x.created_at) ORDER BY x.created_at,x.id) FROM ethn.sale_corrections x WHERE x.sale_id=s.id),'[]'::jsonb) corrections
-   FROM ethn.sales s WHERE ($1::date IS NULL OR s.received_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Manila')) AND ($2::date IS NULL OR s.received_at < (($2::date+1)::timestamp AT TIME ZONE 'Asia/Manila')) ORDER BY s.received_at DESC,s.id LIMIT 200`,[from,to]); await c.query("COMMIT"); return rows.rows.map(x=>({id:x.id,description:x.description,note:x.note,amount:x.amount,method:x.method,receivedAt:(x.received_at as Date).toISOString(),createdAt:(x.created_at as Date).toISOString(),createdBy:x.created_by,corrections:x.corrections}));
+    FROM ethn.sales s WHERE ${filter} ORDER BY s.received_at DESC,s.id LIMIT $6 OFFSET $7`, [...params, limit, (page - 1) * limit]);
+   await c.query("COMMIT");
+   return { page, limit, total, rows: rows.map(x => ({ id:x.id,itemName:x.item_name ?? x.description,category:x.category,description:x.item_name === null ? null : x.description,note:x.note,amount:x.amount,method:x.method,receivedAt:(x.received_at as Date).toISOString(),createdAt:(x.created_at as Date).toISOString(),createdBy:x.created_by,corrections:x.corrections })) };
  }catch(e){try{await c.query("ROLLBACK")}catch{}fail(e)}finally{c.release()}
 }
 export async function correctSale(pool: Db, verify: StaffVerifier, id: string, body: unknown) {

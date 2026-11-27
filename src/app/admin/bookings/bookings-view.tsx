@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { TablePager } from "@/components/admin/table-pager";
+import { ResultsTable, resultsCell as cell } from "@/components/admin/results-table";
 import { formatDisplayDate } from "@/lib/display-date";
 import { dateTime, ErrorNotice, money, request, type BookingSummary } from "./booking-list";
 import { parseFilters, serializeFilters, statuses, type Filters } from "./booking-filters";
@@ -25,7 +26,6 @@ import { formatPlayTime } from "./booking-play-time";
 
 type Result = { rows: (BookingSummary & { canComplete: boolean; trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
 const headers = ["Tracking no.", "Customer", "Contact", "Booking date", "Courts", "No. of slots", "Play time", "Status", "Total", "Date booked", "Actions"];
-const cell = "px-3 py-2.5 align-top";
 const initial: Filters = { q: "", status: [], from: "", to: "", page: 1, archived: "" };
 const input = "h-9 rounded-sm border bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -133,10 +133,8 @@ export default function BookingsView() {
             <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3"><span className="text-sm font-medium tabular-nums">Total {money(row.total)}</span>{actions(row)}</div>
           </li>)}
         </ul>}
-      </div> : <div className="overflow-hidden rounded-md border bg-card"><div role="region" aria-label="Booking results table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
-        <table className="w-full min-w-[76rem] text-left text-sm">
-          <thead className="border-b bg-muted/50 text-muted-foreground"><tr>{headers.map(h => <th key={h} scope="col" className={`${cell} whitespace-nowrap font-medium ${h === "Total" || h === "No. of slots" ? "text-right" : ""}`}>{h || <span className="sr-only">Details</span>}</th>)}</tr></thead>
-          <tbody className="divide-y" aria-busy={loading}>{loading ? [0, 1, 2].map(index => <tr key={index}>{headers.map(h => <td key={h} className={cell}><Skeleton className="h-4 w-full max-w-24 motion-reduce:animate-none" /></td>)}</tr>) : !error && result?.rows.map(row => <tr key={row.id} className="hover:bg-muted/30">
+      </div> : <ResultsTable label="Booking results table" loadingLabel="Loading bookings" headers={headers} numeric={["Total", "No. of slots"]} minWidth="min-w-[76rem]" loading={loading}>
+          {!error && result?.rows.map(row => <tr key={row.id}>
             <td className={cell + " whitespace-nowrap font-mono text-xs"}>{row.trackingCode || "—"}</td>
             <td className={cell + " font-medium"}><GuestName name={row.guestName} email={row.guestEmail} /></td>
             <td className={cell + " min-w-40 text-xs"}>{row.guestEmail && <div className="max-w-56 wrap-anywhere">{row.guestEmail}</div>}{row.guestPhone && <div className="whitespace-nowrap text-muted-foreground">{row.guestPhone}</div>}{!row.guestEmail && !row.guestPhone && "—"}</td>
@@ -148,9 +146,8 @@ export default function BookingsView() {
             <td className={cell + " text-right font-medium tabular-nums"}>{money(row.total)}</td>
             <td className={cell + " whitespace-nowrap text-xs text-muted-foreground"}>{dateTime(row.createdAt)}</td>
             <td className={cell + " min-w-40"}>{actions(row)}</td>
-          </tr>)}</tbody>
-        </table>
-      </div></div>}
+          </tr>)}
+      </ResultsTable>}
       {!loading && !error && result?.rows.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No bookings match these filters.</p>}
       {!error && result && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={result.page} pageSize={result.limit} total={result.total} onPageChange={page => update({ ...filters, page })} busy={loading} /></div>}
     </section>
