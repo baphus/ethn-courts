@@ -3,10 +3,11 @@ import { isEthnMailAddress } from '../mail/ethn-address';
 import type { Pool } from 'pg';
 import type { StaffVerifier } from './ethn-payments';
 import { lockBookingAlertOwners, recordBookingAlert } from '../booking/ethn-booking-alerts';
-export type BookingAction='cancel'|'refund'|'archive';
+export type BookingAction='cancel'|'refund'|'archive'|'delete';
+export const archivableBookingStatuses = ['expired','rejected','completed','cancelled','refunded'];
 export function validateBookingAction(action:BookingAction,body:unknown){
  if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('INVALID_INPUT');const b=body as Record<string,unknown>;
- const fields=action==='refund'?['key','reason','reference']:action==='cancel'?['key','reason']:['key'];
+ const fields=action==='refund'?['key','reason','reference']:action==='archive'?['key']:['key','reason'];
  if(Object.keys(b).some(k=>!fields.includes(k))||typeof b.key!=='string'||! /^[\x21-\x7e]{1,200}$/.test(b.key))throw new Error('INVALID_INPUT');
  if(action!=='archive'&&(typeof b.reason!=='string'||!b.reason.trim()||b.reason.trim().length>500))throw new Error('INVALID_INPUT');
  if(action==='refund'&&(typeof b.reference!=='string'||!b.reference.trim()||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
@@ -26,11 +27,19 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
   const prior=(await c.query('SELECT fingerprint,result FROM ethn.idempotency WHERE owner_hash=$1 AND operation=$2 AND key=$3 FOR UPDATE',[actor,operation,input.key])).rows[0];
   if(!prior||prior.fingerprint!==fingerprint)throw new Error('IDEMPOTENCY_MISMATCH');
   if(!inserted.rowCount){if(!prior.result)throw new Error('IDEMPOTENCY_INCOMPLETE');committing=true;await c.query('COMMIT');return prior.result;}
+  if (action === 'delete') {
+   const { rows: [deleted] } = await c.query<{ pending: boolean }>('SELECT ethn.permanently_delete_booking($1,$2,$3) AS pending', [id, actor, input.reason]);
+   const result = { bookingId: id.toLowerCase(), status: 'deleted', proofCleanupPending: deleted.pending };
+   await c.query('UPDATE ethn.idempotency SET result=$4::jsonb WHERE owner_hash=$1 AND operation=$2 AND key=$3', [actor, operation, input.key, JSON.stringify(result)]);
+   committing = true;
+   await c.query('COMMIT');
+   return result;
+  }
   await c.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
   const b=(await c.query('SELECT id,status,walk_in_actor,archived_at,total::text,guest_email,tracking_code,tracking_hash FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
   const now=(await c.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
   if(action==='archive'){
-   if(!['expired','rejected','completed','cancelled','refunded'].includes(b.status))throw new Error('ACTION_CONFLICT');
+   if(!archivableBookingStatuses.includes(b.status))throw new Error('ACTION_CONFLICT');
    await c.query('UPDATE ethn.bookings SET archived_at=coalesce(archived_at,$2),archived_by=coalesce(archived_by,$3) WHERE id=$1',[id,now,actor]);
   }else{
    if(b.status!=='confirmed'||(action==='cancel'&&!b.walk_in_actor))throw new Error('ACTION_CONFLICT');

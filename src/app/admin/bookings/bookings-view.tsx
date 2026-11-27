@@ -7,9 +7,10 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, RotateCcw } from "lucide-react";
+import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, MoreHorizontal, RotateCcw, Trash2, Ban } from "lucide-react";
 import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/booking-status";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,7 +26,7 @@ import { GuestName } from "../guest-name";
 import { formatPlayTime } from "./booking-play-time";
 
 
-type Result = { rows: (BookingSummary & { canComplete: boolean; trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
+type Result = { rows: (BookingSummary & { canComplete: boolean; canCancel: boolean; canArchive: boolean; canDelete: boolean; trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
 const headers = ["Tracking no.", "Customer", "Contact", "Booking date", "Courts", "No. of slots", "Play time", "Status", "Total", "Date booked", "Actions"];
 const initial: Filters = { q: "", status: [], from: "", to: "", page: 1, archived: "" };
 const input = "h-9 rounded-sm border bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -50,9 +51,48 @@ export default function BookingsView() {
   const confirm = useConfirm();
   const completing = useRef(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const actionLock = useRef(false);
+
+  async function changeBooking(row: Result["rows"][number], action: "cancel" | "archive" | "delete") {
+    if (actionLock.current || completing.current) return;
+    const destructive = action !== "archive";
+    let reason = "";
+    if (destructive) {
+      reason = window.prompt(action === "cancel" ? "Reason for cancellation (required, up to 500 characters):" : "Reason for permanent deletion (required, up to 500 characters). Do not include customer or payment details:") ?? "";
+      if (!reason.trim() || reason.length > 500) {
+        if (reason.length > 500) toast.error("Reason must be 500 characters or fewer.");
+        return;
+      }
+    }
+    const message = action === "delete"
+      ? "Permanently removes booking, extensions, payment/refund records and proofs. Current slot stays blocked until it ends; future slots are released. No notice or refund is sent. Finance totals can change."
+      : action === "cancel" ? "Cancel this booking and release its slots? Payment is retained. No refund is issued." : "Archive this booking? It will be hidden from the default list. No slots are released.";
+    actionLock.current = true;
+    try {
+      if (!await confirm(message, { title: action === "delete" ? "Delete booking permanently" : action === "cancel" ? "Cancel booking" : "Archive booking", confirmLabel: action === "delete" ? "Delete permanently" : action === "cancel" ? "Cancel booking" : "Archive booking", destructive })) return;
+      setActionId(row.id);
+      const response = await fetch(`/api/ethn/admin/bookings/${row.id}/${action}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "archive" ? { key: crypto.randomUUID() } : { key: crypto.randomUUID(), reason: reason.trim() }),
+      });
+      const data = await response.json().catch(() => null) as { proofCleanupPending?: boolean } | null;
+      if (response.ok) {
+        if (action === "delete" && data?.proofCleanupPending) toast.warning("Booking deleted. Proof cleanup is still pending.");
+        else toast.success(action === "cancel" ? "Booking cancelled." : action === "archive" ? "Booking archived." : "Booking deleted.");
+      } else if (response.status >= 500) toast.warning("Outcome could not be confirmed. Check the refreshed booking before retrying.");
+      else toast.error(response.status === 409 ? "This booking is no longer eligible for that action." : "Could not update this booking. Check your access and booking details.");
+    } catch {
+      toast.warning("Outcome could not be confirmed. Check the refreshed booking before retrying.");
+    } finally {
+      actionLock.current = false;
+      setActionId(null);
+      setRefresh(value => value + 1);
+    }
+  }
 
   async function complete(row: Result["rows"][number]) {
-    if (completing.current || !row.canComplete) return;
+    if (completing.current || actionLock.current || !row.canComplete) return;
     completing.current = true;
     try {
       if (!await confirm("Mark this booking completed? Payment and booking history stay unchanged.", { title: "Complete booking", confirmLabel: "Complete booking" })) return;
@@ -77,7 +117,15 @@ export default function BookingsView() {
   function actions(row: Result["rows"][number]) {
     return <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" size="sm" onClick={() => setSelected(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button>
-      {row.canComplete && <Button type="button" variant="outline" size="sm" disabled={completingId !== null} onClick={() => void complete(row)} aria-label={`Complete booking for ${row.guestName || "customer"}`}>{completingId === row.id ? "Completing…" : "Complete"}</Button>}
+      {(row.canComplete || row.canCancel || row.canArchive || row.canDelete) && <DropdownMenu>
+        <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon-sm" disabled={actionId !== null || completingId !== null} aria-label={`More actions for booking ${row.guestName || "customer"}`} />}><MoreHorizontal aria-hidden="true" /></DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {row.canComplete && <DropdownMenuItem onClick={() => void complete(row)}>Complete booking</DropdownMenuItem>}
+          {row.canCancel && <DropdownMenuItem onClick={() => void changeBooking(row, "cancel")}><Ban aria-hidden="true" /> Cancel booking</DropdownMenuItem>}
+          {row.canArchive && <DropdownMenuItem onClick={() => void changeBooking(row, "archive")}><Archive aria-hidden="true" /> Archive</DropdownMenuItem>}
+          {row.canDelete && <DropdownMenuItem variant="destructive" onClick={() => void changeBooking(row, "delete")}><Trash2 aria-hidden="true" /> Delete permanently</DropdownMenuItem>}
+        </DropdownMenuContent>
+      </DropdownMenu>}
     </div>;
   }
   useEffect(() => { const read = () => { const params = new URLSearchParams(window.location.search); const f = parseFilters(params); if (params.has("q")) { params.delete("q"); const qs = params.toString(); window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); } setFilters(previous => ({ ...f, q: previous.q })); setReady(true); }; read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read); }, []);

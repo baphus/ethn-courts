@@ -10,7 +10,7 @@ import { EventDialog, type EventDraft } from "../event-dialog";
 import { eventRange } from "../event-range";
 import CalendarLayout from "./calendar-layout";
 
-type Interval = { id: string; startsAt: string; endsAt: string; state: string; kind: "booking" | "maintenance" | "private" | "open_play"; bookingId: string | null; guestName: string | null; blockId: string | null; reason: string | null };
+type Interval = { id: string; startsAt: string; endsAt: string; state: string; kind: "booking" | "maintenance" | "private" | "open_play" | "deleted_booking"; bookingId: string | null; guestName: string | null; blockId: string | null; reason: string | null };
 type Calendar = { date: string; serverNow: string; window: { startsAt: string; endsAt: string }; courts: { id: string; name: string; active: boolean; intervals: Interval[] }[] };
 
 const errorMessage = (status: number) => status === 400 ? "Check event details, selected courts and times. Events must start in the future within the configured horizon. Open Play must fit every selected court's opening hours." : status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : status === 404 ? "The court or block was not found. Refresh the calendar and try again." : status === 409 ? "This time overlaps another allocation. Refresh the calendar and choose another time." : status === 503 ? "Calendar service is unavailable. Try again later." : "Something went wrong. Refresh the calendar and try again.";

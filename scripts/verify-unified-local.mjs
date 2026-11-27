@@ -21,7 +21,7 @@ try{
  try{await pool.query(`CREATE ROLE anon NOLOGIN;CREATE ROLE authenticated NOLOGIN;CREATE ROLE ethn_checkout LOGIN PASSWORD '${pw}' NOSUPERUSER NOBYPASSRLS;`);
  for(const migration of readMigrationFiles({migrationsFolder:'db/ethn-migrations'})){await pool.query('BEGIN');try{for(const sql of migration.sql)await pool.query(sql);await pool.query('COMMIT');}catch(e){await pool.query('ROLLBACK');throw e;}}
  }finally{await pool.end();}
- const result=run(process.execPath,['--import','./test/register-loader.mjs','--test','test/ethn-unified-database.test.ts'],{ETHN_UNIFIED_TEST_DATABASE_URL:admin.replace('postgres:','ethn_checkout:'),ETHN_UNIFIED_TEST_ADMIN_URL:admin});
+ const result=run(process.execPath,['--import','./test/register-loader.mjs','--test',...(process.argv.length > 2 ? process.argv.slice(2) : ['test/ethn-unified-database.test.ts'])],{ETHN_UNIFIED_TEST_DATABASE_URL:admin.replace('postgres:','ethn_checkout:'),ETHN_UNIFIED_TEST_ADMIN_URL:admin});
  await writeFile(path.join(dir,'tests.log'),result);console.log(result);console.log(`Evidence: ${dir}`);
 }finally{
  if(started){const pid=(await readFile(path.join(data,'postmaster.pid'),'utf8')).split(/\r?\n/);if(Number(pid[3])!==port||path.resolve(pid[1]).toLowerCase()!==path.resolve(data).toLowerCase())throw Error('Cluster identity mismatch; cleanup stopped');run(exe('pg_ctl'),['-D',data,'-m','fast','-w','stop']);await rm(data,{recursive:true,force:true});}

@@ -75,6 +75,16 @@ async function renderEmail(email: EmailContent, subject = `${email.title} — ET
   return { subject, text: `${text}\n`, html: renderEthnEmailHtml(email), attachments };
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const smtpCodes = new Set(["EAUTH", "ECONNECTION", "ECONNREFUSED", "ECONNRESET", "EDNS", "EENVELOPE", "EMESSAGE", "ESOCKET", "ETIMEDOUT", "ETLS"]);
+
+function logDeliveryFailure(kind: string, stage: string, error: unknown) {
+  const { code, responseCode } = (error ?? {}) as { code?: unknown; responseCode?: unknown };
+  if (stage === "SMTP") {
+    console.error("ETHN mail send failed", kind, typeof code === "string" && smtpCodes.has(code) ? code : "unknown", typeof responseCode === "number" && Number.isInteger(responseCode) && responseCode >= 400 && responseCode <= 599 ? responseCode : null);
+  } else {
+    console.error("ETHN mail preparation failed", kind, stage);
+  }
+}
 
 export function validateEthnOutboxConfig(config: Config) {
   let origin: URL;
@@ -146,12 +156,14 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
         (!rejected || (typeof p.reason === "string" && p.reason.trim().length > 0 && p.reason.length <= 500));
       if (valid) { try { parsePesos(p!.total as string); } catch { valid = false; } }
       let status: "sent" | "pending" | "dead" = "dead";
+      let deliveryStage = "owner lookup";
       if (row.kind === "booking_owner_alert" && typeof p?.ownerId === "string" && uuid.test(p.ownerId) && (p.source === "online" || p.source === "internal")) {
         try {
           if (!config.ownerEmail) throw new Error("OWNER_LOOKUP_UNAVAILABLE");
           const enabled = (await pool.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [p.ownerId])).rows.length > 0;
           const email = enabled ? await config.ownerEmail(p.ownerId) : null;
           if (isEthnMailAddress(email)) {
+            deliveryStage = "message rendering";
             const online = p.source === "online";
             const message = await renderEmail({
               title: p.event === "open_play_submitted" ? "New booking with Open Play" : p.event === "open_play_added" ? "Open Play added to booking" : online ? "Payment review needed" : "Staff booking confirmed",
@@ -162,11 +174,16 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
               action: { label: online && p.event !== "open_play_added" ? "Review payment" : "View booking", href: new URL(`/admin/bookings/${config.bookingId}`, origin).href },
               links: [], footer: ["ETHN Courts"],
             });
+            deliveryStage = "SMTP";
             await transport.sendMail({ from: config.from, to: email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
             status = "sent";
           }
-        } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
+        } catch (error) {
+          logDeliveryFailure(row.kind, deliveryStage, error);
+          status = row.attempts >= 8 ? "dead" : "pending";
+        }
       } else if (valid && notice && p && isEthnMailAddress(p.email)) {
+        deliveryStage = "message rendering";
         try {
           const tracking = token
             ? { label: submission ? "Track booking" : "View booking", href: new URL(`/checkout/track/${token}`, origin).href }
@@ -201,9 +218,13 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
             status: approved && p.staff === true ? "Our team booked your court time and recorded your payment in full." : approved && p.openPlayPublished === true ? `${notice.status} Your Open Play is now listed on our site.` : notice.status,
             audience: "Booking update", sections, action, links: links.filter(link => link !== action), footer,
           }, approved ? notice.title : undefined, token && p.staff !== true && (submission || approved) ? tracking?.href : undefined);
+          deliveryStage = "SMTP";
           await transport.sendMail({ from: config.from, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
           status = "sent";
-        } catch { status = row.attempts >= 8 ? "dead" : "pending"; }
+        } catch (error) {
+          logDeliveryFailure(row.kind, deliveryStage, error);
+          status = row.attempts >= 8 ? "dead" : "pending";
+        }
       }
       await pool.query("UPDATE ethn.email_outbox SET status = $3, available_at = CASE WHEN $3 = 'pending' THEN now() + ($4 * interval '1 second') ELSE available_at END WHERE id = $1 AND claim_token = $2 AND status = 'sending'", [row.id, row.token, status, Math.min(3600, 60 * 2 ** (row.attempts - 1))]);
     }

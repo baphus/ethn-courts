@@ -18,14 +18,21 @@ test("new booking email goes only to eligible owner accounts and retries tempora
     return { rows: [] };
   };
   const pool = { query, connect: async () => ({ query, release() { released = true; } }) };
-  await drainEthnOutbox(pool as never, { sendMail: async m => { assert.equal(released, true); messages.push(m); } }, {
+  const errors: unknown[][] = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args);
+  try { await drainEthnOutbox(pool as never, { sendMail: async m => {
+    assert.equal(released, true);
+    if (m.to === "owner3@example.com") throw Object.assign(new Error("private SMTP response"), { code: "EAUTH", responseCode: 535 });
+    messages.push(m);
+  } }, {
     bookingId, from: "mail@example.com", appUrl: "https://example.com",
     ownerEmail: async id => {
       lookedUp.push(id);
-      if (id === owners[3]) throw new Error("Auth temporarily unavailable");
       return id === owners[4] ? null : `owner${owners.indexOf(id)}@example.com`;
     },
-  });
+  }); } finally { console.error = originalError; }
+  assert.deepEqual(errors, [["ETHN mail send failed", "booking_owner_alert", "EAUTH", 535]]);
   assert.deepEqual(lookedUp, [owners[0], owners[1], owners[3], owners[4]]);
   assert.deepEqual(statuses, ["sent", "sent", "dead", "pending", "dead"]);
   assert.deepEqual(messages.map(m => m.to), ["owner0@example.com", "owner1@example.com"]);

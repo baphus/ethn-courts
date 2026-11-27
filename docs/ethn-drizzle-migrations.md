@@ -25,6 +25,8 @@ Before applying `0010_unique_payment_transfer.sql`, check historical references 
 
 Apply `0011_flowery_dexter_bennett.sql` before deploying sale item names and categories. Existing sales retain their original description and appear as Uncategorized. No sale amounts, corrections, or reporting calculations change.
 
+Apply `0012_mean_longshot.sql` before deploying permanent booking deletion. This owner-only action erases the booking, extensions, finance records, and linked history; it does not refund payment or notify the customer. Future slots reopen on commit. An anonymous block preserves a slot already in progress until its original end. Private proof access through the app ends on commit; existing signed URLs may work until removal or expiry. Proof files are removed after the response, with retries and a final sweep through `/api/cron/ethn-deleted-proofs` (requires `CRON_SECRET` and ETHN Storage credentials).
+
 ## Prerequisites
 
 1. Confirm target project identity and backup/restore plan. Prefer new database over deleting existing data. No reset command is provided.
@@ -43,7 +45,7 @@ npm run db:migrate
 npm run db:status
 ```
 
-Fresh expected result: applied=12, pending=0. Do not deploy the new Finance code ahead of its schema migration. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
+Fresh expected result: applied=13, pending=0. Do not deploy the new Finance code ahead of its schema migration. Unified Bookings upgrade has only disposable-local verification; review backups, existing held-checkout cutover and target schema history before authorizing application to existing data. Repeat migrate reports Applied 0. The runner serializes its own executions with advisory lock and checks history hashes/timestamps before applying pending SQL. No auto-reset, baseline stamping or auto-retry. Drizzle can create its history schema/table before running migration transaction; if an interrupted/failed first attempt leaves empty history schema, inspect before removing only that empty schema under separate approval. Never drop ETHN data to silence an error.
 
 Verify effective grants/RLS with restricted login and test owner access, booking availability and picture replacement. Fresh SQL seeds courts/settings but does not provision actual Auth users or owner access, proof Storage, GCash instructions, live rates, mail or scheduler. Configure separately. Browser Auth and private Storage must target same ETHN Supabase project. Moving to another Supabase project requires updating Auth/Storage environment and provisioning private proof bucket/policies; SQL migrations do not move identities, proofs or old bookings.
 

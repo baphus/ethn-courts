@@ -2,7 +2,7 @@ import { manilaDateStr } from "@/lib/booking/slots";
 import { shiftDate } from "./date-utils";
 
 export type View = "monthly" | "weekly" | "daily" | "schedule";
-export type Interval = { id: string; startsAt: string; endsAt: string; state: string; kind: "booking" | "maintenance" | "private" | "open_play"; bookingId: string | null; guestName: string | null; blockId: string | null; reason: string | null; slotCount?: number };
+export type Interval = { id: string; startsAt: string; endsAt: string; state: string; kind: "booking" | "maintenance" | "private" | "open_play" | "deleted_booking"; bookingId: string | null; guestName: string | null; blockId: string | null; reason: string | null; slotCount?: number };
 export type Calendar = { date: string; serverNow: string; window: { startsAt: string; endsAt: string }; courts: { id: string; name: string; active: boolean; intervals: Interval[] }[] };
 
 export function rangeDates(date: string, view: View): string[] {
