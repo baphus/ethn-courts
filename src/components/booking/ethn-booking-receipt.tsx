@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Copy, Download, ExternalLink, MapPin, QrCode } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { BookingStatusBadge } from "@/components/booking/booking-status";
-import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
 import { BookingInvoice } from "@/components/booking/ethn-booking-invoice";
-import { VENUE_ADDRESS, VENUE_FACEBOOK_LINK, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
+import { VENUE_ADDRESS, VENUE_FACEBOOK_LINK, VENUE_MAP_EMBED, VENUE_MAP_LINK, venuePhoneLinks } from "@/lib/venue";
 
 type Props = {
   receipt: {
@@ -91,7 +90,7 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
     </section>
 
       <BookingInvoice date={receipt.operatingDate} items={receipt.items} paymentMethod={receipt.paymentMethod} email={receipt.maskedEmail} total={receipt.total} />
-    </div><section aria-labelledby="venue-location" className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-foreground"><MapPin className="size-5" aria-hidden="true" /></span><div><h2 id="venue-location" className="text-xl font-bold">Find ETHN Courts</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{VENUE_ADDRESS}</p></div></div><iframe title="Map showing ETHN Courts" src={VENUE_MAP_EMBED} loading="lazy" referrerPolicy="no-referrer" className="mt-5 h-56 w-full rounded-xl border border-border" /><div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-bold"><a href={VENUE_MAP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-primary underline underline-offset-2">Get directions <ExternalLink className="size-4" aria-hidden="true" /></a><a href={VENUE_PHONE_LINK} className="text-primary underline underline-offset-2">{VENUE_PHONE_DISPLAY}</a><a href={VENUE_FACEBOOK_LINK} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">Message on Facebook</a></div></section>
+    </div><section aria-labelledby="venue-location" className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-foreground"><MapPin className="size-5" aria-hidden="true" /></span><div><h2 id="venue-location" className="text-xl font-bold">Find ETHN Courts</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{VENUE_ADDRESS}</p></div></div><iframe title="Map showing ETHN Courts" src={VENUE_MAP_EMBED} loading="lazy" referrerPolicy="no-referrer" className="mt-5 h-56 w-full rounded-xl border border-border" /><div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-bold"><a href={VENUE_MAP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-primary underline underline-offset-2">Get directions <ExternalLink className="size-4" aria-hidden="true" /></a>{venuePhoneLinks().map(({ label, href }) => <a key={href} href={href} className="inline-flex min-h-6 items-center text-primary underline underline-offset-2">{label}</a>)}<a href={VENUE_FACEBOOK_LINK} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">Message on Facebook</a></div></section>
     <button type="button" onClick={onAnotherBooking} className={`${button} w-full border border-input bg-card hover:bg-accent sm:w-auto`}>Book another time</button>
   </div>;
 }

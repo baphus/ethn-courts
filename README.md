@@ -38,7 +38,7 @@ Fresh ETHN databases use separate SQL-first Drizzle history: full schema through
 
 ## Contact settings upgrade
 
-Contact details require `db/ethn/0026_contact_settings.sql` after the preceding ETHN schema upgrades. Review and apply it only under an approved migration plan; do not run it against legacy data. Verify restricted checkout grants and RLS after upgrade. The contact page uses the default venue Facebook URL, phone and email when owner overrides are blank or settings are unavailable. Owner settings publish Facebook, phone and email; the contact form opens the visitor's email app and does not send or store messages on the server.
+Contact details require `db/ethn/0026_contact_settings.sql` after the preceding ETHN schema upgrades. Review and apply it only under an approved migration plan; do not run it against legacy data. Verify restricted checkout grants and RLS after upgrade. The contact page always lists the four venue phone numbers and shows an owner-configured number first, without duplicates. The default Facebook URL and email are used when owner overrides are blank or settings are unavailable. Owner settings publish Facebook, phone and email; the contact form opens the visitor's email app and does not send or store messages on the server.
 
 ## Removed features
 

@@ -2,8 +2,7 @@ import { daylightFonts } from "@/app/daylight-fonts";
 import Image from "next/image";
 import { ThemePreference } from "./theme-preference";
 import { Mail, MapPin, Phone } from "lucide-react";
-import { VENUE_PHONE_DISPLAY, VENUE_PHONE_LINK } from "@/lib/booking/constants";
-import { VENUE_ADDRESS, VENUE_EMAIL, VENUE_FACEBOOK_LINK, VENUE_MAP_LINK } from "@/lib/venue";
+import { VENUE_ADDRESS, VENUE_EMAIL, VENUE_FACEBOOK_LINK, VENUE_MAP_LINK, venuePhoneLinks } from "@/lib/venue";
 
 const SEPHUS_PORTFOLIO_URL = "https://www.sephus.tech";
 
@@ -86,13 +85,16 @@ export default function Footer() {
             <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-muted-foreground uppercase">
               Call or text
             </p>
-            <a
-              href={VENUE_PHONE_LINK}
-              className="flex items-center gap-2 text-[13px] font-bold text-muted-foreground hover:text-primary hover:underline"
-            >
-              <Phone className="size-4 shrink-0 text-primary" aria-hidden />
-              {VENUE_PHONE_DISPLAY}
-            </a>
+            <ul role="list">
+              {venuePhoneLinks().map(({ label, href }) => (
+                <li key={href}>
+                  <a href={href} className="inline-flex min-h-6 items-center gap-2 text-[13px] font-bold text-muted-foreground hover:text-primary hover:underline">
+                    <Phone className="size-4 shrink-0 text-primary" aria-hidden />
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
             <p className="pt-1 text-[11px] font-extrabold tracking-[0.12em] text-muted-foreground uppercase">
               Facebook
             </p>

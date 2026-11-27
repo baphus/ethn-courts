@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateContact, putContact } from "../src/lib/admin/ethn-contact";
+import { venuePhoneLinks } from "../src/lib/venue";
+
+test("public venue phones are dialable and preserve a deduplicated owner override", () => {
+  const defaults = venuePhoneLinks();
+  assert.deepEqual(defaults.map(({ href }) => href), ["tel:+639234731093", "tel:+639618213351", "tel:+639171640092", "tel:+639055217858"]);
+  const override = { label: "+63 917 164 0092", href: "tel:+639171640092" };
+  assert.deepEqual(venuePhoneLinks(override.label), [override, ...defaults.filter(({ href }) => href !== override.href)]);
+  assert.deepEqual(venuePhoneLinks("abc"), defaults);
+  assert.deepEqual(venuePhoneLinks("(02) 8123 4567"), [{ label: "(02) 8123 4567", href: "tel:0281234567" }, ...defaults]);
+});
 
 test("contact validation accepts blank fields and rejects unsafe links and headers", () => {
   assert.deepEqual(validateContact({ version: "1", facebook: " https://www.facebook.com/ethn ", phone: "+63 123", email: "owner@example.com" }), { version: "1", facebook: "https://www.facebook.com/ethn", phone: "+63 123", email: "owner@example.com" });
