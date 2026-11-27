@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseEnv } from "node:util";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
@@ -28,10 +29,19 @@ export function migrationConfig(env) {
   }
 }
 
+function optionalEnvFile(path) {
+  try { return parseEnv(readFileSync(path, "utf8")); }
+  catch (error) { if (error?.code !== "ENOENT") throw error; }
+}
+
+export function migrationEnv(directory = new URL("../", import.meta.url), env = process.env) {
+  return { ...optionalEnvFile(new URL(".env", directory)), ...optionalEnvFile(new URL(".env.local", directory)), ...env };
+}
+
 async function main() {
   const action = process.argv[2];
   if (!["status", "migrate"].includes(action)) throw new Error("Use status or migrate.");
-  const pool = new Pool(migrationConfig(process.env));
+  const pool = new Pool(migrationConfig(migrationEnv()));
   const c = await pool.connect();
   try {
     if (!(await c.query("SELECT pg_try_advisory_lock(692873421) AS locked")).rows[0].locked) throw new Error("Another ETHN migration is running.");

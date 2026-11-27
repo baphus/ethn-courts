@@ -1,11 +1,11 @@
 {
-  "name": "ck-grounds",
+  "name": "ethn-courts",
   "version": "1.0.0",
   "description": "",
   "private": true,
   "scripts": {
-    "db:status": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/ethn-migrations.mjs status",
-    "db:migrate": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/ethn-migrations.mjs migrate",
+    "db:status": "node scripts/ethn-migrations.mjs status",
+    "db:migrate": "node scripts/ethn-migrations.mjs migrate",
     "db:generate": "drizzle-kit generate --custom --config=drizzle.ethn.config.ts",
     "dev": "next dev",
     "build": "next build",

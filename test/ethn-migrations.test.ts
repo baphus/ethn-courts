@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 
 test("fresh ETHN migration includes full ordered chain and court migration matches reviewed SQL", () => {
@@ -18,6 +21,22 @@ test("fresh ETHN migration includes full ordered chain and court migration match
   }
   assert.ok(migrations[1].folderMillis > migrations[0].folderMillis);
   assert.equal(readFileSync("db/ethn-migrations/0001_court_details.sql", "utf8"), readFileSync("db/ethn/0029_court_details.sql", "utf8"));
+});
+
+test("migration env accepts only .env.local and preserves precedence when both files exist", async () => {
+  const { migrationEnv } = await import("../scripts/ethn-migrations.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "ethn-migration-env-"));
+  const directory = pathToFileURL(dir + sep);
+  try {
+    assert.deepEqual(migrationEnv(directory, {}), {});
+    writeFileSync(join(dir, ".env.local"), "TARGET=local\n");
+    assert.deepEqual(migrationEnv(directory, {}), { TARGET: "local" });
+    writeFileSync(join(dir, ".env"), "TARGET=default\nOTHER=default\n");
+    assert.deepEqual(migrationEnv(directory, {}), { TARGET: "local", OTHER: "default" });
+    assert.deepEqual(migrationEnv(directory, { TARGET: "process" }), { TARGET: "process", OTHER: "default" });
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
 });
 
 test("migration connection uses dedicated credentials and verified TLS", async () => {
