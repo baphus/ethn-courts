@@ -34,6 +34,7 @@ function optionalEnvFile(path) {
   catch (error) { if (error?.code !== "ENOENT") throw error; }
 }
 
+/** @param {Record<string, string | undefined>} [env] */
 export function migrationEnv(directory = new URL("../", import.meta.url), env = process.env) {
   return { ...optionalEnvFile(new URL(".env", directory)), ...optionalEnvFile(new URL(".env.local", directory)), ...env };
 }
