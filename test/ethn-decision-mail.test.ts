@@ -57,12 +57,12 @@ test("decision mail validates kinds and optional token without breaking submissi
     if (qr) assert.match(message.html, /not for check-in/);
     if (approved || index === 0) {
       assert.ok(message.text.includes(`${approved ? "Booking invoice" : "Booking breakdown"}\nBooking date: January 1, 2026`));
-      assert.match(message.text, /8:00\s*PM.*January 2, 2026.*1:00\s*AM\n10 × 30-min slots · ₱10\.00\/slot · Subtotal: ₱100\.00/i);
+      assert.match(message.text, /8PM–1AM \(\+1 day\)\n10 × 30-min slots · ₱10\.00\/slot · Subtotal: ₱100\.00/i);
       assert.match(message.text, /3 × 30-min slots · approx\. ₱0\.01\/slot · Subtotal: ₱0\.02/);
       assert.match(message.text, /Total slots: 13\nPayment method: GCash/);
       assert.match(message.html, /Court &lt;1&gt;/);
     } else {
-      assert.match(message.text, /Court schedule\nCourt <1>:.*8:00 PM.*Jan 2, 2026, 1:00 AM/);
+      assert.match(message.text, /Court schedule\nCourt <1>: Jan 1, 2026 · 8PM–1AM \(\+1 day\)/);
     }
     const calendar = message.text.match(/Add to Google Calendar: (\S+)/);
     assert.equal(!!calendar, approved);

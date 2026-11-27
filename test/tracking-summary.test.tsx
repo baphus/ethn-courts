@@ -9,7 +9,7 @@ test("tracking summary shows overnight dates, original total and guarded payment
   const render = () => renderToStaticMarkup(createElement(TrackingSummary, { booking }));
   const html = render();
   assert.match(html, /November 25, 2026/);
-  assert.match(html, /November 26, 2026/);
+  assert.match(html, /11PM–1AM \(\+1 day\)/);
   assert.match(html, /Original booking total/);
   assert.match(html, /Bank Transfer/);
   assert.match(html, /Reason: Unreadable/);

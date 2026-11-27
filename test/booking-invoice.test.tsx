@@ -13,7 +13,7 @@ test("invoice shows booking date once and counts saved grid slots across courts"
   }));
   assert.match(html, /Booking date · November 26, 2026/);
   assert.equal(html.match(/November 26, 2026/g)?.length, 1);
-  assert.match(html, /6:00\s*PM – 10:00\s*PM/i);
+  assert.match(html, /6–10PM/);
   assert.match(html, /4 \u00d7 60-min slots/);
   assert.match(html, /8 \u00d7 30-min slots/);
   assert.match(html, /Total slots<\/dt><dd[^>]*>12</);
@@ -28,7 +28,7 @@ test("invoice shows booking date once and counts saved grid slots across courts"
 test("invoice shows overnight dates and keeps extensions out of original slot total", () => {
   const overnight = { ...court, startsAt: "2026-11-26T15:30:00Z", endsAt: "2026-11-26T16:30:00Z", durationMinutes: 60 };
   const html = renderToStaticMarkup(createElement(BookingInvoice, { date, items: [overnight], total: "600.00", extensionItems: [{ ...overnight, intervalMinutes: 30 }] }));
-  assert.match(html, /11:30\s*PM – November 27, 2026 · 12:30\s*AM/i);
+  assert.match(html, /11:30PM–12:30AM \(\+1 day\)/);
   assert.match(html, /1 \u00d7 60-min slot ·/);
   assert.match(html, /Total slots<\/dt><dd[^>]*>1</);
   assert.match(html, /Confirmed extensions · separate from booking total.*2 \u00d7 30-min slots/);

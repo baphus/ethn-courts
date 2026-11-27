@@ -6,8 +6,7 @@ export const HOUR_PX = 64;
 const HOUR_MS = 3_600_000;
 
 
-export const timelineTime = (value: string | number) =>
-  new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+export { formatScheduleTime as timelineTime } from "@/lib/booking/schedule-label";
 
 export function durationLabel(ms: number) {
   const minutes = Math.max(0, Math.round(ms / 60000));

@@ -8,7 +8,7 @@ test('hour selectors preserve saved minutes and label valid next-day closes', ()
   assert.ok(openingOptions('08:30:00').some(option => option.value === '08:30'));
   const closes = closingOptions('17:00', 420, '17:30');
   assert.equal(closes[0].value, '17:30');
-  assert.deepEqual(closes.find(option => option.value === '00:00'), { value: '00:00', label: '12:00 AM (+1 day)' });
+  assert.deepEqual(closes.find(option => option.value === '00:00'), { value: '00:00', label: '12AM (+1 day)' });
   assert.equal(closes.at(-1)?.value, '07:00');
   assert.equal(closingOptions('07:00', 420).at(-1)?.label, 'Open 24 hours');
   assert.equal(closingOptions('05:00', 420).at(-1)?.value, '07:00');

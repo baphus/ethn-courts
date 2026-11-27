@@ -1,5 +1,6 @@
 "use client";
 
+import { formatScheduleRange } from "@/lib/booking/schedule-label";
 import { DateField } from "@/components/ui/date-field";
 import { Button } from "@/components/ui/button";
 import { LoadingRows } from "@/components/admin/loading-slots";
@@ -20,7 +21,6 @@ import { Avatar } from "./court-avatar";
 import { courtStatus, currentPosition, dashboardCourtSchedule, intervalLabel, timelineTime } from "./court-timeline-utils";
 import { useBookingDetail, useCourtDay, useNow } from "./use-court-day";
 
-const dateTime = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const navBtn = "grid h-9 place-items-center rounded-lg border bg-background px-3 text-sm transition-colors hover:bg-muted disabled:opacity-50";
 
 function Skeleton() {
@@ -79,7 +79,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
     {error ? <p role="alert" className="rounded-xl border border-destructive p-4">{error} Occupancy unknown.</p> : !day ? <Skeleton /> : <section aria-label="Court timeline"><CourtTimeline day={day} now={now} onBooking={setBooking} onBlock={(court, item) => setBlock({ court, item })} /></section>}
     <Dialog open={block !== null} onOpenChange={open => { if (!open) setBlock(null); }}>
       <DialogContent><DialogTitle>Scheduled allocation</DialogTitle><DialogDescription>{block?.court}</DialogDescription>
-        {block && <><p className="capitalize">{intervalLabel(block.item)}</p><p className="text-sm">{dateTime(block.item.startsAt)} – {dateTime(block.item.endsAt)}</p><Link href="/admin/calendar" className="text-sm font-semibold text-primary underline">Open calendar for block actions</Link></>}
+        {block && <><p className="capitalize">{intervalLabel(block.item)}</p><p className="text-sm">{formatScheduleRange(block.item.startsAt, block.item.endsAt)}</p><Link href="/admin/calendar" className="text-sm font-semibold text-primary underline">Open calendar for block actions</Link></>}
       </DialogContent>
     </Dialog>
     <Dialog open={booking !== null} onOpenChange={open => { if (!open) setBooking(null); }}>
@@ -88,7 +88,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
           <div className="flex items-center gap-3"><Avatar name={detail.data.guestName || "Guest"} /><div><p className="font-semibold">{detail.data.guestName || "Guest"}</p><StatusBadge state={detail.data.status} /></div></div>
           <p>Original booking total: ₱{Number(detail.data.total).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <h3 className="font-semibold">Court schedule</h3>
-          <ul className="space-y-1">{detail.data.items.map((item, i) => <li key={`${item.courtId}-${i}`} className="rounded-lg border bg-muted/40 px-3 py-2">{item.courtName}: {dateTime(item.startsAt)} – {dateTime(item.endsAt)}</li>)}</ul>
+          <ul className="space-y-1">{detail.data.items.map((item, i) => <li key={`${item.courtId}-${i}`} className="rounded-lg border bg-muted/40 px-3 py-2">{item.courtName}: {formatScheduleRange(item.startsAt, item.endsAt)}</li>)}</ul>
         </div>}
         {booking && <Link className="text-sm font-semibold text-primary underline" href={`/admin/bookings/${encodeURIComponent(booking)}`}>Open full booking</Link>}
       </DialogContent>

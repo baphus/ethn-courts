@@ -1,7 +1,5 @@
-import { formatDisplayDate } from "../display-date";
-import { manilaDateStr } from "./slots";
+import { formatScheduleRange } from "./schedule-label";
 
-const time = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
 const money = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" });
 
 export function invoiceMoney(value: string) {
@@ -9,9 +7,7 @@ export function invoiceMoney(value: string) {
 }
 
 export function invoiceTimeRange(bookingDate: string, startsAt: string | Date, endsAt: string | Date) {
-  const start = new Date(startsAt), end = new Date(endsAt);
-  const startDate = manilaDateStr(start), endDate = manilaDateStr(end);
-  return `${startDate !== bookingDate ? `${formatDisplayDate(startDate)} · ` : ""}${time.format(start)} – ${endDate !== startDate ? `${formatDisplayDate(endDate)} · ` : ""}${time.format(end)}`;
+  return formatScheduleRange(startsAt, endsAt, bookingDate);
 }
 
 export function gridSlotCount(minutes: number, intervalMinutes?: number): number | undefined {

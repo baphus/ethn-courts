@@ -1,12 +1,12 @@
 "use client";
 
+import { formatScheduleRange, formatScheduleTime } from "@/lib/booking/schedule-label";
 import { useEffect, useState } from "react";
 import { EmptyIcon } from "@/components/ui/empty-icon";
 import { formatCountdown, getSchedule, type OpenPlay } from "./schedule";
 
 const manila = { timeZone: "Asia/Manila" };
 const date = new Intl.DateTimeFormat("en-PH", { ...manila, weekday: "long", month: "long", day: "numeric", year: "numeric" });
-const time = new Intl.DateTimeFormat("en-PH", { ...manila, hour: "numeric", minute: "2-digit" });
 const fee = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 function Session({ event, now, featured = false, live = false, past = false }: {
@@ -14,7 +14,6 @@ function Session({ event, now, featured = false, live = false, past = false }: {
 }) {
   const start = new Date(event.startsAt);
   const end = new Date(event.endsAt);
-  const dateLabel = date.format(start);
   const endDateLabel = date.format(end);
   return (
     <article className={featured
@@ -22,8 +21,7 @@ function Session({ event, now, featured = false, live = false, past = false }: {
       : "rounded-xl border border-[#E8DDC8] bg-white p-4 sm:px-5"}>
       <h3 className={`font-display font-bold [overflow-wrap:anywhere] ${featured ? "text-4xl sm:text-5xl" : "text-2xl"}`}>{event.title}</h3>
       <p className={`mt-2 font-semibold ${featured ? "text-lg" : "text-sm"}`}>
-        {live ? "Until " : <><time dateTime={event.startsAt}>{dateLabel}, {time.format(start)}</time>{" – "}</>}
-        <time dateTime={event.endsAt}>{(live || dateLabel !== endDateLabel) && `${endDateLabel}, `}{time.format(end)}</time>
+        {live ? <>Until <time dateTime={event.endsAt}>{endDateLabel} · {formatScheduleTime(end)}</time></> : formatScheduleRange(start, end)}
       </p>
       {featured && <p role="timer" className="mt-3 inline-block rounded-md bg-white px-3 py-1.5 text-sm font-semibold tabular-nums">{formatCountdown(start.getTime() - now)}</p>}
       <p className="mt-3 text-sm leading-6 text-[#42585a] [overflow-wrap:anywhere]">

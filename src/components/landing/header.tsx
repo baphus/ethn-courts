@@ -6,17 +6,16 @@ import { CalendarDays, CirclePlay, ClipboardList, Mail } from "lucide-react";
 import { activeNav, isPublicPath } from "./public-path";
 import { drawPickleball } from "@/components/ui/pickleball";
 
-/* 3D pickleball spins with scroll; progress arc surrounds the home link. */
-function ScrollBall() {
+/* 3D pickleball spins with scroll; progress arc surrounds the back-to-top button. */
+function ScrollBall({ booking, onBackToTop }: { booking: boolean; onBackToTop: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const arc = useRef<SVGCircleElement>(null);
-  const box = useRef<HTMLAnchorElement>(null);
   useEffect(() => {
-    const cv = canvas.current, ring = arc.current, el = box.current;
+    const cv = canvas.current, ring = arc.current;
     const ctx = cv?.getContext("2d");
-    if (!cv || !ring || !el || !ctx) return;
+    if (!cv || !ring || !ctx) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const SIZE = 72, CIRC = 2 * Math.PI * 43;
+    const SIZE = 72, CIRC = 2 * Math.PI * 21;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     cv.width = cv.height = SIZE * dpr; ctx.scale(dpr, dpr);
     const progressOf = (y: number) => { const max = document.documentElement.scrollHeight - window.innerHeight; return max > 0 ? Math.min(1, Math.max(0, y / max)) : 0; };
@@ -39,15 +38,40 @@ function ScrollBall() {
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(raf); };
   }, []);
   return (
-    <a ref={box} href="/" aria-label="ETHN Courts home" className="relative h-12 w-12 shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffad4c] sm:h-20 sm:w-20">
-      <svg viewBox="0 0 96 96" aria-hidden="true" className="absolute inset-0 h-full w-full -rotate-90"><circle cx="48" cy="48" r="43" fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="5" /><circle ref={arc} cx="48" cy="48" r="43" fill="none" stroke="#ffad4c" strokeWidth="5" strokeLinecap="round" strokeDasharray={2 * Math.PI * 43} strokeDashoffset={2 * Math.PI * 43} /></svg>
-      <canvas ref={canvas} aria-hidden="true" className="absolute left-1/2 top-1/2 h-9 w-9 sm:h-[60px] sm:w-[60px] -translate-x-1/2 -translate-y-1/2" />
-    </a>
+    <button type="button" data-back-to-top aria-label="Back to top" onClick={onBackToTop} className={`fixed right-[max(1rem,env(safe-area-inset-right))] z-40 size-11 cursor-pointer rounded-full bg-white shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244] ${booking ? "bottom-[calc(6.5rem+env(safe-area-inset-bottom))] lg:bottom-[max(1rem,env(safe-area-inset-bottom))]" : "bottom-[max(1rem,env(safe-area-inset-bottom))]"}`}>
+      <svg viewBox="0 0 48 48" aria-hidden="true" className="absolute inset-0 h-full w-full -rotate-90"><circle cx="24" cy="24" r="21" fill="none" stroke="rgba(6,52,92,.18)" strokeWidth="3" /><circle ref={arc} cx="24" cy="24" r="21" fill="none" stroke="#E8591A" strokeWidth="3" strokeLinecap="round" strokeDasharray={2 * Math.PI * 21} strokeDashoffset={2 * Math.PI * 21} /></svg>
+      <canvas ref={canvas} aria-hidden="true" className="absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2" />
+    </button>
   );
 }
 
 export default function Header() {
+  const top = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const scrollFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(scrollFrame.current), [pathname]);
+
+  function backToTop() {
+    cancelAnimationFrame(scrollFrame.current);
+    top.current?.focus({ preventScroll: true });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
+    const start = window.scrollY, began = performance.now();
+    let last = start;
+    const tick = (now: number) => {
+      if (window.scrollY !== last) return; // Let manual scrolling interrupt the spring.
+      const t = Math.max(0, now - began) / 70;
+      const y = start * (1 + t) * Math.exp(-t); // Critically damped; no overshoot at the top edge.
+      const done = y < 1 || t >= 12;
+      window.scrollTo({ top: done ? 0 : y, behavior: "instant" });
+      last = window.scrollY;
+      if (!done) scrollFrame.current = requestAnimationFrame(tick);
+    };
+    scrollFrame.current = requestAnimationFrame(tick);
+  }
+
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 60);
@@ -57,20 +81,19 @@ export default function Header() {
   }, []);
   if (!isPublicPath(pathname)) return null;
   const active = activeNav(pathname);
-  const navLink = "inline-flex min-h-11 items-center justify-center gap-0.5 px-1 text-sm font-semibold sm:gap-2 sm:px-3 sm:font-extrabold sm:uppercase sm:tracking-wider text-white/90 transition-colors hover:text-[#ffad4c] focus-visible:outline-2 focus-visible:outline-[#ffad4c] aria-[current=page]:text-[#ffad4c] aria-[current=page]:underline aria-[current=page]:decoration-2 aria-[current=page]:underline-offset-4";
+  const overHero = pathname === "/" && !scrolled;
+  const navLink = `inline-flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-xs font-semibold sm:flex-row sm:gap-2 sm:px-3 sm:text-sm transition-colors focus-visible:outline-2 aria-[current=page]:underline aria-[current=page]:decoration-2 aria-[current=page]:underline-offset-4 ${overHero ? "text-white hover:text-[#ffad4c] focus-visible:outline-[#ffad4c]" : "text-[#06345C] hover:text-[#E8591A] focus-visible:outline-[#E8591A] aria-[current=page]:text-[#E8591A]"}`;
   return (
-    <header className={`sticky top-0 z-50 h-14 text-white sm:h-24 ${scrolled || pathname === "/" ? "bg-transparent" : "bg-[#447244]"}`}>
-      <div className={`mx-auto grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-0 ${scrolled || pathname !== "/" ? "bg-[#447244]" : "bg-transparent"} px-2 transition-[width,max-width,transform,border-radius,box-shadow] duration-500 ease-out motion-reduce:transition-none sm:h-24 sm:px-6 ${scrolled ? "w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-[960px] translate-y-2 rounded-full shadow-[0_8px_30px_rgba(0,0,0,.25)] ring-1 ring-white/15" : "w-full max-w-7xl"}`}>
-        <div className="relative min-w-0">
-          <span aria-hidden="true" className={`pointer-events-none absolute left-0 top-1/2 hidden -translate-y-1/2 text-sm font-extrabold tracking-[.14em] text-[#ffad4c] transition-opacity motion-reduce:transition-none lg:block ${scrolled ? "opacity-100" : "opacity-0"}`}>ETHN</span>
-          <nav aria-label="Booking navigation" className={`absolute top-1/2 flex -translate-y-1/2 items-center whitespace-nowrap transition-[left,transform] duration-500 ease-out motion-reduce:transition-none ${scrolled ? "left-full -translate-x-full" : "left-0 translate-x-0"}`}><a href="/book" aria-current={active === "book" ? "page" : undefined} className={navLink}><CalendarDays className="hidden size-4 shrink-0 sm:block" aria-hidden="true" />Book</a><a href="/open-plays" aria-current={active === "plays" ? "page" : undefined} className={navLink}><CirclePlay className="hidden size-4 shrink-0 sm:block" aria-hidden="true" />Plays</a></nav>
+    <><header ref={top} tabIndex={-1} className={`sticky top-0 z-50 pt-2 ${pathname === "/" ? "h-14 sm:h-24" : "h-[4.0625rem] sm:h-[4.5625rem]"} ${scrolled || overHero ? "bg-transparent" : "border-b border-[#06345C]/10 bg-white"}`}>
+      <div className={`mx-auto grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-2 transition-[width,max-width,transform,border-radius,box-shadow] duration-500 ease-out motion-reduce:transition-none sm:px-4 ${scrolled ? "w-[calc(100%-1rem)] max-w-[960px] rounded-full bg-white shadow-[0_8px_30px_rgba(0,0,0,.16)] ring-1 ring-[#06345C]/10" : "w-full max-w-7xl sm:h-16"}`}>
+        <div className="relative flex min-w-0 items-center">
+          <nav aria-label="Booking navigation" className="flex items-center whitespace-nowrap"><a href="/book" aria-current={active === "book" ? "page" : undefined} className={navLink}><CalendarDays className="size-3.5 shrink-0 sm:size-4" aria-hidden="true" />Book</a><a href="/open-plays" aria-current={active === "plays" ? "page" : undefined} className={navLink}><CirclePlay className="size-3.5 shrink-0 sm:size-4" aria-hidden="true" />Plays</a></nav>
         </div>
-        <ScrollBall />
-        <div className="relative flex items-center justify-end gap-2">
-          <span aria-hidden="true" className={`pointer-events-none absolute right-0 top-1/2 hidden -translate-y-1/2 text-sm font-extrabold tracking-[.14em] text-white transition-opacity motion-reduce:transition-none lg:block ${scrolled ? "opacity-100" : "opacity-0"}`}>COURTS</span>
-          <nav aria-label="More navigation" className={`absolute top-1/2 flex -translate-y-1/2 items-center whitespace-nowrap transition-[left,transform] duration-500 ease-out motion-reduce:transition-none ${scrolled ? "left-0 translate-x-0" : "left-full -translate-x-full"}`}><a href="/track" aria-current={active === "track" ? "page" : undefined} className={navLink}><ClipboardList className="hidden size-4 shrink-0 sm:block" aria-hidden="true" />Track</a><a href="/contact" aria-current={active === "contact" ? "page" : undefined} className={navLink}><Mail className="hidden size-4 shrink-0 sm:block" aria-hidden="true" />Contact</a></nav>
+        <div className="flex min-w-0 justify-center">{!overHero && <a href="/" aria-label="ETHN Courts home" className="flex min-h-11 items-center rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E8591A]"><img src="/ethn-courts-logo.svg" alt="ETHN Courts" className="h-9 w-16 object-contain sm:h-11 sm:w-28" /></a>}</div>
+        <div className="relative flex min-w-0 items-center justify-end">
+          <nav aria-label="More navigation" className="flex items-center whitespace-nowrap"><a href="/track" aria-current={active === "track" ? "page" : undefined} className={navLink}><ClipboardList className="size-3.5 shrink-0 sm:size-4" aria-hidden="true" />Track</a><a href="/contact" aria-current={active === "contact" ? "page" : undefined} className={navLink}><Mail className="size-3.5 shrink-0 sm:size-4" aria-hidden="true" />Contact</a></nav>
         </div>
       </div>
-    </header>
+    </header>{scrolled && <ScrollBall booking={pathname === "/book"} onBackToTop={backToTop} />}</>
   );
 }

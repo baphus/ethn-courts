@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Pool } from "pg";
 import QRCode from "qrcode";
+import { formatScheduleRange } from "../booking/schedule-label";
 import { formatDisplayDate } from "../display-date";
 import { gridSlotCount, invoiceMoney, invoiceSlotRate, invoiceTimeRange } from "../booking/invoice-format";
 import { parsePesos } from "../booking/core";
@@ -22,14 +23,11 @@ const notices: Record<string, { title: string; preheader: string; status: string
   booking_cancelled: { title: "Booking cancelled", preheader: "Your court time has been released.", status: "Your booking was cancelled and your court time was released. No refund has been recorded for this booking." },
   booking_refunded: { title: "Refund recorded", preheader: "Your booking is no longer active.", status: "Your booking is no longer active. Our team recorded a refund made outside the booking site. The recorded amount is below.", amount: "Refund recorded" },
 };
-const manilaDate = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" });
-const manilaTime = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
 
 type ScheduleItem = { court: string; starts_at: Date; ends_at: Date };
 
 function scheduleLine({ court, starts_at: start, ends_at: end }: ScheduleItem) {
-  const day = manilaDate.format(start), endDay = manilaDate.format(end);
-  return `${court}: ${day}, ${manilaTime.format(start)} – ${day === endDay ? "" : `${endDay}, `}${manilaTime.format(end)}`;
+  return `${court}: ${formatScheduleRange(start, end)}`;
 }
 function googleCalendarLink(items: ScheduleItem[]) {
   if (!items.length) return null;

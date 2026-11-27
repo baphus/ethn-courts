@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { acceptedDate, addDays, bookingDate, gridSlotCount, gridTimes, handoffRanges, toggleSlot, slotDate, slotEndDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
+import { acceptedDate, addDays, bookingDate, gridSlotCount, gridTimes, handoffRanges, toggleSlot, slotDate, slots, validDate } from "../src/components/booking/ethn-selection.ts";
 import { manilaDateStr } from "../src/lib/booking/slots.ts";
 
 test("grid slot counts use the checkout interval and never guess for legacy data", () => {
@@ -34,13 +34,6 @@ test("day navigation crosses month and year boundaries in both directions", () =
   assert.equal(addDays("2027-01-01", -1), "2026-12-31");
   assert.equal(addDays("2026-12-31", 1), "2027-01-01");
   assert.equal(addDays("2028-03-01", -1), "2028-02-29");
-});
-
-test("time rows show an end date only when they cross Manila midnight", () => {
-  const start = Date.parse("2026-11-24T15:00:00Z");
-  assert.equal(slotEndDate(start, Date.parse("2026-11-24T15:59:00Z")), "");
-  assert.equal(slotEndDate(start, Date.parse("2026-11-24T16:00:00Z")), "Wed, Nov 25");
-  assert.equal(slotEndDate(Date.parse("2026-11-24T16:00:00Z"), Date.parse("2026-11-24T17:00:00Z")), "");
 });
 
 test("selection stays within one window and never crosses occupied slots", () => {

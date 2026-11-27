@@ -1,13 +1,12 @@
 "use client";
 
+import { formatScheduleRange } from "@/lib/booking/schedule-label";
 import { addDaysManilaStr } from "@/lib/courts";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
 import type { ScheduleData, ScheduleItem } from "@/app/admin/dashboard-analytics-types";
 import { StatusBadge } from "@/components/admin/dashboard-status";
 import { Avatar } from "../court-avatar";
-import { timelineTime } from "../court-timeline-utils";
 import { Body, Card, Segmented, useAnalytics } from "./section-card";
 
 type Tab = "today" | "tomorrow" | "week";
@@ -44,7 +43,7 @@ export function UpcomingSchedule() {
           {g.items.length === 0 ? <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Nothing scheduled</p> : <ul className="space-y-2">{g.items.map((item, i) => <li key={item.id} className="cv-rise" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
             <Link href={`/admin/bookings/${encodeURIComponent(item.bookingId)}`} className="block rounded-lg border bg-background p-3 transition duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary">
               <div className="flex items-center gap-2"><Avatar name={item.guestName || "Guest"} size="sm" /><span className="min-w-0 flex-1 truncate text-sm font-medium">{item.guestName || "Guest"}</span><StatusBadge state={item.status} /></div>
-              <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold tabular-nums">{tab === "week" && <span className="mr-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{dayLabel(item.operatingDate)}</span>}{timelineTime(item.startsAt)}<ArrowRight className="size-3 text-muted-foreground" aria-hidden="true" />{timelineTime(item.endsAt)}{manilaDate(new Date(item.endsAt)) > manilaDate(new Date(item.startsAt)) && <span className="text-xs font-normal text-muted-foreground">next calendar day</span>}</p>
+              <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold tabular-nums">{tab === "week" && <span className="mr-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{dayLabel(item.operatingDate)}</span>}{formatScheduleRange(item.startsAt, item.endsAt, item.operatingDate)}</p>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.courts.join(", ")}</p>
             </Link>
           </li>)}</ul>}

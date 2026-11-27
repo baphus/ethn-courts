@@ -21,8 +21,8 @@ test("booking table combines contiguous court ranges, groups matching times and 
       { startsAt: afterGap, endsAt: late, courts: ["Court 1"] },
     ],
   });
-  assert.match(formatPlayTime(start, end, "2026-11-26"), /10:30\s*PM–1:00\s*AM \(\+1 day\)/i);
-  assert.match(formatPlayTime(afterGap, late, "2026-11-26"), /1:30\s*AM–2:00\s*AM \(\+1 day\)/i);
+  assert.equal(formatPlayTime(start, end, "2026-11-26"), "10:30PM–1AM (+1 day)");
+  assert.equal(formatPlayTime(afterGap, late, "2026-11-26"), "1:30–2AM (+1 day)");
 });
 
 test("the new extension hold endpoint is retired without reading request or DB", async () => {

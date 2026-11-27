@@ -99,7 +99,7 @@ export default function Hero({
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
             <a
               href="/book"
-              className="inline-flex items-center justify-center gap-2 rounded-full public-cta-primary public-cta-on-dark px-8 py-4 text-base font-bold shadow-[0_14px_30px_rgba(234,102,44,0.4)] transition-all hover:-translate-y-0.5 active:translate-y-0"
+              className="public-cta-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold transition-colors"
             >
               Book Now
               <ArrowRight className="size-4" aria-hidden />
@@ -107,7 +107,7 @@ export default function Hero({
 
             <a
               href="/track"
-              className="inline-flex items-center justify-center gap-2 rounded-full public-cta-secondary public-cta-on-dark [--public-cta-surface:var(--color-ink)] px-8 py-4 text-base font-bold transition-all hover:-translate-y-0.5 active:translate-y-0"
+              className="public-cta-secondary inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold transition-colors"
             >
               <Search className="size-4" aria-hidden />
               Track Booking

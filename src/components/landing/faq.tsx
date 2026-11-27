@@ -31,14 +31,14 @@ const faqs = [
 
 export default function Faq() {
   return (
-    <section id="faq" className="scroll-mt-28 bg-white sm:scroll-mt-32" aria-labelledby="faq-heading">
+    <section id="faq" className="landing-type scroll-mt-28 bg-white sm:scroll-mt-32" aria-labelledby="faq-heading">
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:py-14">
-        <h2 id="faq-heading" className="font-display text-center text-3xl font-black tracking-tight text-[#447244] sm:text-4xl">
+        <h2 id="faq-heading" className="landing-heading text-center text-[#447244]">
           Frequently Asked Questions
         </h2>
         <div className="mt-8 space-y-3">
           {faqs.map(({ q, a }, i) => (
-            <details key={q} open={i === 0} className="rounded-2xl bg-[#e7f0f3] px-5 py-4 open:bg-[#fff0dc]">
+            <details key={q} open={i === 0} className="rounded-2xl bg-white px-5 py-4 open:bg-[#fff0dc]">
               <summary className="cursor-pointer text-[15px] font-bold text-[#447244]">{q}</summary>
               <p className="pt-2 text-sm leading-6 text-[#405966]">{a}</p>
             </details>

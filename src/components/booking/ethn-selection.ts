@@ -22,11 +22,6 @@ export function slotDate(time: number) {
   return new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", weekday: "short", month: "short", day: "numeric" }).format(new Date(time));
 }
 
-export function slotEndDate(start: number, end: number) {
-  const next = slotDate(end);
-  return slotDate(start) === next ? "" : next;
-}
-
 export function addDays(date: string, days: number) {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);

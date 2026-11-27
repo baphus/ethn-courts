@@ -1,3 +1,4 @@
+import { formatScheduleTime } from "@/lib/booking/schedule-label";
 import { priceItems, validateRanges } from "@/lib/booking/core";
 import { manilaDateStr } from "@/lib/booking/slots";
 
@@ -39,6 +40,6 @@ export function summarize(data: Availability, date: string, selection: Selection
 export function money(cents: bigint) { return `${cents / BigInt(100)}.${String(cents % BigInt(100)).padStart(2, "0")}`; }
 export function hourLabel(time: number, date: string) {
   const d = new Date(time); const day = manilaDateStr(d);
-  const label = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" }).format(d);
+  const label = formatScheduleTime(d);
   return day === date ? label : `${label} (${day})`;
 }

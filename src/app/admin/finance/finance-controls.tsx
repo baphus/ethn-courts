@@ -8,6 +8,7 @@ import { FileSpreadsheet, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { FormSelect } from "@/components/ui/form-select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { EXPENSE_CATEGORIES, type ExpenseInput } from "@/lib/admin/expenses";
 import writeXlsxFile from "write-excel-file/browser";
@@ -65,7 +66,7 @@ export function FinanceFilters({ from, to, category, q, today }: { from: string;
             <legend className="mb-2 text-sm font-medium">Custom range and expenses</legend>
             <label className="grid gap-1.5 text-xs text-muted-foreground">From<Input name="from" type="date" value={filterFrom} onChange={(event) => setFilterFrom(event.target.value)} /></label>
             <label className="grid gap-1.5 text-xs text-muted-foreground">To<Input name="to" type="date" value={filterTo} onChange={(event) => setFilterTo(event.target.value)} /></label>
-            <label className="grid gap-1.5 text-xs text-muted-foreground">Category<select className="h-9 rounded-lg border bg-background px-2 text-sm text-foreground" name="category" value={filterCategory} onChange={(event) => setFilterCategory(event.target.value)}><option value="">All categories</option>{EXPENSE_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label className="grid gap-1.5 text-xs text-muted-foreground">Category<FormSelect aria-label="Category" name="category" value={filterCategory} onValueChange={(value) => setFilterCategory(value ?? "")} options={[{ value: "", label: "All categories" }, ...EXPENSE_CATEGORIES.map((value) => ({ value, label: value }))]} /></label>
             <label className="grid gap-1.5 text-xs text-muted-foreground">Title search<Input name="q" value={filterQuery} onChange={(event) => setFilterQuery(event.target.value)} placeholder="Search expenses" /></label>
           </fieldset>
         </div>

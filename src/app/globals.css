@@ -220,17 +220,33 @@ html.dark {
   }
 }
 
+/* Opt-in finish for public customer routes; keep admin and shared components untouched. */
+.landing-type { font-family: var(--font-landing, system-ui), sans-serif; }
+.landing-heading { font-family: var(--font-landing, system-ui), sans-serif; font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; line-height: 1.15; letter-spacing: -.025em; }
+.dialog-surface { box-shadow: 0 1px 2px rgb(23 37 46 / .08), 0 12px 32px rgb(23 37 46 / .14); }
+
+.public-surface { background-color: #fff; }
+.public-card { box-shadow: 0 1px 2px rgb(23 37 46 / .04), 0 8px 24px rgb(23 37 46 / .06); }
+.public-field { background-color: #f6f8f8; min-height: 2.75rem; }
+
+/* Keep the footer and floating scroll control clear of the landing booking bar. */
+@media (width < 64rem) {
+  body:has([data-landing-booking-bar]) { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
+  body:has([data-landing-booking-bar]) [data-back-to-top] { bottom: calc(8rem + env(safe-area-inset-bottom)); }
+  body:has([data-landing-booking-bar] [aria-expanded="true"]) [data-back-to-top] { visibility: hidden; }
+}
+
 /* Public CTA colors are opt-in; admin buttons keep their own theme. */
 .public-cta-primary {
-  border: 1px solid var(--public-cta-edge, var(--color-ink));
-  background-color: var(--color-flame);
-  color: var(--color-ink);
+  border: 1px solid var(--public-cta-edge, #06345c);
+  background-color: #06345c;
+  color: white;
 }
 
 .public-cta-secondary {
-  border: 1px solid var(--color-cocoa);
-  background-color: transparent;
-  color: var(--color-cocoa);
+  border: 1px solid #f4b183;
+  background-color: #f4b183;
+  color: #17252e;
 }
 
 .public-cta-on-dark {
@@ -238,22 +254,24 @@ html.dark {
 }
 
 .public-cta-secondary.public-cta-on-dark {
-  border-color: white;
-  background-color: var(--public-cta-surface, transparent);
-  color: white;
+  border-color: #f4b183;
+  background-color: #f4b183;
+  color: #17252e;
 }
 
 @media (hover: hover) {
   .public-cta-primary:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: var(--color-flame-hover);
+    background-color: var(--color-cocoa);
   }
 
   .public-cta-secondary:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: var(--color-pine-ink);
+    background-color: #efa16a;
+    border-color: #efa16a;
   }
 
   .public-cta-secondary.public-cta-on-dark:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: var(--color-cocoa);
+    background-color: #efa16a;
+    border-color: #efa16a;
   }
 }
 

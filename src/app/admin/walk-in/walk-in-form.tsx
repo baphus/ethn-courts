@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { manilaDateStr } from "@/lib/booking/slots";
 import { priceItems } from "@/lib/booking/core";
@@ -21,6 +22,7 @@ const toIso = (date: string, value: string) => { try { const parsed = new Date(`
 const message = (status: number, code?: string) => status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : code === "SLOT_TAKEN" ? "That slot is already booked or held. Check the occupied list and pick another time." : code === "REFERENCE_TAKEN" ? "That GCash reference was already recorded." : code === "NOT_CONFIGURED" ? "GCash payment instructions are not configured. Use cash or ask the owner to set them." : code === "CLOSED" ? "The selected time is outside this court's hours." : code === "INVALID_RATE" ? "That hours row has no hourly rate, so it cannot be booked." : status === 400 ? "Check the court, date and times, then try again." : "Could not confirm whether the walk-in was saved. Check the calendar before retrying.";
 
 export default function WalkInForm() {
+  const confirm = useConfirm();
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [date, setDate] = useState(manilaToday());
   const [courtId, setCourtId] = useState("");
@@ -104,7 +106,9 @@ export default function WalkInForm() {
     if (!displayedTotal || !availability.settings.version) { setError("Reserved price unavailable. Check hold and schedule."); return; }
     if (!received || collected !== hold.total) { setError("Confirm payment received and enter exact reserved total."); return; }
     if (method === "gcash" && !reference.trim()) { setError("Enter verified GCash reference."); return; }
-    if (!window.confirm(`Confirm full payment received?\n\n${court.name} · ${start}–${end}\nReserved total: ₱${hold.total}\nPayment: ${method === "cash" ? "cash" : `verified GCash ${reference.trim()}`}`)) return;
+    const currentHold = hold;
+    if (!await confirm(`Confirm full payment received?\n\n${court.name} · ${start}–${end}\nReserved total: ₱${hold.total}\nPayment: ${method === "cash" ? "cash" : `verified GCash ${reference.trim()}`}`)) return;
+    if (hold !== currentHold || busy || pending) return;
     if (!hold || hold.expiresAt <= new Date().toISOString()) { setError("Hold expired. Reserve slot again before accepting payment."); setHold(null); return; }
     const idempotencyKey = key();
     const payload = { holdId: hold.holdId, courtId, date, start: startsAt, end: endsAt, guestName: guestName.trim(), guestPhone: guestPhone.trim() || null, method, reference: method === "gcash" ? reference.trim() : null, displayedTotal: hold.total, collectedAmount: collected, settingsVersion: hold.settingsVersion, paymentReceived: true };
@@ -140,7 +144,7 @@ export default function WalkInForm() {
         </fieldset>
         <div className="flex flex-wrap items-center gap-3"><Button type="submit" disabled={busy || loading || !court}>{busy ? "Saving…" : hold ? "Confirm full payment and booking" : "Reserve slot"}</Button>{hold && <Button type="button" variant="outline" disabled={busy} onClick={() => { setHold(null); setReceived(false); setCollected(""); }}>Discard hold (slot expires automatically)</Button>}</div>
       </fieldset>
-      {pending && <div role="alert" className="mt-3 space-y-2 rounded-lg border border-warning/40 p-3 text-sm"><p>Save result unknown. Retry sends identical details and key; do not change Owner account.</p><div className="flex gap-2"><Button type="button" disabled={busy} onClick={() => void send(pending.payload, pending.idempotencyKey)}>Retry same request</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { if (window.confirm("Discard retry details? Booking may already exist; check calendar before creating another.")) setPending(null); }}>Discard retry</Button></div></div>}
+      {pending && <div role="alert" className="mt-3 space-y-2 rounded-lg border border-warning/40 p-3 text-sm"><p>Save result unknown. Retry sends identical details and key; do not change Owner account.</p><div className="flex gap-2"><Button type="button" disabled={busy} onClick={() => void send(pending.payload, pending.idempotencyKey)}>Retry same request</Button><Button type="button" variant="outline" disabled={busy} onClick={async () => { if (await confirm("Discard retry details? Booking may already exist; check calendar before creating another.", { confirmLabel: "Discard retry", destructive: true })) setPending(null); }}>Discard retry</Button></div></div>}
     </form>
   </div>;
 }

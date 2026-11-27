@@ -1,5 +1,6 @@
 "use client";
 
+import { formatWeeklyHours } from "@/lib/booking/schedule-label";
 import { useId, useState, type FormEvent } from "react";
 import { Pencil, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export default function EditCourtDialog({ name, description, photoVersion, hours
   function issueCopy(issue: (typeof issues)[number], index: number, rows = hours) {
     if (issue.kind === "overlap") {
       const other = rows[issue.rows[0] === index ? issue.rows[1] : issue.rows[0]];
-      return `Overlaps ${days[other.weekday]} ${other.opens.slice(0, 5)}–${other.closes.slice(0, 5)}.`;
+      return `Overlaps ${days[other.weekday]} ${formatWeeklyHours(other.opens, other.closes)}.`;
     }
     if (issue.kind === "boundary") return `Crosses the ${anchor} operating-day boundary. Adjust the opening or closing time.`;
     if (issue.kind === "invalid_rate") return "Enter a valid peso amount or leave blank to disable checkout.";
@@ -70,7 +71,7 @@ export default function EditCourtDialog({ name, description, photoVersion, hours
           return <section key={day} className={`flex flex-col gap-2 rounded-lg border p-3 ${today ? "border-ring/50 bg-accent/30" : ""}`} aria-label={`${day} hours`}>
             <div className="flex items-center justify-between"><h3 className="text-xs font-medium text-muted-foreground">{day.slice(0, 3)}</h3>{today && <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium">Today</span>}</div>
             {rows.length === 0 ? <p className="text-[11px] italic text-muted-foreground">Closed</p> : rows.map(({ hour, index }) => <div key={hour.id || `${hour.opens}-${index}`} className={`rounded-md bg-muted px-2 py-1.5 ${rowIssues[index].length ? "ring-1 ring-destructive/50" : ""}`}>
-              <div className="flex items-center justify-between gap-1"><p className="min-w-0 truncate text-[11px] tabular-nums">{hour.opens.slice(0, 5) === hour.closes.slice(0, 5) ? "All day (24 hours)" : `${hour.opens.slice(0, 5)}–${hour.closes.slice(0, 5)}`}{" · "}{hour.hourlyRate ? <strong>₱{hour.hourlyRate}</strong> : <span className="italic text-muted-foreground">no rate</span>}</p><div className="flex shrink-0"><Button type="button" variant="ghost" size="icon-sm" disabled={busy} aria-label={`Edit ${day} ${hour.opens.slice(0, 5)} window`} onClick={() => { setRowError(""); setRowModal({ weekday, index, opens: hour.opens.slice(0, 5), closes: hour.closes.slice(0, 5) }); }}><Pencil className="size-3.5" /></Button><Button type="button" variant="ghost" size="icon-sm" disabled={busy} aria-label={`Remove ${day} ${hour.opens.slice(0, 5)} window`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirmRemove(index)}><Trash2 className="size-3.5" /></Button></div></div>
+              <div className="flex items-center justify-between gap-1"><p className="min-w-0 truncate text-[11px] tabular-nums">{formatWeeklyHours(hour.opens, hour.closes)}{" · "}{hour.hourlyRate ? <strong>₱{hour.hourlyRate}</strong> : <span className="italic text-muted-foreground">no rate</span>}</p><div className="flex shrink-0"><Button type="button" variant="ghost" size="icon-sm" disabled={busy} aria-label={`Edit ${day} ${hour.opens.slice(0, 5)} window`} onClick={() => { setRowError(""); setRowModal({ weekday, index, opens: hour.opens.slice(0, 5), closes: hour.closes.slice(0, 5) }); }}><Pencil className="size-3.5" /></Button><Button type="button" variant="ghost" size="icon-sm" disabled={busy} aria-label={`Remove ${day} ${hour.opens.slice(0, 5)} window`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirmRemove(index)}><Trash2 className="size-3.5" /></Button></div></div>
               {rowIssues[index].length > 0 && <ul className="list-disc pl-5 text-[11px] text-destructive">{rowIssues[index].map(issue => <li key={`${issue.kind}-${issue.rows.join("-")}`}>{issueCopy(issue, index)}</li>)}</ul>}
             </div>)}
             <Button type="button" variant="ghost" size="sm" disabled={busy} className="mt-auto w-full justify-center text-muted-foreground" onClick={() => { setRowError(""); setRowModal({ weekday, opens: "07:00", closes: keepClosingTime("07:00", "20:00", anchorMinutes) }); }}><PlusCircle className="size-4" /> Add hours &amp; rate</Button>

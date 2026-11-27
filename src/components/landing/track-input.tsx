@@ -58,7 +58,7 @@ export default function TrackInput() {
     >
       <div className="space-y-4">
         <div>
-          <label htmlFor="track-code" className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-pine">
+          <label htmlFor="track-code" className="mb-1.5 block text-sm font-semibold text-ink">
             Tracking code
           </label>
           <input
@@ -71,11 +71,11 @@ export default function TrackInput() {
             spellCheck={false}
             inputMode="text"
             maxLength={5}
-            className="h-12 w-full rounded-xl border border-[#767676] bg-oat/60 px-4 text-base font-medium tracking-widest text-ink placeholder:tracking-normal placeholder:text-[#68635b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+            className="h-12 w-full rounded-xl border border-[#767676] bg-white px-4 text-base font-medium tracking-widest text-ink placeholder:tracking-normal placeholder:text-[#68635b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
           />
         </div>
         <div>
-          <label htmlFor="track-email" className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-pine">
+          <label htmlFor="track-email" className="mb-1.5 block text-sm font-semibold text-ink">
             Email address used to book
           </label>
           <input
@@ -87,7 +87,7 @@ export default function TrackInput() {
             placeholder="you@example.com"
             autoComplete="email"
             spellCheck={false}
-            className="h-12 w-full rounded-xl border border-[#767676] bg-oat/60 px-4 text-base font-medium text-ink placeholder:text-[#68635b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+            className="h-12 w-full rounded-xl border border-[#767676] bg-white px-4 text-base font-medium text-ink placeholder:text-[#68635b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
           />
         </div>
         <button
@@ -103,7 +103,7 @@ export default function TrackInput() {
           ) : (
             <>
               <Search className="size-4" aria-hidden />
-              <span>Find My Booking</span>
+              <span>Check status</span>
             </>
           )}
         </button>

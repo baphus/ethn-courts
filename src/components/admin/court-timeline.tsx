@@ -1,4 +1,5 @@
 "use client";
+import { formatScheduleRange } from "@/lib/booking/schedule-label";
 import { useEffect, useRef } from "react";
 import { statusStyle } from "./dashboard-status";
 import { Avatar } from "./court-avatar";
@@ -9,10 +10,10 @@ export { timelineTime };
 
 const gridLines = `repeating-linear-gradient(to bottom, transparent 0, transparent ${HOUR_PX - 1}px, var(--border) ${HOUR_PX - 1}px, var(--border) ${HOUR_PX}px)`;
 
-function Block({ item, court, window, index, onBooking, onBlock }: { item: Interval; court: Calendar["courts"][number]; window: Calendar["window"]; index: number; onBooking: (id: string) => void; onBlock?: (court: string, item: Interval) => void }) {
+function Block({ item, court, window, date, index, onBooking, onBlock }: { item: Interval; court: Calendar["courts"][number]; window: Calendar["window"]; date: string; index: number; onBooking: (id: string) => void; onBlock?: (court: string, item: Interval) => void }) {
   const p = position(window, item.startsAt, item.endsAt);
   if (!p) return null;
-  const range = `${timelineTime(item.startsAt)} – ${timelineTime(item.endsAt)}`;
+  const range = formatScheduleRange(item.startsAt, item.endsAt, date);
   const label = `${intervalLabel(item)} · ${range}`;
   const target = bookingTarget(item);
   const action = target ? () => onBooking(target) : item.state !== "held" && item.kind !== "booking" && onBlock ? () => onBlock(court.name, item) : undefined;
@@ -77,7 +78,7 @@ export function CourtTimeline({ day, now, onBooking, onBlock }: { day: Calendar;
           {hours.map((hour, i) => <span key={hour} className="absolute right-2 text-xs text-muted-foreground" style={{ top: (hour - start) / 3600000 * HOUR_PX + (i === 0 ? 6 : 0), transform: i === 0 ? undefined : "translateY(-50%)" }}>{timelineTime(hour)}</span>)}
         </div>
         {day.courts.map(court => <div key={court.id} className="relative min-w-48 flex-1 border-r" style={{ backgroundImage: gridLines }}>
-          {court.intervals.map((item, i) => <Block key={item.id} item={item} court={court} window={day.window} index={i} onBooking={onBooking} onBlock={onBlock} />)}
+          {court.intervals.map((item, i) => <Block key={item.id} item={item} court={court} window={day.window} date={day.date} index={i} onBooking={onBooking} onBlock={onBlock} />)}
         </div>)}
         {current !== null && <div aria-label={`Current time ${timelineTime(now)}`} className="pointer-events-none absolute left-20 right-0 z-20 motion-safe:transition-[top] motion-safe:duration-1000 motion-safe:ease-linear" style={{ top: current }}>
           <span className="absolute -left-1 -top-[5px] size-2.5 rounded-full bg-primary ring-2 ring-background" aria-hidden="true" />

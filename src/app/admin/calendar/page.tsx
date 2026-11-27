@@ -1,5 +1,6 @@
 "use client";
 
+import { formatScheduleRange } from "@/lib/booking/schedule-label";
 import { useConfirm } from "@/components/ui/confirm";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -12,7 +13,6 @@ import CalendarLayout from "./calendar-layout";
 type Interval = { id: string; startsAt: string; endsAt: string; state: string; kind: "booking" | "maintenance" | "private" | "open_play"; bookingId: string | null; guestName: string | null; blockId: string | null; reason: string | null };
 type Calendar = { date: string; serverNow: string; window: { startsAt: string; endsAt: string }; courts: { id: string; name: string; active: boolean; intervals: Interval[] }[] };
 
-const formatDateTime = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 const errorMessage = (status: number) => status === 400 ? "Check event details, selected courts and times. Events must start in the future within the configured horizon. Open Play must fit every selected court's opening hours." : status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : status === 404 ? "The court or block was not found. Refresh the calendar and try again." : status === 409 ? "This time overlaps another allocation. Refresh the calendar and choose another time." : status === 503 ? "Calendar service is unavailable. Try again later." : "Something went wrong. Refresh the calendar and try again.";
 
 export default function CalendarPage() {
@@ -68,7 +68,7 @@ export default function CalendarPage() {
   }
 
   async function releaseBlock(blockId: string, courtName: string, interval: Interval) {
-    if (busy || loading || !await confirm(`Release this ${interval.kind} block on ${courtName}?\n${formatDateTime(interval.startsAt)} – ${formatDateTime(interval.endsAt)}`, { confirmLabel: "Release block", destructive: true })) return;
+    if (busy || loading || !await confirm(`Release this ${interval.kind} block on ${courtName}?\n${formatScheduleRange(interval.startsAt, interval.endsAt)}`, { confirmLabel: "Release block", destructive: true })) return;
     setBusy(true); setError(null);
     try {
       const response = await fetch(`/api/ethn/admin/blocks/${encodeURIComponent(blockId)}`, { method: "DELETE" });

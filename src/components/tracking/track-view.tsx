@@ -135,7 +135,7 @@ export default function TrackView({
     <div className="mx-auto max-w-3xl space-y-6 animate-rise">
 
       {/* ── Status Card ── */}
-      <div className="rounded-3xl border border-line-warm/70 bg-white p-6 shadow-sm sm:p-8">
+      <div className="public-card rounded-3xl border border-[#dce5e8] bg-white p-6 sm:p-8">
         <div className="flex flex-col items-center gap-4 border-b border-line-warm/40 pb-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">
@@ -225,7 +225,7 @@ export default function TrackView({
       />
 
       {/* ── QR Check-in Pass ── */}
-      <div className="rounded-3xl border border-line-warm/70 bg-white p-6 shadow-sm sm:p-8">
+      <div className="public-card rounded-3xl border border-[#dce5e8] bg-white p-6 sm:p-8">
         <div className="mb-5 flex items-center justify-between border-b border-line-warm/40 pb-4">
           <div>
             <h2 className="text-lg font-bold text-ink">Your check-in QR pass</h2>

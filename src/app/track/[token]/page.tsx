@@ -129,7 +129,7 @@ export default async function TrackPage({
     : null;
 
   return (
-    <main id="main" className="min-h-screen bg-[#f6f8f8] pt-4 pb-16">
+    <main id="main" className="public-surface min-h-screen bg-white pt-4 pb-16">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <TrackView
           token={token}

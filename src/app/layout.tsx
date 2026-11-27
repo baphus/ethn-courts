@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Bebas_Neue, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmProvider } from "@/components/ui/confirm";
 import { ThemeProvider } from "next-themes";
 import { cn } from "@/lib/utils";
 import Header from "@/components/landing/header";
@@ -55,7 +56,7 @@ export default function RootLayout({
       <body className="bg-cream font-sans text-ink" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <Header />
-          {children}
+          <ConfirmProvider>{children}</ConfirmProvider>
           <PublicOnly><Footer /></PublicOnly>
           <Toaster
             richColors

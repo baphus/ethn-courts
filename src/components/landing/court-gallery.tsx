@@ -9,7 +9,7 @@ export const courtPhotos = [
 
 export default function CourtGallery() {
   return (
-    <section id="court-gallery" aria-labelledby="court-gallery-title" className="bg-white px-0 py-8 text-[#17252e] sm:py-12">
+    <section id="court-gallery" aria-labelledby="court-gallery-title" className="landing-type bg-white px-0 py-8 text-[#17252e] sm:py-12">
       <div className="mx-auto max-w-3xl">
         <header className="px-4 pb-5 sm:px-6">
           <div className="flex items-center gap-5">
@@ -17,13 +17,13 @@ export default function CourtGallery() {
               <div className="grid size-full place-items-center rounded-full bg-white p-1"><img src="/ethn_courts_logo-3.svg" alt="" className="size-full rounded-full object-cover" /></div>
             </div>
             <div className="min-w-0 flex-1">
-              <h2 id="court-gallery-title" className="font-display text-lg font-bold leading-tight">ethn.courts</h2>
+              <h2 id="court-gallery-title" className="text-lg font-semibold leading-tight">ethn.courts</h2>
               <p className="mt-1 text-sm">ETHN Courts</p>
               <p className="mt-1 text-xs text-[#60716a]">Cebu · Pickleball courts</p>
             </div>
           </div>
           <p className="mt-4 text-sm">Your next game starts here. Book a court and play.</p>
-          <a href="/book" className="mt-3 flex min-h-10 w-full items-center justify-center rounded-md bg-[#447244] px-5 text-sm font-bold text-white transition hover:bg-[#355c35] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#447244]">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
+          <a href="/book" className="public-cta-primary mt-3 flex min-h-10 w-full items-center justify-center rounded-md px-5 text-sm font-bold transition-colors">Book a court <span aria-hidden="true" className="ml-2">→</span></a>
         </header>
         <div aria-hidden="true" className="mb-1 border-b border-[#e7e7e7]"><div className="mx-auto h-0.5 w-16 bg-[#17252e]" /></div>
         <div aria-label="Court photos" className="grid grid-cols-3 gap-[2px]">
