@@ -19,7 +19,12 @@ test("tracking summary shows overnight dates, original total and guarded payment
   booking.payments[0].status = "rejected";
   assert.doesNotMatch(render(), /Unreadable|received your payment proof/);
   booking.payments[0].status = "unverified";
-  assert.match(render(), /received your payment proof.*until the venue verifies your payment/);
+  assert.match(render(), /Payment proof received and awaiting review/);
+  assert.match(render(), /Booking submitted!/);
+  assert.doesNotMatch(render(), /Show proof/);
+  const withProof = renderToStaticMarkup(createElement(TrackingSummary, { booking, proofHref: "/checkout/track/private/proof" }));
+  assert.match(withProof, /Show proof/);
+  assert.doesNotMatch(withProof, /<img|\/checkout\/track\/private\/proof/);
   booking.status = "confirmed";
   assert.doesNotMatch(render(), /received your payment proof/);
 });

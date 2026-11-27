@@ -4,6 +4,7 @@ import { CopyTrackingLink } from "@/components/booking/copy-tracking-link";
 import type { Metadata } from "next";
 import { getCheckoutPool } from "@/db/checkout-client";
 import { trackBooking } from "@/lib/booking/ethn-tracking";
+import { findTrackingProof } from "@/lib/booking/ethn-tracking-proof";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,9 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
     }
   }
 
+  const proof = booking ? await findTrackingProof(getCheckoutPool(), token).catch(() => null) : null;
+  const proofHref = proof ? `/checkout/track/${encodeURIComponent(token)}/proof` : undefined;
+
   return (
     <main className={`daylight ${daylightFonts} min-h-screen bg-muted px-4 py-8 text-foreground sm:py-12`}>
       <div className="mx-auto max-w-3xl">
@@ -41,11 +45,11 @@ export default async function CheckoutTrackPage({ params }: { params: Promise<{ 
           </div>
         ) : (
           <div className="mt-8 space-y-4">
-            <TrackingSummary booking={booking} />
+            <TrackingSummary booking={booking} proofHref={proofHref} />
             <CopyTrackingLink />
           </div>
         )}
-        <nav className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-bold text-primary" aria-label="Reservation navigation"><a className="underline underline-offset-4" href="/book">Book another court</a><a className="underline underline-offset-4" href="/">Back to homepage</a></nav>
+        <nav className="mt-8 flex flex-wrap gap-3" aria-label="Reservation navigation"><a className="public-cta-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-bold" href="/book">Book another court</a><a className="inline-flex min-h-11 items-center justify-center rounded-full border border-input bg-background px-5 text-sm font-bold text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" href="/">Back to homepage</a></nav>
       </div>
     </main>
   );

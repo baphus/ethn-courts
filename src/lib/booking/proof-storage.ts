@@ -25,6 +25,16 @@ export const proofStorage = {
       return { bytes, mimeType };
     } catch { throw new Error("STORAGE_UNAVAILABLE"); }
   },
+  async downloadTrackingProof(path: string) {
+    if (!/^incoming\/[0-9a-f]{64}\.(jpg|png|webp)$/.test(path)) throw new Error("STORAGE_UNAVAILABLE");
+    const url = process.env.ETHN_STORAGE_URL;
+    const key = process.env.ETHN_STORAGE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new Error("STORAGE_UNAVAILABLE");
+    const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await client.storage.from("proofs").download(path);
+    if (error || !data) throw new Error("STORAGE_UNAVAILABLE");
+    return data;
+  },
   async signRead(path: string, expiresIn: number) {
     const url = process.env.ETHN_STORAGE_URL;
     const key = process.env.ETHN_STORAGE_SERVICE_ROLE_KEY;
