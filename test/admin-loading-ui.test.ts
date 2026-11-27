@@ -4,6 +4,16 @@ import test from "node:test";
 
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
+test("legacy booking detail links open the bookings list modal", () => {
+  const legacy = source("app/admin/bookings/[id]/page.tsx");
+  const bookings = source("app/admin/bookings/bookings-view.tsx");
+  assert.match(legacy, /redirect\(`\/admin\/bookings\?booking=\$\{encodeURIComponent\(id\)\}`\)/);
+  assert.match(bookings, /const linkedBooking = useSearchParams\(\)\.get\("booking"\)/);
+  assert.match(bookings, /const selected = selectedRow \?\? linkedBooking/);
+  assert.match(bookings, /<BookingDetail key=\{selected\} id=\{selected\}/);
+  assert.match(bookings, /url\.searchParams\.delete\("booking"\)/);
+});
+
 test("bookings and finance keep labels visible while loading values", () => {
   const bookings = source("app/admin/bookings/bookings-view.tsx");
   const table = source("components/admin/results-table.tsx");

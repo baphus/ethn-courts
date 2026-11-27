@@ -4,16 +4,16 @@ import { gcashReference, parsePesos } from "../booking/core";
 import { lockBookingAlertOwners, recordBookingAlert } from "../booking/ethn-booking-alerts";
 import type { StaffVerifier } from "./ethn-payments";
 
-type Input = { bookingId: string; key: string } & ({ action: "approve"; paymentReceived?: true; acceptedReference: string; collectedAmount?: string; receivedAt?: string } | { action: "reject"; reason: string });
+type Input = { bookingId: string; key: string } & ({ action: "approve"; paymentReceived?: true; acceptedReference?: string; collectedAmount?: string; receivedAt?: string } | { action: "reject"; reason: string });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVerifier, input: Input) {
   if (!input || typeof input.bookingId !== "string" || !uuid.test(input.bookingId) || typeof input.key !== "string" || !/^[\x21-\x7e]{1,200}$/.test(input.key)) throw new Error("INVALID_INPUT");
-  let decision: { action: "approve"; reference: string; attested?: true; amount: string | null; receivedAt: string | null } | { action: "reject"; reason: string };
+  let decision: { action: "approve"; reference: string | null; attested?: true; amount: string | null; receivedAt: string | null } | { action: "reject"; reason: string };
   try {
-    if (input.action === "approve" && input.paymentReceived === true && typeof input.acceptedReference === "string" && input.collectedAmount === undefined && input.receivedAt === undefined) {
-      decision = { action: 'approve', reference: gcashReference(input.acceptedReference), attested: true, amount: null, receivedAt: null };
+    if (input.action === "approve" && input.paymentReceived === true && input.collectedAmount === undefined && input.receivedAt === undefined) {
+      decision = { action: 'approve', reference: input.acceptedReference === undefined ? null : gcashReference(input.acceptedReference), attested: true, amount: null, receivedAt: null };
     } else if (input.action === "approve" && typeof input.acceptedReference === "string" && typeof input.collectedAmount === "string" && typeof input.receivedAt === "string") {
       const cents = parsePesos(input.collectedAmount), date = new Date(input.receivedAt);
       const match = /^(\d{4}-\d\d-\d\d)T\d\d:\d\d:\d\d(?:\.\d{1,3})?(?:Z|[+-]\d\d:\d\d)$/.exec(input.receivedAt);
@@ -57,7 +57,7 @@ export async function decidePayment(pool: Pick<Pool, "connect">, verify: StaffVe
       if (decision.amount !== null && decision.amount !== booking.total) throw new Error("AMOUNT_MISMATCH");
       if (decision.receivedAt && new Date(decision.receivedAt) > now) throw new Error("INVALID_INPUT");
       // Court locks above serialize payment decisions across bookings, including different instruction snapshots.
-      if ((await client.query("SELECT 1 FROM ethn.payments WHERE status='accepted' AND method=$1 AND lower(accepted_reference)=lower($2) LIMIT 1", [payment.method, decision.reference])).rows.length) throw new Error("REFERENCE_ALREADY_USED");
+      if (decision.reference !== null && (await client.query("SELECT 1 FROM ethn.payments WHERE status='accepted' AND method=$1 AND lower(accepted_reference)=lower($2) LIMIT 1", [payment.method, decision.reference])).rows.length) throw new Error("REFERENCE_ALREADY_USED");
       await client.query("UPDATE ethn.payments SET status='accepted', accepted_reference=$2, collected_amount=$3, received_at=$4, verified_at=$5, verified_by=$6 WHERE id=$1", [payment.id, decision.reference, booking.total, decision.receivedAt, now, actor]);
     } else await client.query("UPDATE ethn.payments SET status='rejected', review_reason=$2, reviewed_at=$3, reviewed_by=$4 WHERE id=$1", [payment.id, decision.reason, now, actor]);
     const status = decision.action === "approve" ? "confirmed" : "rejected", paymentStatus = decision.action === "approve" ? "accepted" : "rejected";

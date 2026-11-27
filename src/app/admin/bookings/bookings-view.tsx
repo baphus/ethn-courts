@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, RotateCcw } from "lucide-react";
 import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/booking-status";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,18 @@ export default function BookingsView() {
   const [filters, setFilters] = useState(initial); const [ready, setReady] = useState(false);
   const [search, setSearch] = useState(""); const [draft, setDraft] = useState(initial); const [open, setOpen] = useState(false);
   const [result, setResult] = useState<Result | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedRow, setSelected] = useState<string | null>(null);
+  const linkedBooking = useSearchParams().get("booking");
+  const selected = selectedRow ?? linkedBooking;
+
+  function closeBooking() {
+    setSelected(null);
+    if (linkedBooking) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("booking");
+      window.history.replaceState(null, "", url);
+    }
+  }
   const confirm = useConfirm();
   const completing = useRef(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -69,7 +81,7 @@ export default function BookingsView() {
     </div>;
   }
   useEffect(() => { const read = () => { const params = new URLSearchParams(window.location.search); const f = parseFilters(params); if (params.has("q")) { params.delete("q"); const qs = params.toString(); window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); } setFilters(previous => ({ ...f, q: previous.q })); setReady(true); }; read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read); }, []);
-  function update(next: Filters, replace = false) { const qs = serializeFilters(next); window.history[replace ? "replaceState" : "pushState"](null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); setFilters(next); }
+  function update(next: Filters, replace = false) { const params = new URLSearchParams(serializeFilters(next)); const booking = new URLSearchParams(window.location.search).get("booking"); if (booking) params.set("booking", booking); const qs = params.toString(); window.history[replace ? "replaceState" : "pushState"](null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); setFilters(next); }
   useEffect(() => { if (!ready || search.trim() === filters.q) return; const timer = setTimeout(() => update({ ...filters, q: search.trim(), page: 1 }, true), 300); return () => clearTimeout(timer); }, [search, filters, ready]);
   useEffect(() => { if (!ready) return; const controller = new AbortController(); setLoading(true); setError(""); const params = new URLSearchParams(serializeFilters(filters)); if (filters.q) params.set("q", filters.q); params.set("page", String(filters.page)); params.set("limit", "20"); void request<Result>(`/api/ethn/admin/bookings?${params}`, controller.signal).then(data => { if (!controller.signal.aborted) { const last = Math.min(1000, Math.max(1, Math.ceil(data.total / data.limit))); if (filters.page > last) update({ ...filters, page: last }, true); else setResult(data); } }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Service unavailable. Please try again."); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, [filters, refresh, ready]);
   const invalidRange = !!draft.from && !!draft.to && draft.from > draft.to;
@@ -152,6 +164,6 @@ export default function BookingsView() {
       {!error && result && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={result.page} pageSize={result.limit} total={result.total} onPageChange={page => update({ ...filters, page })} busy={loading} /></div>}
     </section>
     <StaffOccupancy revision={refresh} onBooking={setSelected} />
-    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="grid h-[min(90dvh,52rem)] max-h-[calc(100dvh-2rem)] grid-rows-[auto_auto_minmax(0,1fr)] gap-2 overflow-hidden sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded allowCompletion onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
+    <Dialog open={!!selected} onOpenChange={value => { if (!value) closeBooking(); }}><DialogContent className="grid h-[min(90dvh,52rem)] max-h-[calc(100dvh-2rem)] grid-rows-[auto_auto_minmax(0,1fr)] gap-2 overflow-hidden sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} allowCompletion onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
   </div>;
 }

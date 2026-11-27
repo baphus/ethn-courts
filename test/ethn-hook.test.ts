@@ -23,6 +23,16 @@ test("mail hook is opt-in, validates before dependencies, scopes and swallows fa
     await runEthnMailBestEffort(bookingId, env, deps);
     await runEthnMailBestEffort(bookingId, { ...env, NODE_ENV: "development", ETHN_APP_URL: "http://localhost:3000" }, deps);
     assert.deepEqual(calls, ["pool", "transport", bookingId, "pool", "transport", bookingId]);
-    assert.deepEqual(errors, Array.from({ length: 4 }, () => ["ETHN mail delivery unavailable"]));
+    const failSetup = () => { throw new Error("private configuration details"); };
+    await runEthnMailBestEffort(bookingId, env, { ...deps, pool: failSetup });
+    await runEthnMailBestEffort(bookingId, env, { ...deps, transport: failSetup });
+    assert.deepEqual(errors, [
+      ["ETHN mail delivery unavailable", "config"],
+      ["ETHN mail delivery unavailable", "config"],
+      ["ETHN mail delivery unavailable", "worker"],
+      ["ETHN mail delivery unavailable", "worker"],
+      ["ETHN mail delivery unavailable", "database setup"],
+      ["ETHN mail delivery unavailable", "transport setup"],
+    ]);
   } finally { console.error = oldError; }
 });

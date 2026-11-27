@@ -86,9 +86,14 @@ export function validateEthnOutboxConfig(config: Config) {
   return origin;
 }
 
+export class EthnOutboxError extends Error {
+  constructor(stage: string) { super(`OUTBOX_UNAVAILABLE: ${stage}`); }
+}
+
 export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, transport: Transport, config: Config) {
   const origin = validateEthnOutboxConfig(config);
-  const client = await pool.connect();
+  const client = await pool.connect().catch(() => { throw new EthnOutboxError("database connection"); });
+  let stage = "outbox claim";
   let transaction = false, committing = false, discard = false, released = false;
   try {
     await client.query("BEGIN"); transaction = true;
@@ -108,6 +113,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
     const schedule = claims.length ? (await client.query<ScheduleItem>(`SELECT c.name AS court, i.starts_at, i.ends_at
       FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id
       WHERE i.booking_id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
+    stage = "invoice lookup";
     const invoice = claims.some(row => row.kind === "booking_approved" || row.kind === "booking_submission" || row.kind === "open_play_submitted") ? (await client.query<{
       court: string; starts_at: Date; ends_at: Date; duration_minutes: number; interval_minutes: number;
       hourly_rate: string; amount: string; booking_date: string; method_name: string | null;
@@ -120,8 +126,10 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
       LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(b.payment_methods_snapshot) WHERE value->>'id' = p.method LIMIT 1) m ON true
       LEFT JOIN ethn.payment_methods pm ON pm.id = p.method
       WHERE b.id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
+    stage = "outbox commit";
     committing = true; await client.query("COMMIT"); committing = false; transaction = false;
     client.release(); released = true;
+    stage = "delivery processing";
     const contact = { label: "Contact ETHN Courts", href: new URL("/contact", origin).href };
     const directions = { label: "Get directions", href: VENUE_MAP_LINK };
     const scheduleSections = schedule.length ? [{ title: "Court schedule", lines: schedule.map(scheduleLine) }] : [];
@@ -203,6 +211,6 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
   } catch {
     if (committing) discard = true;
     else if (transaction) { try { await client.query("ROLLBACK"); } catch { discard = true; } }
-    throw new Error("OUTBOX_UNAVAILABLE");
+    throw new EthnOutboxError(stage);
   } finally { if (!released) client.release(discard); }
 }

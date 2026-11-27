@@ -113,7 +113,7 @@ function CourtPhoto({ court }: { court: Availability["courts"][number] }) {
   </figure>;
 }
 
-export default function EthnBooking({ bookingPage = false }: { bookingPage?: boolean }) {
+export default function EthnBooking({ bookingPage = false, afterBooking }: { bookingPage?: boolean; afterBooking?: React.ReactNode }) {
   const confirm = useConfirm();
   const [previewCourt, setPreviewCourt] = useState("");
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
@@ -652,6 +652,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
         </div>
       </section>
 
+      {!bookingPage && afterBooking}
       {!bookingPage && <CourtGallery />}
 
       {!bookingPage && <HowItWorks />}

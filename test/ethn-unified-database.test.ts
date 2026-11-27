@@ -86,9 +86,9 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
    const submitted=await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:checkout.checkoutId,reservationId:proof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Online guest',email:'test@example.test',phone:'123'}});
    assert.equal(submitted.booked,true);
   assert.equal(await releaseCheckout(pool,{ownerToken,checkoutId:checkout.checkoutId}),false);
-  await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-online-transfer'});
-  const online=(await admin.query('SELECT method,claimed_reference,collected_amount::text,received_at,merchant_snapshot FROM ethn.payments WHERE booking_id=$1',[checkout.checkoutId])).rows[0];
-  assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
+  await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true});
+  const online=(await admin.query('SELECT method,claimed_reference,accepted_reference,collected_amount::text,received_at,merchant_snapshot FROM ethn.payments WHERE booking_id=$1',[checkout.checkoutId])).rows[0];
+  assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.equal(online.accepted_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
   await bookingAction(pool,verify,checkout.checkoutId,'refund',{key:randomUUID(),reason:'Internal note',reference:'External transfer'});
   const onlineNotices=await queued(checkout.checkoutId);
   assert.deepEqual(onlineNotices.map(n=>n.kind),['booking_approved','booking_owner_alert','booking_refunded','booking_submission']);
@@ -112,12 +112,12 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
    ) UPDATE ethn.court_allocations a SET starts_at=m.starts_at,ends_at=m.ends_at FROM moved m WHERE a.item_id=m.id`,[pending.checkoutId,slot.start]);
   const freeSlot={...first,start:end,end:second.end};
   const duplicate=await Promise.allSettled([
-   decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-online-transfer'}),
-   createInternalBooking(pool,verify,{...input,ranges:[freeSlot],displayedTotal:'200.00',reference:'VERIFIED-ONLINE-TRANSFER',idempotencyKey:randomUUID()}),
+   decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'desk-ref'}),
+   createInternalBooking(pool,verify,{...input,ranges:[freeSlot],displayedTotal:'200.00',reference:'DESK-REF',idempotencyKey:randomUUID()}),
   ]);
   assert.match(String((duplicate[0] as PromiseRejectedResult).reason),/REFERENCE_ALREADY_USED/);
   assert.match(String((duplicate[1] as PromiseRejectedResult).reason),/REFERENCE_TAKEN/);
-  assert.equal((await pool.query("SELECT count(*)::int n FROM ethn.payments WHERE method='metrobank' AND lower(accepted_reference)='verified-online-transfer'")).rows[0].n,1);
+  assert.equal((await pool.query("SELECT count(*)::int n FROM ethn.payments WHERE method='metrobank' AND lower(accepted_reference)='desk-ref'")).rows[0].n,1);
   await movePast(early);
   await assert.rejects(decidePayment(pool,verify,{bookingId:pending.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true,acceptedReference:'verified-ended-transfer'}),/DECISION_ALREADY_FINAL/);
   const overdue=(await admin.query(`SELECT b.status,p.status AS payment_status,p.proof_id,

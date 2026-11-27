@@ -81,7 +81,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
           <h3 className="font-semibold">Court schedule</h3>
           <ul className="space-y-1">{detail.data.items.map((item, i) => <li key={`${item.courtId}-${i}`} className="rounded-lg border bg-muted/40 px-3 py-2">{item.courtName}: {formatScheduleRange(item.startsAt, item.endsAt)}</li>)}</ul>
         </div>}
-        {booking && <Link className="text-sm font-semibold text-primary underline" href={`/admin/bookings/${encodeURIComponent(booking)}`}>Open full booking</Link>}
+        {booking && <Link className="text-sm font-semibold text-primary underline" href={`/admin/bookings/${encodeURIComponent(booking)}`}>Open booking details</Link>}
       </DialogContent>
     </Dialog>
   </div>;

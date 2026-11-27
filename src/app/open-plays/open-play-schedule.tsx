@@ -3,6 +3,7 @@
 import { formatScheduleRange, formatScheduleTime } from "@/lib/booking/schedule-label";
 import { useEffect, useState } from "react";
 import { EmptyIcon } from "@/components/ui/empty-icon";
+import { CalendarDays, Clock3, MapPin, Users } from "lucide-react";
 import { formatCountdown, getSchedule, type OpenPlay } from "./schedule";
 
 const manila = { timeZone: "Asia/Manila" };
@@ -17,18 +18,19 @@ function Session({ event, now, featured = false, live = false, past = false }: {
   const endDateLabel = date.format(end);
   return (
     <article className={featured
-      ? "rounded-xl border border-border bg-muted p-5 sm:p-8"
+      ? "relative isolate overflow-hidden rounded-2xl border border-primary/20 bg-primary p-5 text-primary-foreground sm:p-8"
       : "rounded-xl border border-border bg-card p-4 sm:px-5"}>
-      <h3 className={`font-display font-bold [overflow-wrap:anywhere] ${featured ? "text-4xl sm:text-5xl" : "text-2xl"}`}>{event.title}</h3>
-      <p className={`mt-2 font-semibold ${featured ? "text-lg" : "text-sm"}`}>
-        {live ? <>Until <time dateTime={event.endsAt}>{endDateLabel} · {formatScheduleTime(end)}</time></> : formatScheduleRange(start, end)}
-      </p>
-      {featured && <p role="timer" className="mt-3 inline-block rounded-md bg-card px-3 py-1.5 text-sm font-semibold tabular-nums">{formatCountdown(start.getTime() - now)}</p>}
-      <p className="mt-3 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
-        {event.courtNames.join(" · ")}<span className="mx-2" aria-hidden="true">/</span>{event.fee === null ? "Customer-hosted" : `Posted fee: ${fee.format(Number(event.fee))}`}
-      </p>
-      {event.description && <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{event.description}</p>}
-      {!past && event.eventUrl && <a href={event.eventUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 items-center public-cta-primary rounded-lg px-4 text-sm font-semibold">View on Reclub</a>}
+      {featured && <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 -z-10 h-64 w-64 rounded-full border border-white/10"><div className="absolute inset-7 rounded-full border border-white/10" /><div className="absolute inset-14 rounded-full border border-white/10" /></div>}
+      <h3 className={`font-display font-bold [overflow-wrap:anywhere] ${featured ? "text-3xl sm:text-4xl" : "text-2xl"}`}>{event.title}</h3>
+      <div className={`mt-5 grid gap-3 text-sm sm:grid-cols-2 ${featured ? "text-primary-foreground/90" : "text-muted-foreground"}`}>
+        <p className="flex items-start gap-2"><CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>{live ? <>Until <time dateTime={event.endsAt}>{endDateLabel} · {formatScheduleTime(end)}</time></> : formatScheduleRange(start, end)}</span></p>
+        <p className="flex items-start gap-2"><MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>{event.courtNames.join(" · ")}</span></p>
+        <p className="flex items-start gap-2"><Users aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>{event.fee === null ? "Community game" : `Hosted by ETHN Courts · Posted fee: ${fee.format(Number(event.fee))}`}</span></p>
+        <p className="flex items-start gap-2"><Clock3 aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>{live ? "In progress" : past ? "Session ended" : "Open play"}</span></p>
+      </div>
+      {featured && <p role="timer" className="mt-4 inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-semibold tabular-nums">{formatCountdown(start.getTime() - now)}</p>}
+      {event.description && <p className={`mt-4 max-w-prose whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere] ${featured ? "text-primary-foreground/90" : "text-muted-foreground"}`}>{event.description}</p>}
+      {event.eventUrl ? <a href={event.eventUrl} target="_blank" rel="noreferrer" className={`mt-5 inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold ${featured ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : "public-cta-primary"}`}>View on Reclub</a> : <p className={`mt-4 text-sm ${featured ? "text-primary-foreground/80" : "text-muted-foreground"}`}>No Reclub link posted</p>}
     </article>
   );
 }

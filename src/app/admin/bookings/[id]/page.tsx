@@ -1,6 +1,6 @@
-import BookingDetail from "../booking-detail";
+import { redirect } from "next/navigation";
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <BookingDetail key={id} id={id} />;
+  redirect(`/admin/bookings?booking=${encodeURIComponent(id)}`);
 }

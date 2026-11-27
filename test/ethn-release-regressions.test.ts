@@ -18,8 +18,13 @@ function mock(query: (sql: string, args: unknown[]) => unknown[] | undefined) {
   return { pool, calls };
 }
 
-test("online attestation requires a verified reference and cannot reuse it for the same method", async () => {
-  for (const duplicate of [false, true]) {
+test("online approval allows screenshot-only review and rejects duplicate IDs when supplied", async () => {
+  for (const { reference, duplicate, proof } of [
+    { reference: undefined, duplicate: false, proof: true },
+    { reference: undefined, duplicate: false, proof: false },
+    { reference: " Transfer123 ", duplicate: false, proof: true },
+    { reference: " Transfer123 ", duplicate: true, proof: true },
+  ]) {
     let fingerprint: unknown;
     const db = mock((sql, args) => {
       if (sql.includes("FROM ethn.staff_access")) return [{ user_id: id }];
@@ -27,18 +32,18 @@ test("online attestation requires a verified reference and cannot reuse it for t
       if (sql.startsWith("SELECT fingerprint")) return [{ fingerprint }];
       if (sql.includes("FROM ethn.bookings")) return [{ status: "pending", total: "500.00" }];
       if (sql.includes("status='unverified'")) return [{ method: "gcash", merchant_snapshot: "new instructions" }];
-      if (sql.includes("FROM ethn.proof_reservations")) return [{}];
+      if (sql.includes("FROM ethn.proof_reservations")) return proof ? [{}] : [];
       if (sql.includes("AS now")) return [{ now: new Date() }];
       if (sql.includes("AS ended")) return [{ ended: false }];
-      if (sql.includes("lower(accepted_reference)")) { assert.deepEqual(args, ["gcash", "Transfer123"]); return duplicate ? [{}] : []; }
-      if (sql.startsWith("UPDATE ethn.payments")) assert.equal(args[1], "Transfer123");
+      if (sql.includes("lower(accepted_reference)")) { assert.ok(reference); assert.deepEqual(args, ["gcash", "Transfer123"]); return duplicate ? [{}] : []; }
+      if (sql.startsWith("UPDATE ethn.payments")) assert.equal(args[1], reference?.trim() ?? null);
     });
-    const approval = { bookingId: id, key: "approve", action: "approve" as const, paymentReceived: true as const, acceptedReference: " Transfer123 " };
+    const approval = { bookingId: id, key: "approve", action: "approve" as const, paymentReceived: true as const, ...(reference === undefined ? {} : { acceptedReference: reference }) };
     await assert.rejects(decidePayment(db.pool, verify, { ...approval, acceptedReference: " " }), /INVALID_INPUT/);
     assert.equal(db.calls.length, 0);
     const decision = decidePayment(db.pool, verify, approval);
-    if (duplicate) {
-      await assert.rejects(decision, /REFERENCE_ALREADY_USED/);
+    if (!proof || duplicate) {
+      await assert.rejects(decision, proof ? /REFERENCE_ALREADY_USED/ : /DECISION_INCOMPATIBLE/);
       assert.equal(db.calls.at(-1), "ROLLBACK");
       assert(!db.calls.some(sql => sql.startsWith("UPDATE ethn.payments")));
     } else {

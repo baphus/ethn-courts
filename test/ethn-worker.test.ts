@@ -17,3 +17,14 @@ test("worker rejects unsafe configuration before connecting", async () => {
     { from: "mail@example.com", appUrl: "https://example.com", bookingId: "" },
   ]) await assert.rejects(drainEthnOutbox({ ...pool, query: (() => { throw new Error("unexpected query"); }) as never }, transport, config), /INVALID_OUTBOX_CONFIG/);
 });
+
+test("worker identifies invoice failure without exposing database error details", async () => {
+  const query = async (sql: string) => {
+    if (sql.includes("SELECT id, kind")) return { rows: [{ id: bookingId, kind: "booking_submission", attempts: 0 }] };
+    if (sql.includes("payment_methods_snapshot")) throw new Error("private database details");
+    return { rows: [] };
+  };
+  const db = { query, connect: async () => ({ query, release() {} }) };
+  await assert.rejects(drainEthnOutbox(db as never, transport, { from: "mail@example.com", appUrl: "https://example.com", bookingId }),
+    { message: "OUTBOX_UNAVAILABLE: invoice lookup" });
+});

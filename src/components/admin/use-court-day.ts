@@ -42,7 +42,7 @@ export function useBookingDetail(booking: string | null) {
     if (!booking) return;
     const controller = new AbortController();
     fetch(`/api/ethn/admin/bookings/${encodeURIComponent(booking)}`, { cache: "no-store", signal: controller.signal })
-      .then(async response => { if (!response.ok) { if (!controller.signal.aborted) deny?.(response.status); throw new Error("Booking unavailable. Try again or open the full booking."); } return response.json() as Promise<Detail>; })
+      .then(async response => { if (!response.ok) { if (!controller.signal.aborted) deny?.(response.status); throw new Error("Booking unavailable. Try opening booking details."); } return response.json() as Promise<Detail>; })
       .then(data => { if (!controller.signal.aborted) setDetail({ id: booking, data }); })
       .catch(e => { if (!controller.signal.aborted) setFailure({ id: booking, message: e.message }); });
     return () => controller.abort();

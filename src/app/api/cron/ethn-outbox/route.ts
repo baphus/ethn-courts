@@ -3,6 +3,7 @@ import { getCheckoutPool } from "@/db/checkout-client";
 import { getOwnerAlertEmail } from "@/lib/admin/ethn-staff-server";
 import { getSharedTransport } from "@/lib/mail/transport";
 import { drainEthnBackstop, ethnBackstopConfig } from "@/lib/mail/ethn-backstop";
+import { EthnOutboxError } from "@/lib/mail/ethn-worker";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +15,8 @@ export async function GET(req: Request) {
   try {
     const result = await drainEthnBackstop(getCheckoutPool(), getSharedTransport(), { ...config, ownerEmail: getOwnerAlertEmail });
     return Response.json({ ok: true, ...result });
-  } catch {
-    console.error("ETHN outbox backstop unavailable");
+  } catch (error) {
+    console.error("ETHN outbox backstop unavailable", error instanceof EthnOutboxError ? error.message : "backstop setup or booking selection");
     return Response.json({ ok: false }, { status: 500 });
   }
 }
