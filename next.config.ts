@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/*": ["./certs/supabase-ca.crt"],
+  },
+};
 
 // Sourcemap upload only when a Sentry auth token is present (CI/prod with
 // Sentry provisioned). Otherwise the config passes through untouched, so
