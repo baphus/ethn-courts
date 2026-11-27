@@ -14,6 +14,16 @@ test("legacy booking detail links open the bookings list modal", () => {
   assert.match(bookings, /url\.searchParams\.delete\("booking"\)/);
 });
 
+test("booking cancellation and deletion collect a reason in the app dialog before submitting", () => {
+  const bookings = source("app/admin/bookings/bookings-view.tsx");
+  assert.doesNotMatch(bookings, /window\.prompt\(/);
+  assert.match(bookings, /reviewChange\(row\.id, "cancel"\)/);
+  assert.match(bookings, /reviewChange\(row\.id, "delete"\)/);
+  assert.match(bookings, /<Dialog open=\{change !== null\}/);
+  assert.match(bookings, /<Textarea required maxLength=\{500\}/);
+  assert.match(bookings, /onSubmit=\{event => \{\s*event\.preventDefault\(\);\s*if \(change\) void changeBooking\(change\.id, change\.action, reason\)/);
+});
+
 test("bookings and finance keep labels visible while loading values", () => {
   const bookings = source("app/admin/bookings/bookings-view.tsx");
   const table = source("components/admin/results-table.tsx");

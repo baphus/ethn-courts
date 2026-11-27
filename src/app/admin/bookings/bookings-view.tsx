@@ -12,7 +12,8 @@ import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/boo
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { TablePager } from "@/components/admin/table-pager";
@@ -54,25 +55,20 @@ export default function BookingsView() {
   const [actionId, setActionId] = useState<string | null>(null);
   const actionLock = useRef(false);
 
-  async function changeBooking(row: Result["rows"][number], action: "cancel" | "archive" | "delete") {
+  const [change, setChange] = useState<{ id: string; action: "cancel" | "delete" } | null>(null);
+  const [reason, setReason] = useState("");
+  const keepBooking = useRef<HTMLButtonElement>(null);
+  const deleting = change?.action === "delete";
+
+  async function changeBooking(id: string, action: "cancel" | "archive" | "delete", reason = "") {
     if (actionLock.current || completing.current) return;
-    const destructive = action !== "archive";
-    let reason = "";
-    if (destructive) {
-      reason = window.prompt(action === "cancel" ? "Reason for cancellation (required, up to 500 characters):" : "Reason for permanent deletion (required, up to 500 characters). Do not include customer or payment details:") ?? "";
-      if (!reason.trim() || reason.length > 500) {
-        if (reason.length > 500) toast.error("Reason must be 500 characters or fewer.");
-        return;
-      }
-    }
-    const message = action === "delete"
-      ? "Permanently removes booking, extensions, payment/refund records and proofs. Current slot stays blocked until it ends; future slots are released. No notice or refund is sent. Finance totals can change."
-      : action === "cancel" ? "Cancel this booking and release its slots? Payment is retained. No refund is issued." : "Archive this booking? It will be hidden from the default list. No slots are released.";
+    if (action !== "archive" && (!reason.trim() || reason.length > 500)) return;
     actionLock.current = true;
     try {
-      if (!await confirm(message, { title: action === "delete" ? "Delete booking permanently" : action === "cancel" ? "Cancel booking" : "Archive booking", confirmLabel: action === "delete" ? "Delete permanently" : action === "cancel" ? "Cancel booking" : "Archive booking", destructive })) return;
-      setActionId(row.id);
-      const response = await fetch(`/api/ethn/admin/bookings/${row.id}/${action}`, {
+      if (action === "archive" && !await confirm("Archive this booking? It will be hidden from the default list. No slots are released.", { title: "Archive booking", confirmLabel: "Archive booking" })) return;
+      setChange(null);
+      setActionId(id);
+      const response = await fetch(`/api/ethn/admin/bookings/${id}/${action}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(action === "archive" ? { key: crypto.randomUUID() } : { key: crypto.randomUUID(), reason: reason.trim() }),
       });
@@ -114,6 +110,12 @@ export default function BookingsView() {
     }
   }
 
+  function reviewChange(id: string, action: "cancel" | "delete") {
+    if (actionLock.current || completing.current || change) return;
+    setReason("");
+    setChange({ id, action });
+  }
+
   function actions(row: Result["rows"][number]) {
     return <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" size="sm" onClick={() => setSelected(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button>
@@ -121,9 +123,9 @@ export default function BookingsView() {
         <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon-sm" disabled={actionId !== null || completingId !== null} aria-label={`More actions for booking ${row.guestName || "customer"}`} />}><MoreHorizontal aria-hidden="true" /></DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {row.canComplete && <DropdownMenuItem onClick={() => void complete(row)}>Complete booking</DropdownMenuItem>}
-          {row.canCancel && <DropdownMenuItem onClick={() => void changeBooking(row, "cancel")}><Ban aria-hidden="true" /> Cancel booking</DropdownMenuItem>}
-          {row.canArchive && <DropdownMenuItem onClick={() => void changeBooking(row, "archive")}><Archive aria-hidden="true" /> Archive</DropdownMenuItem>}
-          {row.canDelete && <DropdownMenuItem variant="destructive" onClick={() => void changeBooking(row, "delete")}><Trash2 aria-hidden="true" /> Delete permanently</DropdownMenuItem>}
+          {row.canCancel && <DropdownMenuItem onClick={() => reviewChange(row.id, "cancel")}><Ban aria-hidden="true" /> Cancel booking</DropdownMenuItem>}
+          {row.canArchive && <DropdownMenuItem onClick={() => void changeBooking(row.id, "archive")}><Archive aria-hidden="true" /> Archive</DropdownMenuItem>}
+          {row.canDelete && <DropdownMenuItem variant="destructive" onClick={() => reviewChange(row.id, "delete")}><Trash2 aria-hidden="true" /> Delete permanently</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>}
     </div>;
@@ -136,6 +138,30 @@ export default function BookingsView() {
   const active = Number(!!filters.status.length || !!filters.archived) + Number(!!filters.from || !!filters.to);
   const legacyMode = filters.archived === "all" || (filters.archived === "true" && filters.status.length > 0);
   return <div className="w-full space-y-5 pb-24">
+    <Dialog open={change !== null} onOpenChange={next => { if (!next) setChange(null); }} disablePointerDismissal>
+      <DialogContent initialFocus={keepBooking} showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>{deleting ? "Delete booking permanently" : "Cancel booking"}</DialogTitle>
+          <DialogDescription>{deleting
+            ? "This permanently deletes the booking, extensions, payment and refund records, and proofs. The current slot stays blocked until it ends; future slots are released. No notice or refund is sent. Finance totals can change."
+            : "Cancelling releases the booking’s slots. Payment is retained and no refund is issued."}</DialogDescription>
+        </DialogHeader>
+        <form className="grid gap-4" onSubmit={event => {
+          event.preventDefault();
+          if (change) void changeBooking(change.id, change.action, reason);
+        }}>
+          <label className="grid gap-2">
+            <span>{deleting ? "Reason for permanent deletion" : "Reason for cancellation"} (required)</span>
+            <Textarea required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} aria-describedby="booking-change-reason-hint" />
+          </label>
+          <p id="booking-change-reason-hint" className="text-sm text-muted-foreground">Up to 500 characters.{deleting && " Do not include customer or payment details."}</p>
+          <DialogFooter>
+            <DialogClose render={<Button ref={keepBooking} type="button" variant="outline" />}>Keep booking</DialogClose>
+            <Button type="submit" variant="destructive" disabled={!reason.trim()}>{deleting ? "Delete permanently" : "Cancel booking"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
     <header className="border-b pb-6"><h1 className="text-2xl font-semibold tracking-tight">Bookings</h1><p className="mt-2 text-sm text-muted-foreground">Find and review reservations.</p></header>
     <section aria-label="Booking controls" className="flex flex-wrap items-end gap-2">
       <div className="flex min-w-0 flex-wrap items-end gap-2 [&_button]:rounded-sm [&_button]:h-9">
