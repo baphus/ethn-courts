@@ -59,7 +59,6 @@ const statusStyles = {
   Available: "bg-muted text-primary border-input",
   Selected: "bg-primary text-primary-foreground border-primary",
   Unavailable: "bg-accent text-muted-foreground border-border",
-  Closed: "bg-muted text-muted-foreground border-border",
 } as const;
 
 function Ball({ className = "" }: { className?: string }) {
@@ -495,7 +494,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
     `}</style>
     <main>
       {!bookingPage && <>{/* HERO */}
-      <section className="ethn-hero relative isolate -mt-14 overflow-hidden bg-[#447244] px-4 pt-[calc(3.5rem+.75rem)] pb-16 text-center text-white sm:-mt-24 sm:px-6 sm:pt-[calc(6rem+.75rem)] sm:pb-24">
+      <section className="ethn-hero relative isolate -mt-14 overflow-hidden bg-[#447244] px-4 pt-[calc(3.5rem+.75rem)] pb-4 text-center text-white sm:-mt-24 sm:px-6 sm:pt-[calc(6rem+.75rem)] sm:pb-24">
         <img src="/court-gallery/c9Uh1G3i.jpg" alt="" fetchPriority="high" className="pointer-events-none absolute inset-0 -z-10 size-full object-cover object-[center_58%] sm:object-[center_55%]" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(20,69,36,.94)_0%,rgba(38,94,49,.76)_34%,rgba(45,105,55,.35)_58%,rgba(30,76,40,.3)_100%)]" />
         <Guides />
@@ -510,7 +509,7 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
           <a href="/open-plays" className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg public-cta-secondary public-cta-on-dark px-3 text-xs font-bold transition-colors sm:min-h-12 sm:w-auto sm:px-7 sm:text-sm">See open plays</a>
         </div>
 
-        <div className="ethn-court pointer-events-none mx-auto -mt-28 grid h-[min(62vw,22rem)] w-full max-w-5xl place-items-center sm:-mt-40 sm:h-[min(34vw,26rem)]">
+        <div className="ethn-court pointer-events-none mx-auto mt-4 grid h-[min(62vw,22rem)] w-full max-w-5xl place-items-center sm:-mt-40 sm:h-[min(34vw,26rem)]">
           <img src="/pickleball_centered_animated.svg" alt="Isometric pickleball court with two paddles rallying a ball" className="h-full w-full object-contain" />
         </div>
       </section>
@@ -629,14 +628,14 @@ export default function EthnBooking({ bookingPage = false }: { bookingPage?: boo
             const price = status === "Available" && window.hourlyRate !== null
               ? money(pesos(priceItems([{ rate: window.hourlyRate, minutes: availability.settings.intervalMinutes }])))
               : null;
-            const content = price ? <span className="text-xs tabular-nums">{price}</span> : <span aria-hidden="true">{status === "Closed" ? "C" : "–"}</span>;
+            const content = price ? <span className="text-xs tabular-nums">{price}</span> : <span aria-hidden="true">×</span>;
             const size = price ? "min-h-11 w-full min-w-11 flex-col px-1 py-1 leading-tight" : "h-11 w-11 sm:w-full";
-            const style = `inline-flex ${size} items-center justify-center rounded-lg border text-sm font-bold sm:px-2 sm:text-xs ${statusStyles[label]}`;
+            const style = `inline-flex ${size} items-center justify-center rounded-lg border text-sm font-bold sm:px-2 sm:text-xs ${statusStyles[label === "Closed" ? "Unavailable" : label]}`;
             return <td key={court.id} className="border-t border-border px-1 py-2 text-center">{<button type="button" disabled={busy || status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatScheduleTime(start)} to ${slotDate(end)} ${formatScheduleTime(end)}, ${label}${price ? ` ${price}` : ""}`} onClick={() => { const rate = window?.hourlyRate; if (status !== "Available" || rate == null) return; setRanges(current => toggleSlot(current, court.id, wi, rate, new Date(start).toISOString(), new Date(end).toISOString())); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring enabled:hover:ring-2 enabled:hover:ring-ring disabled:cursor-not-allowed`}>{content}</button>}</td>;
           })}</tr>;
           })}
         </tbody></table></div>
-      <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-muted-foreground">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "–"], ["Closed", "C"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>
+      <ul aria-label="Availability legend" className="flex flex-wrap gap-x-3 gap-y-2 text-xs font-medium text-muted-foreground">{([ ["Available", "+"], ["Selected", "✓"], ["Unavailable", "×"] ] as const).map(([label, symbol]) => <li key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${statusStyles[label]}`}>{symbol}</span>{label}</li>)}</ul>
       <dialog ref={previewDialog} aria-labelledby="court-preview-title" className="dialog-surface m-auto max-h-[calc(100dvh-2rem)] w-[min(90vw,28rem)] overflow-y-auto overscroll-contain rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 backdrop:bg-black/60"><h2 id="court-preview-title" className="text-lg font-semibold">{previewCourt} photo</h2>{(() => { const court = availability?.courts.find(c => c.name === previewCourt); return <>{court?.photoVersion && court.photoVersion !== "0" ? <img src={`/api/ethn/courts/${encodeURIComponent(court.id)}/photo?v=${encodeURIComponent(court.photoVersion)}`} alt="" className="mt-4 aspect-[4/3] w-full rounded-lg object-cover" /> : <p className="mt-4 text-sm text-muted-foreground">A photo of this court is not available yet.</p>}{court?.description && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-muted-foreground">{court.description}</p>}</>; })()}<form method="dialog" className="mt-6"><Button autoFocus type="submit" className="public-cta-secondary">Close</Button></form></dialog>
       </>}
     </section>
