@@ -74,7 +74,7 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
 
     <div className="space-y-4">
     <section aria-labelledby="private-status" className="@container rounded-2xl border border-border bg-card p-5 sm:p-6">
-      <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-foreground"><QrCode className="size-5" aria-hidden="true" /></span><div><h2 id="private-status" className="text-xl font-bold">Your private status link</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">Scan to view your reservation status. This is not a check-in pass. Keep the QR and link private; do not share them widely.</p></div></div>
+      <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-foreground"><QrCode className="size-5" aria-hidden="true" /></span><div><h2 id="private-status" className="text-xl font-bold">Your private status link</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">Scan to view your reservation status. Keep the QR code and link private.</p></div></div>
       <div className="mt-6 flex flex-col items-center gap-5 text-center @lg:flex-row @lg:items-start @lg:gap-6 @lg:text-left">
         <div className="shrink-0 rounded-2xl border border-border bg-white p-3">{url ? <QRCodeCanvas ref={qrRef} value={url} size={280} level="M" marginSize={4} style={{ width: 160, height: 160 }} aria-label="QR code for your private reservation status" /> : <div className="grid h-40 w-40 place-items-center text-sm text-muted-foreground">Preparing QR…</div>}</div>
         <div className="w-full min-w-0 flex-1">
