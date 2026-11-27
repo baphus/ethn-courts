@@ -56,7 +56,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-cream font-sans text-ink" suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <Header />
           <ConfirmProvider>{children}</ConfirmProvider>
           <PublicOnly><Footer /></PublicOnly>
