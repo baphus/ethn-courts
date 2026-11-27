@@ -5,8 +5,7 @@
 // than opening the endpoint. Only non-production may run without the secret,
 // so local `curl` and dev testing stay possible.
 
-export function isCronAuthorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+export function isCronAuthorized(req: Request, secret = process.env.CRON_SECRET): boolean {
   if (!secret) return process.env.NODE_ENV !== "production";
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }

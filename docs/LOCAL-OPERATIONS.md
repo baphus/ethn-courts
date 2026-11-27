@@ -8,7 +8,7 @@ Use the complete numbered chain in `db/ethn/`, not `supabase/` or `drizzle/`. Se
 
 ## Scheduled endpoints
 
-All ETHN workers require an explicitly configured `CRON_SECRET`, including local use:
+ETHN workers require a configured bearer secret, including local use. Vercel jobs use `CRON_SECRET`; push uses `ETHN_PUSH_CRON_SECRET`.
 
 - `/api/cron/ethn-outbox`: opt-in bounded email retry.
 - `/api/cron/keepalive`: restricted ETHN database connectivity check, Sundays at 02:10 UTC.
@@ -16,7 +16,7 @@ All ETHN workers require an explicitly configured `CRON_SECRET`, including local
 - New-booking inbox alerts are recorded with the booking; no inbox cron is needed.
 - `/api/cron/ethn-push`: optional push delivery/retry after VAPID configuration.
 
-Endpoint implementation does not provision a scheduler or prove latency/availability. Use bearer secret privately; never put it in query strings, source, screenshots or logs. Repeated delivery can occur after uncertain external-send outcomes. Inbox stays available if email or push fails.
+Vercel schedules daily email retry (02:05 UTC) and weekly keepalive. For minute-by-minute push, follow the [Supabase Cron setup](ethn-push.md#supabase-cron-setup). Use bearer secret privately; never put it in query strings, source, screenshots or logs. Repeated delivery can occur after uncertain external-send outcomes. Inbox stays available if email or push fails.
 
 ## Browser push
 

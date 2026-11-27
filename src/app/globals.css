@@ -32,24 +32,6 @@
 
 @layer base {
   [data-admin-shell] {
-    --background: var(--admin-background);
-    --foreground: var(--admin-foreground);
-    --card: var(--admin-card);
-    --card-foreground: var(--admin-card-foreground);
-    --popover: var(--admin-popover);
-    --popover-foreground: var(--admin-popover-foreground);
-    --primary: var(--admin-primary);
-    --primary-foreground: var(--admin-primary-foreground);
-    --secondary: var(--admin-secondary);
-    --secondary-foreground: var(--admin-secondary-foreground);
-    --muted: var(--admin-muted);
-    --muted-foreground: var(--admin-muted-foreground);
-    --accent: var(--admin-accent);
-    --accent-foreground: var(--admin-accent-foreground);
-    --destructive: var(--admin-destructive);
-    --border: var(--admin-border);
-    --input: var(--admin-input);
-    --ring: var(--admin-ring);
     --chart-1: var(--admin-chart-1);
     --chart-2: var(--admin-chart-2);
     --chart-3: var(--admin-chart-3);
@@ -82,43 +64,29 @@ html {
 
 .font-display { font-family: var(--font-athletic), var(--font-space), sans-serif; letter-spacing: .015em; }
 
-/* The mobile sidebar is portalled outside the staff shell. */
+/* The mobile staff sidebar is portalled outside the staff shell. */
 [data-sidebar="sidebar"]:has(.admin-sidebar-nav) {
-  --sidebar-foreground: #53605a;
-  --sidebar-accent: #e5eee5;
-  --sidebar-accent-foreground: #315c39;
-  --sidebar-border: #dfe6df;
-  --sidebar-ring: #315c39;
-  color: var(--sidebar-foreground);
-  border-color: var(--sidebar-border);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  color: var(--foreground);
+  background: var(--muted);
+  border-color: var(--border);
 }
-[data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="group-label"] { color: var(--sidebar-foreground); font-size: .65rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-[data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"] { color: var(--sidebar-foreground); }
-[data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"]:hover { background: var(--sidebar-accent); }
-[data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"][data-active="true"] { background: linear-gradient(to right, #a33900 4px, transparent 4px), #fff0e6; color: #7f2a00; font-weight: 600; }
-.dark [data-sidebar="sidebar"]:has(.admin-sidebar-nav) {
-  --sidebar-foreground: #eaf0f3;
-  --sidebar-accent: rgb(255 255 255 / .1);
-  --sidebar-accent-foreground: #fff;
-  --sidebar-border: rgb(255 255 255 / .12);
-  --sidebar-ring: rgb(255 255 255 / .35);
-  border-color: var(--admin-background);
-}
-.dark [data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"] svg { color: #ffad4c; }
-.dark [data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"][data-active="true"] { background: linear-gradient(to right, #ffad4c 4px, transparent 4px), rgb(255 173 76 / .18); color: #fff; }
+[data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="group-label"] { color: var(--muted-foreground); font-size: .65rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+[data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"][data-active="true"] { background: var(--secondary); color: var(--secondary-foreground); font-weight: 600; }
 @media (forced-colors: active) {
   [data-sidebar="sidebar"]:has(.admin-sidebar-nav) [data-sidebar="menu-button"][data-active="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 .admin-shell-canvas,
 [data-admin-shell] .admin-frame,
-[data-admin-shell] .admin-workspace,
-[data-sidebar="sidebar"]:has(.admin-sidebar-nav) { background: var(--admin-surface); }
+[data-admin-shell] .admin-workspace { background: var(--admin-surface); }
 [data-admin-shell] .admin-workspace { font-size: 0.875rem; line-height: 1.5; }
 @media (min-width: 48rem) {
-  [data-admin-shell] .admin-frame { margin: .75rem .75rem .75rem 0; border: 1px solid #dfe6df; border-radius: 1rem; }
-  .dark [data-admin-shell] .admin-frame { border-color: #394c3e; }
+  [data-admin-shell] .admin-frame { margin: .75rem .75rem .75rem 0; border: 1px solid var(--border); border-radius: 1rem; }
 }
-html:not(.dark) [data-admin-shell] .admin-workspace { --primary: #315c39; --ring: #315c39; --muted-foreground: oklch(0.48 0 0); }
 /* Compact page headings and card surfaces without changing calendar geometry. */
 [data-admin-shell] .admin-workspace h1.text-3xl { font-size: 1.5rem; line-height: 2rem; }
 [data-admin-shell] .admin-workspace h1.text-2xl { font-size: 1.375rem; line-height: 1.875rem; }
@@ -231,9 +199,9 @@ html.dark {
 
 /* Keep the footer and floating scroll control clear of the landing booking bar. */
 @media (width < 64rem) {
-  body:has([data-landing-booking-bar]) { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
-  body:has([data-landing-booking-bar]) [data-back-to-top] { bottom: calc(8rem + env(safe-area-inset-bottom)); }
-  body:has([data-landing-booking-bar] [aria-expanded="true"]) [data-back-to-top] { visibility: hidden; }
+  body:has([data-daylight-booking-bar]) { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
+  body:has([data-daylight-booking-bar]) [data-back-to-top] { bottom: calc(8rem + env(safe-area-inset-bottom)); }
+  body:has([data-daylight-booking-bar] [aria-expanded="true"]) [data-back-to-top] { visibility: hidden; }
 }
 
 /* Public CTA colors are opt-in; admin buttons keep their own theme. */

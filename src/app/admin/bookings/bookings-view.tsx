@@ -2,7 +2,9 @@
 
 import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/confirm";
 import Link from "next/link";
 import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, RotateCcw } from "lucide-react";
 import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/booking-status";
@@ -10,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewToggle } from "@/components/ui/view-toggle";
 import { TablePager } from "@/components/admin/table-pager";
 import { formatDisplayDate } from "@/lib/display-date";
 import { dateTime, ErrorNotice, money, request, type BookingSummary } from "./booking-list";
@@ -20,17 +23,51 @@ import { GuestName } from "../guest-name";
 import { formatPlayTime } from "./booking-play-time";
 
 
-type Result = { rows: (BookingSummary & { trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
-const headers = ["Tracking no.", "Customer", "Contact", "Booking date", "Courts", "No. of slots", "Play time", "Status", "Total", "Created", ""];
-const cell = "border-r px-3 py-2 last:border-r-0";
+type Result = { rows: (BookingSummary & { canComplete: boolean; trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
+const headers = ["Tracking no.", "Customer", "Contact", "Booking date", "Courts", "No. of slots", "Play time", "Status", "Total", "Date booked", "Actions"];
+const cell = "px-3 py-2.5 align-top";
 const initial: Filters = { q: "", status: [], from: "", to: "", page: 1, archived: "" };
 const input = "h-9 rounded-sm border bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export default function BookingsView() {
+  const [view, setView] = useState<"list" | "grid">("list");
   const [filters, setFilters] = useState(initial); const [ready, setReady] = useState(false);
   const [search, setSearch] = useState(""); const [draft, setDraft] = useState(initial); const [open, setOpen] = useState(false);
   const [result, setResult] = useState<Result | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const completing = useRef(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
+  async function complete(row: Result["rows"][number]) {
+    if (completing.current || !row.canComplete) return;
+    completing.current = true;
+    try {
+      if (!await confirm("Mark this booking completed? Payment and booking history stay unchanged.", { title: "Complete booking", confirmLabel: "Complete booking" })) return;
+      setCompletingId(row.id);
+      const response = await fetch("/api/ethn/admin/outcomes", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "complete", bookingId: row.id }),
+      });
+      if (response.ok) toast.success("Booking marked completed.");
+      else if (response.status >= 500) toast.warning("Completion could not be confirmed. Check the refreshed booking before retrying.");
+      else toast.error(response.status === 409 ? "This booking is no longer eligible for completion." : "Could not complete this booking. Check your access and booking details.");
+      setRefresh(value => value + 1);
+    } catch {
+      toast.warning("Completion could not be confirmed. Check the refreshed booking before retrying.");
+      setRefresh(value => value + 1);
+    } finally {
+      completing.current = false;
+      setCompletingId(null);
+    }
+  }
+
+  function actions(row: Result["rows"][number]) {
+    return <div className="flex flex-wrap gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={() => setSelected(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button>
+      {row.canComplete && <Button type="button" variant="outline" size="sm" disabled={completingId !== null} onClick={() => void complete(row)} aria-label={`Complete booking for ${row.guestName || "customer"}`}>{completingId === row.id ? "Completing…" : "Complete"}</Button>}
+    </div>;
+  }
   useEffect(() => { const read = () => { const params = new URLSearchParams(window.location.search); const f = parseFilters(params); if (params.has("q")) { params.delete("q"); const qs = params.toString(); window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); } setFilters(previous => ({ ...f, q: previous.q })); setReady(true); }; read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read); }, []);
   function update(next: Filters, replace = false) { const qs = serializeFilters(next); window.history[replace ? "replaceState" : "pushState"](null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); setFilters(next); }
   useEffect(() => { if (!ready || search.trim() === filters.q) return; const timer = setTimeout(() => update({ ...filters, q: search.trim(), page: 1 }, true), 300); return () => clearTimeout(timer); }, [search, filters, ready]);
@@ -39,8 +76,9 @@ export default function BookingsView() {
   const active = Number(!!filters.status.length || !!filters.archived) + Number(!!filters.from || !!filters.to);
   const legacyMode = filters.archived === "all" || (filters.archived === "true" && filters.status.length > 0);
   return <div className="w-full space-y-5 pb-24">
-    <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6"><div><h1 className="text-2xl font-semibold tracking-tight">Bookings</h1><p className="mt-2 text-sm text-muted-foreground">Find and review reservations.</p></div><Button render={<Link href="/admin/bookings/new" />}>New booking</Button></header>
-    <section aria-label="Booking filters" className="flex flex-wrap items-end gap-2 [&_button]:rounded-sm [&_button]:h-9">
+    <header className="border-b pb-6"><h1 className="text-2xl font-semibold tracking-tight">Bookings</h1><p className="mt-2 text-sm text-muted-foreground">Find and review reservations.</p></header>
+    <section aria-label="Booking controls" className="flex flex-wrap items-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-end gap-2 [&_button]:rounded-sm [&_button]:h-9">
       <label className="grid w-full min-w-0 gap-1.5 sm:w-72 text-sm font-medium">Search<Input type="search" value={search} maxLength={100} onChange={e => setSearch(e.target.value)} placeholder="Name, contact or booking ID" autoComplete="off" /></label>
       {search && <Button type="button" variant="ghost" onClick={() => { setSearch(""); update({ ...filters, q: "", page: 1 }, true); }}>Clear search</Button>}
       <Popover open={open} onOpenChange={value => { setOpen(value); if (value) setDraft(filters); }}>
@@ -59,7 +97,7 @@ export default function BookingsView() {
         </PopoverContent>
       </Popover>
       <div role="group" aria-label="Quick status filters" className="flex flex-wrap gap-2">
-        {([ ["pending", "Pending"], ["confirmed", "Approved"], ["completed", "Completed"] ] as const).map(([status, label]) => {
+        {([ ["pending", "Pending"], ["confirmed", "Confirmed"], ["completed", "Completed"] ] as const).map(([status, label]) => {
           const pressed = filters.status.includes(status);
           const { icon: Icon, className } = bookingStatusStyle(status);
           return <Button key={status} type="button" variant={pressed ? "default" : "outline"} aria-pressed={pressed} className="!rounded-full px-3" onClick={() => {
@@ -71,31 +109,52 @@ export default function BookingsView() {
         })}
       </div>
       {active > 0 && <Button variant="ghost" onClick={() => update({ ...initial, q: filters.q })}>Clear filters</Button>}
+      </div>
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <ViewToggle view={view} onViewChange={setView} />
+        <Button className="h-9" nativeButton={false} render={<Link href="/admin/bookings/new" />}>New booking</Button>
+      </div>
     </section>
     {error && <ErrorNotice message={error} />}
-    <section aria-label="Search results" className="overflow-hidden rounded-md border bg-card">
-      <div role="region" aria-label="Booking results table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
-        <table className="w-full min-w-[68rem] text-left text-sm">
+    <section aria-label="Search results" className="space-y-3">
+      {view === "grid" ? <div className="min-w-0" aria-busy={loading}>
+        {!error && <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {loading ? [0, 1, 2].map(index => <li key={index} aria-hidden="true" className="rounded-xl border bg-card p-4"><Skeleton className="h-32 motion-reduce:animate-none" /></li>) : result?.rows.map(row => <li key={row.id} className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 text-base font-semibold"><GuestName name={row.guestName} email={row.guestEmail} /></h3><div className="flex flex-wrap gap-1"><BookingStatusBadge state={row.status} />{row.archived && <BookingStatusBadge state="archived" />}</div></div>
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm [&_dt]:text-muted-foreground">
+              <dt>Tracking no.</dt><dd className="font-mono">{row.trackingCode || "—"}</dd>
+              <dt>Contact</dt><dd className="wrap-anywhere">{row.guestEmail && <span className="block">{row.guestEmail}</span>}{row.guestPhone && <span className="block">{row.guestPhone}</span>}{!row.guestEmail && !row.guestPhone && "—"}</dd>
+              <dt>Booking date</dt><dd>{formatDisplayDate(row.operatingDate)}</dd>
+              <dt>Courts</dt><dd className="wrap-anywhere">{row.courtNames.join(", ") || "—"}</dd>
+              <dt>Play time</dt><dd>{row.playTimes.length ? <ul className="space-y-1">{row.playTimes.map(range => <li key={range.startsAt + "/" + range.endsAt}>{formatPlayTime(range.startsAt, range.endsAt, row.operatingDate)}{row.playTimes.length > 1 && <span className="block wrap-anywhere text-xs text-muted-foreground">{range.courts.join(", ")}</span>}</li>)}</ul> : "—"}</dd>
+              <dt>Slots</dt><dd className="tabular-nums">{row.slotCount}</dd>
+              <dt>Date booked</dt><dd>{dateTime(row.createdAt)}</dd>
+            </dl>
+            <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3"><span className="text-sm font-medium tabular-nums">Total {money(row.total)}</span>{actions(row)}</div>
+          </li>)}
+        </ul>}
+      </div> : <div className="overflow-hidden rounded-md border bg-card"><div role="region" aria-label="Booking results table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
+        <table className="w-full min-w-[76rem] text-left text-sm">
           <thead className="border-b bg-muted/50 text-muted-foreground"><tr>{headers.map(h => <th key={h} scope="col" className={`${cell} whitespace-nowrap font-medium ${h === "Total" || h === "No. of slots" ? "text-right" : ""}`}>{h || <span className="sr-only">Details</span>}</th>)}</tr></thead>
           <tbody className="divide-y" aria-busy={loading}>{loading ? [0, 1, 2].map(index => <tr key={index}>{headers.map(h => <td key={h} className={cell}><Skeleton className="h-4 w-full max-w-24 motion-reduce:animate-none" /></td>)}</tr>) : !error && result?.rows.map(row => <tr key={row.id} className="hover:bg-muted/30">
             <td className={cell + " whitespace-nowrap font-mono text-xs"}>{row.trackingCode || "—"}</td>
-            <td className={cell + " font-medium"}><GuestName name={row.guestName} /></td>
-            <td className={cell + " text-xs"}>{row.guestEmail && <div className="max-w-48 wrap-anywhere">{row.guestEmail}</div>}{row.guestPhone && <div className="whitespace-nowrap text-muted-foreground">{row.guestPhone}</div>}{!row.guestEmail && !row.guestPhone && "—"}</td>
+            <td className={cell + " font-medium"}><GuestName name={row.guestName} email={row.guestEmail} /></td>
+            <td className={cell + " min-w-40 text-xs"}>{row.guestEmail && <div className="max-w-56 wrap-anywhere">{row.guestEmail}</div>}{row.guestPhone && <div className="whitespace-nowrap text-muted-foreground">{row.guestPhone}</div>}{!row.guestEmail && !row.guestPhone && "—"}</td>
             <td className={cell + " whitespace-nowrap"}>{formatDisplayDate(row.operatingDate)}</td>
-            <td className={cell}>{row.courtNames.join(", ") || "—"}</td>
+            <td className={cell + " min-w-28"}>{row.courtNames.length ? <ul className="max-w-48 space-y-0.5 wrap-anywhere">{row.courtNames.map(court => <li key={court}>{court}</li>)}</ul> : "—"}</td>
             <td className={cell + " text-right tabular-nums"}>{row.slotCount}</td>
             <td className={cell}>{row.playTimes.length ? <ul className="space-y-1">{row.playTimes.map(range => <li key={range.startsAt + "/" + range.endsAt}><span className="whitespace-nowrap">{formatPlayTime(range.startsAt, range.endsAt, row.operatingDate)}</span>{row.playTimes.length > 1 && <span className="block text-xs text-muted-foreground">{range.courts.join(", ")}</span>}</li>)}</ul> : "—"}</td>
             <td className={cell}><BookingStatusBadge state={row.status} />{row.archived && <span className="ml-2"><BookingStatusBadge state="archived" /></span>}</td>
             <td className={cell + " text-right font-medium tabular-nums"}>{money(row.total)}</td>
-            <td className={cell}>{dateTime(row.createdAt)}</td>
-            <td className={cell}><Button variant="outline" size="sm" className="rounded-sm" onClick={() => setSelected(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button></td>
+            <td className={cell + " whitespace-nowrap text-xs text-muted-foreground"}>{dateTime(row.createdAt)}</td>
+            <td className={cell + " min-w-40"}>{actions(row)}</td>
           </tr>)}</tbody>
         </table>
-      </div>
+      </div></div>}
       {!loading && !error && result?.rows.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No bookings match these filters.</p>}
       {!error && result && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={result.page} pageSize={result.limit} total={result.total} onPageChange={page => update({ ...filters, page })} busy={loading} /></div>}
     </section>
     <StaffOccupancy revision={refresh} onBooking={setSelected} />
-    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="max-h-[90vh] gap-2 overflow-y-auto sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded allowCompletion onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
+    <Dialog open={!!selected} onOpenChange={value => { if (!value) setSelected(null); }}><DialogContent className="grid h-[min(90dvh,52rem)] max-h-[calc(100dvh-2rem)] grid-rows-[auto_auto_minmax(0,1fr)] gap-2 overflow-hidden sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} embedded allowCompletion onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
   </div>;
 }

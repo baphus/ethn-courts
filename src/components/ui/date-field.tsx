@@ -32,9 +32,10 @@ type DateFieldProps = {
   dateTime?: boolean
   disabled?: boolean
   triggerLabel?: string
+  popupClassName?: string
 }
 
-function DateField({ value, defaultValue = "", onValueChange, name, required, min, max, className, id, dateTime = false, disabled, triggerLabel, ...aria }: DateFieldProps) {
+function DateField({ value, defaultValue = "", onValueChange, name, required, min, max, className, id, dateTime = false, disabled, triggerLabel, popupClassName, ...aria }: DateFieldProps) {
   const [internal, setInternal] = React.useState(defaultValue)
   const current = value ?? internal
   const [partial, setPartial] = React.useState({ date: "", time: "" })
@@ -64,7 +65,7 @@ function DateField({ value, defaultValue = "", onValueChange, name, required, mi
           <CalendarIcon aria-hidden="true" className="size-4 text-muted-foreground" />
           <span className={cn("truncate", !day && "text-muted-foreground")}>{triggerLabel ?? (day || "Choose date")}</span>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-1">
+        <PopoverContent className={cn("w-auto p-1", popupClassName)}>
           <Calendar mode="single" selected={selected} defaultMonth={selected ?? last} autoFocus onSelect={(next) => { if (next) { update(dateValue(next), time); setOpen(false) } }} disabled={(next) => { const value = dateValue(next); return (!!firstDay && value < firstDay) || (!!lastDay && value > lastDay) }} />
           {!required && day && <Button type="button" variant="ghost" className="w-full" onClick={() => { update(""); setOpen(false) }}>Clear date</Button>}
         </PopoverContent>

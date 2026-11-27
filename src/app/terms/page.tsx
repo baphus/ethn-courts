@@ -1,3 +1,4 @@
+import { daylightFonts } from "@/app/daylight-fonts";
 import { VENUE_PHONE_DISPLAY } from "@/lib/booking/constants";
 import { VENUE_ADDRESS, VENUE_EMAIL } from "@/lib/venue";
 
@@ -57,18 +58,18 @@ const SECTIONS: { heading: string; body: string[] }[] = [
 
 export default function TermsPage() {
   return (
-    <main id="main" className="bg-[#f6f8f8] pt-0">
+    <main id="main" className={`daylight ${daylightFonts} bg-muted pt-0`}>
       <section
         className="mx-auto w-full max-w-3xl px-4 pt-12 pb-8 sm:px-6"
         aria-labelledby="terms-heading"
       >
         <h1
           id="terms-heading"
-          className="font-display text-5xl font-black uppercase leading-[.9] tracking-tight text-pine sm:text-7xl"
+          className="landing-heading text-foreground"
         >
           Terms of Service
         </h1>
-        <p className="mt-3 text-base leading-7 text-warm-muted">
+        <p className="mt-3 text-base leading-7 text-muted-foreground">
           These terms explain how to book, pay for, and use a court at ETHN Courts. Last updated November 25, 2026.
         </p>
       </section>
@@ -80,9 +81,9 @@ export default function TermsPage() {
         <article className="space-y-8">
           {SECTIONS.map((s) => (
             <div key={s.heading} className="space-y-3">
-              <h2 className="text-xl font-bold text-pine">{s.heading}</h2>
+              <h2 className="text-xl font-bold text-primary">{s.heading}</h2>
               {s.body.map((p, i) => (
-                <p key={i} className="text-[15px] leading-7 text-ink/80">
+                <p key={i} className="text-[15px] leading-7 text-foreground/80">
                   {p}
                 </p>
               ))}

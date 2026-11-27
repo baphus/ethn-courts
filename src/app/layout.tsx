@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./daylight.css";
+import { daylightFonts } from "./daylight-fonts";
 import { Bebas_Neue, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmProvider } from "@/components/ui/confirm";
@@ -50,11 +52,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("scroll-smooth", jakarta.variable, athletic.variable, space.variable)}
+      className={cn("scroll-smooth", jakarta.variable, athletic.variable, space.variable, daylightFonts)}
       suppressHydrationWarning
     >
       <body className="bg-cream font-sans text-ink" suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Header />
           <ConfirmProvider>{children}</ConfirmProvider>
           <PublicOnly><Footer /></PublicOnly>

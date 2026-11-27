@@ -10,6 +10,7 @@ import ThemeToggle from "./theme-toggle";
 interface Props {
   email: string;
   name: string | null;
+  className?: string;
   children: React.ReactNode;
 }
 
@@ -20,7 +21,7 @@ const SidebarActivity = createContext<{
 }>({ counts: null, refreshCounts: async () => {} });
 export const useSidebarActivity = () => useContext(SidebarActivity);
 
-export default function AdminShell({ email, name, children }: Props) {
+export default function AdminShell({ email, name, className, children }: Props) {
   const [counts, setCounts] = useState<SidebarCounts | null>(null);
   const request = useRef<AbortController | null>(null);
   const refreshCounts = useCallback(async () => {
@@ -55,7 +56,7 @@ export default function AdminShell({ email, name, children }: Props) {
 
   return <SidebarActivity.Provider value={{ counts, refreshCounts }}><TooltipProvider>
     <NextTopLoader color="var(--primary)" showSpinner={false} />
-    <SidebarProvider className="admin-shell-canvas" style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
+    <SidebarProvider className={`daylight admin-shell-canvas ${className ?? ""}`} style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}>
       <div data-admin-shell className="contents">
         <AdminSidebar email={email} name={name} counts={counts} />
         <SidebarInset className="admin-frame min-w-0 overflow-x-clip">

@@ -1,3 +1,4 @@
+import { daylightFonts } from "@/app/daylight-fonts";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
@@ -129,7 +130,7 @@ export default async function TrackPage({
     : null;
 
   return (
-    <main id="main" className="public-surface min-h-screen bg-white pt-4 pb-16">
+    <main id="main" className={`daylight ${daylightFonts} min-h-screen bg-background pt-4 pb-16`}>
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <TrackView
           token={token}

@@ -5,7 +5,8 @@ import { drainPush, pushConfig } from "@/lib/admin/ethn-push";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || !isCronAuthorized(request)) return Response.json({ ok: false }, { status: 401, headers: { "Cache-Control": "no-store" } });
+  const secret = process.env.ETHN_PUSH_CRON_SECRET;
+  if (!secret || !isCronAuthorized(request, secret)) return Response.json({ ok: false }, { status: 401, headers: { "Cache-Control": "no-store" } });
   let config;
   try { config = pushConfig(); } catch { return Response.json({ ok: false }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
   if (!config) return Response.json({ ok: true, skipped: "disabled" }, { headers: { "Cache-Control": "no-store" } });

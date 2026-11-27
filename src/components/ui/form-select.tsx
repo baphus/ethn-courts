@@ -31,7 +31,7 @@ function FormSelect({ options, placeholder = "Select…", className, positionerC
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Positioner className={cn("z-50 outline-none", positionerClassName)} sideOffset={4}>
-          <SelectPrimitive.Popup className="max-h-[var(--available-height)] min-w-[var(--anchor-width)] overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none">
+          <SelectPrimitive.Popup data-slot="select-content" className="max-h-[var(--available-height)] min-w-[var(--anchor-width)] overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none">
             {options.map((option) => <SelectPrimitive.Item key={option.value} value={option.value} disabled={option.disabled} className="relative flex cursor-default items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
               <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
               <SelectPrimitive.ItemIndicator className="absolute right-2"><CheckIcon className="size-4" /></SelectPrimitive.ItemIndicator>

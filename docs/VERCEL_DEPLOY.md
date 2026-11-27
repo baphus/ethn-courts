@@ -114,7 +114,7 @@ In the **Vercel Dashboard → Project → Settings → Environment Variables**, 
 | Variable | Value | Notes |
 |---|---|---|
 | `APP_URL` | `https://ckgrounds.vercel.app` | No trailing slash. Used for QR codes, tracking links, and email links. Update to your custom domain once set. |
-| `CRON_SECRET` | Any long random string | Must match between Vercel env and `vercel.json` crons. Generate with: `openssl rand -hex 32` |
+| `CRON_SECRET` | Any long random string | Keep in Vercel env and any external scheduler's secret storage; never put it in `vercel.json`. Generate with: `openssl rand -hex 32` |
 
 ### Optional — Sentry (error monitoring)
 
@@ -214,18 +214,9 @@ If you get `{ "ok": false }` with status 401: the `CRON_SECRET` env var doesn't 
 
 ## Step 6 — Cron jobs
 
-The `vercel.json` file configures four crons that Vercel invokes automatically on Pro plans:
+`vercel.json` schedules `/api/cron/ethn-outbox` daily (`5 2 * * *`) and `/api/cron/keepalive` weekly (`10 2 * * 0`), both UTC. Check both jobs under **Vercel Dashboard → Project → Cron Jobs**. These cadences fit Hobby, which does not guarantee the exact minute and is for personal or non-commercial use only.
 
-| Cron | Schedule | Purpose |
-|---|---|---|
-| `/api/cron/outbox` | `0 2 * * *` — daily 02:00 UTC | Backstop email drain (primary send is inline after submit/approve/reject) |
-| `/api/cron/retention` | `0 2 * * 0` — Sunday 02:00 UTC | Purges expired holds older than 24 hours |
-| `/api/cron/keepalive` | `10 2 * * *` — daily 02:10 UTC | Keeps the Supabase project alive (prevents free-tier pause after 1 week idle) |
-| `/api/cron/proof-prune` | `0 3 1 * *` — 1st of the month 03:00 UTC | Deletes payment_proofs rows + `proofs` bucket files older than 90 days |
-
-Vercel invokes crons with `Authorization: Bearer <CRON_SECRET>`. Ensure `CRON_SECRET` is set in Vercel env and is the same value as what's in your environment.
-
-✅ Verify crons are registered: **Vercel Dashboard → Project → Cron Jobs** — all four should appear.
+Set `CRON_SECRET` in the Vercel environment. For optional minute-by-minute push, use [Supabase Cron](ethn-push.md#supabase-cron-setup) with a separate secret. Retired legacy routes should not be scheduled.
 
 ---
 
@@ -281,7 +272,7 @@ The `booking_slots_no_overlap_idx` partial unique index exists in the DB and is 
 Ensure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are both set. The browser auth client uses the anon key; missing it causes sign-in to silently fail.
 
 ### Crons not running
-Crons require a **Vercel Pro** plan. On Hobby, `vercel.json` crons are ignored. Verify your plan under **Vercel Dashboard → Settings → Billing**.
+Hobby rejects schedules that run more than once daily. Check daily email retry and weekly keepalive in Vercel; check optional push in Supabase Cron.
 
 ### Tracking code collision (extremely rare)
 The submit route retries the `rpc_submit_booking` call up to 5 times with a fresh randomly-generated 5-character code on `tracking_code` unique constraint violations. No action needed — it resolves automatically.

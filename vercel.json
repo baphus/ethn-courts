@@ -2,12 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/ethn-push",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/ethn-outbox",
-      "schedule": "*/5 * * * *"
+      "schedule": "5 2 * * *"
     },
     {
       "path": "/api/cron/keepalive",

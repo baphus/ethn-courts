@@ -1,0 +1,93 @@
+/* Overlays can mount outside the route shell; use the root font variables. */
+:is([data-slot="dialog-content"], [data-slot="sheet-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="tooltip-content"], [data-sidebar="sidebar"], dialog.dialog-surface) {
+  font-family: var(--font-daylight, system-ui), sans-serif;
+}
+
+:is([data-slot="dialog-title"], [data-slot="sheet-title"], dialog.dialog-surface h2) {
+  font-family: var(--font-space, system-ui), sans-serif;
+}
+
+/* Daylight palette: route shells and staff portals. */
+:is(.daylight, body:has([data-admin-shell]) :is([data-slot="dialog-content"], [data-slot="sheet-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="tooltip-content"], [data-sidebar="sidebar"])) {
+  --background: #fff;
+  --foreground: #1a1b22;
+  --card: #fff;
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: #00288e;
+  --primary-foreground: #fff;
+  --daylight-hover: #1e40af;
+  --secondary: #c3ccfe;
+  --secondary-foreground: #4c5680;
+  --muted: #f4f2fc;
+  --muted-foreground: #444653;
+  --accent: #eeedf7;
+  --accent-foreground: var(--foreground);
+  --border: #c4c5d5;
+  --input: #757684;
+  --ring: var(--primary);
+  --destructive: #ba1a1a;
+  --daylight-lime: #426d07;
+  --daylight-warning: #fef3c7;
+  --daylight-warning-text: #78350f;
+}
+
+.daylight:not(.admin-shell-canvas, .public-header) {
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-daylight, system-ui), sans-serif;
+}
+
+.dark :is(.daylight, body:has([data-admin-shell]) :is([data-slot="dialog-content"], [data-slot="sheet-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="tooltip-content"], [data-sidebar="sidebar"])) {
+  --background: #12131a;
+  --foreground: #e3e1eb;
+  --card: #1a1b22;
+  --primary: #b8c4ff;
+  --primary-foreground: #002584;
+  --daylight-hover: #f1f0fa;
+  --secondary: #3b446e;
+  --secondary-foreground: #a9b3e3;
+  --muted: #1e1f26;
+  --muted-foreground: #c4c5d5;
+  --accent: #282a31;
+  --border: #444653;
+  --input: #8e909f;
+  --destructive: #ffb4ab;
+  --daylight-lime: #96d947;
+  --daylight-warning: #4a300e;
+  --daylight-warning-text: #fef3c7;
+}
+
+.daylight :is(.landing-type, .landing-heading) { font-family: inherit; }
+.daylight :is(h1, h2, h3, .landing-heading, .font-display) { font-family: var(--font-space, system-ui), sans-serif; }
+.daylight .tabular-nums { font-family: var(--font-daylight-mono, monospace); }
+.daylight .public-card { box-shadow: none; }
+.daylight .public-field { background-color: var(--muted); }
+.daylight :is([data-slot="input"], [data-slot="textarea"]) { border-radius: .75rem; }
+.daylight:not(.admin-shell-canvas) [data-slot="dialog-footer"] button { border-radius: 9999px; }
+.daylight :is(.public-cta-primary, .public-cta-secondary) { border-radius: 9999px; transition: background-color 120ms ease-out, color 120ms ease-out; }
+.daylight .public-cta-primary { color: var(--primary-foreground); background-color: var(--primary); border-color: var(--primary); }
+.daylight .public-cta-secondary { color: var(--secondary-foreground); background-color: var(--secondary); border-color: var(--secondary); }
+.daylight .public-cta-on-dark { border-color: currentColor; }
+@media (hover: hover) {
+  .daylight .public-cta-primary:hover:not(:disabled, [aria-disabled="true"]) { background-color: var(--daylight-hover); }
+  .daylight .public-cta-secondary:hover:not(:disabled, [aria-disabled="true"]) { text-decoration: underline; }
+}
+.daylight :is(.public-cta-primary, .public-cta-secondary):focus-visible { outline-color: var(--ring); box-shadow: 0 0 0 2px var(--background); }
+.daylight :is(.public-cta-primary, .public-cta-secondary):is(:disabled, [aria-disabled="true"]) { background-color: var(--muted); color: var(--muted-foreground); border-color: var(--border); }
+@media (forced-colors: active) {
+  .daylight :is(.public-cta-primary, .public-cta-secondary):focus-visible { outline-color: Highlight; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .daylight :is(.public-cta-primary, .public-cta-secondary, [data-slot="popover-content"]) { transition: none; animation: none; }
+  .daylight[data-slot="popover-content"] { animation: none; }
+}
+
+/* Staff keep their compact dimensions and inherit the same color roles. */
+.daylight.admin-shell-canvas {
+  --admin-surface: var(--muted);
+  background: var(--muted);
+  font-family: var(--font-daylight, system-ui), sans-serif;
+}
+.daylight [data-admin-shell] { background: var(--background); color: var(--foreground); }

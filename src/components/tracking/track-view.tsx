@@ -135,10 +135,10 @@ export default function TrackView({
     <div className="mx-auto max-w-3xl space-y-6 animate-rise">
 
       {/* ── Status Card ── */}
-      <div className="public-card rounded-3xl border border-[#dce5e8] bg-white p-6 sm:p-8">
-        <div className="flex flex-col items-center gap-4 border-b border-line-warm/40 pb-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+      <div className="public-card rounded-3xl border border-border bg-card p-6 sm:p-8">
+        <div className="flex flex-col items-center gap-4 border-b border-border-warm/40 pb-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">
+            <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
               Hello, {fullName}!
             </h1>
           </div>
@@ -156,7 +156,7 @@ export default function TrackView({
                 <span>Booking Rejected</span>
               </span>
             ) : status === "Refunded" ? (
-              <span className="inline-flex items-center gap-2 rounded-2xl border border-line-warm/60 bg-surface-dim/40 px-4 py-2 text-xs font-extrabold text-ink shadow-xs">
+              <span className="inline-flex items-center gap-2 rounded-2xl border border-border-warm/60 bg-surface-dim/40 px-4 py-2 text-xs font-extrabold text-foreground shadow-xs">
                 <RotateCcw className="size-4" />
                 <span>Booking Refunded</span>
               </span>
@@ -170,7 +170,7 @@ export default function TrackView({
         </div>
 
         {/* Status Message */}
-        <div className="mt-5 rounded-2xl bg-cream/50 p-4 text-center text-xs leading-relaxed text-ink sm:text-sm">
+        <div className="mt-5 rounded-2xl bg-cream/50 p-4 text-center text-xs leading-relaxed text-foreground sm:text-sm">
           {status === "Approved" ? (
             <p className="flex flex-col items-center gap-2 font-semibold text-live-dot sm:flex-row sm:items-start sm:justify-center sm:text-left">
               <Sparkles className="size-4 shrink-0 sm:mt-0.5" />
@@ -182,12 +182,12 @@ export default function TrackView({
           ) : status === "Refunded" ? (
             <div className="space-y-1">
               <p className="font-bold">This booking has been refunded.</p>
-              <p className="font-normal text-ink">
+              <p className="font-normal text-foreground">
                 Its court slots have been released. If you have questions about
                 the refund, please contact us.
               </p>
               {refundReason && (
-                <p className="font-normal text-ink">
+                <p className="font-normal text-foreground">
                   <strong>Note:</strong> {refundReason}
                 </p>
               )}
@@ -196,13 +196,13 @@ export default function TrackView({
             <div className="space-y-1 text-error">
               <p className="font-bold">This booking could not be approved.</p>
               {rejectReason && (
-                <p className="font-normal text-ink">
+                <p className="font-normal text-foreground">
                   <strong>Reason:</strong> {rejectReason}
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-warm-muted">
+            <p className="text-muted-foreground">
               We received your payment proof and reservation details. Venue staff is verifying your
               screenshot. You will receive an approval email shortly once confirmed.
             </p>
@@ -225,15 +225,15 @@ export default function TrackView({
       />
 
       {/* ── QR Check-in Pass ── */}
-      <div className="public-card rounded-3xl border border-[#dce5e8] bg-white p-6 sm:p-8">
-        <div className="mb-5 flex items-center justify-between border-b border-line-warm/40 pb-4">
+      <div className="public-card rounded-3xl border border-border bg-card p-6 sm:p-8">
+        <div className="mb-5 flex items-center justify-between border-b border-border-warm/40 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-ink">Your check-in QR pass</h2>
+            <h2 className="text-lg font-bold text-foreground">Your check-in QR pass</h2>
           </div>
-          <QrCode className="size-5 text-flame" />
+          <QrCode className="size-5 text-primary" />
         </div>
 
-        <p className="mb-6 text-center text-xs leading-relaxed text-warm-muted sm:text-sm">
+        <p className="mb-6 text-center text-xs leading-relaxed text-muted-foreground sm:text-sm">
           {status === "Approved"
             ? "Your booking is confirmed. Show this QR code at the CK Grounds front desk on your game day to check in."
             : status === "Refunded"
@@ -244,18 +244,18 @@ export default function TrackView({
 
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
           {/* QR Code */}
-          <div className="flex-shrink-0 rounded-2xl border-2 border-line-warm/80 bg-white p-4 shadow-xs">
+          <div className="flex-shrink-0 rounded-2xl border-2 border-border bg-card p-4 shadow-xs">
             <QRCodeCanvas ref={qrRef} value={url} size={360} level="M" style={{ width: 180, height: 180 }} />
           </div>
 
           {/* Tracking code + actions */}
           <div className="flex w-full flex-col gap-4 sm:justify-between">
             {/* Tracking Code badge */}
-            <div className="rounded-2xl border border-line-warm/60 bg-cream/60 p-4">
+            <div className="rounded-2xl border border-border-warm/60 bg-cream/60 p-4">
               <div className="mb-1.5 flex items-center justify-center gap-1.5 sm:justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Hash className="size-3.5 text-flame" aria-hidden />
-                  <span className="text-xs font-bold tracking-wider text-warm-muted uppercase">
+                  <Hash className="size-3.5 text-primary" aria-hidden />
+                  <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                     Tracking Code
                   </span>
                 </div>
@@ -263,7 +263,7 @@ export default function TrackView({
                   type="button"
                   onClick={copyCode}
                   aria-label="Copy tracking code"
-                  className="inline-flex items-center gap-1 rounded-lg border border-line-warm/50 bg-white px-2 py-1 text-[11px] font-semibold text-pine transition-all hover:bg-oat active:scale-95"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border-warm/50 bg-card px-2 py-1 text-[11px] font-semibold text-primary transition-all hover:bg-oat active:scale-95"
                 >
                   {copiedCode ? (
                     <>
@@ -278,10 +278,10 @@ export default function TrackView({
                   )}
                 </button>
               </div>
-              <p className="text-center font-mono text-3xl font-black tracking-[0.25em] text-ink sm:text-left">
+              <p className="text-center font-mono text-3xl font-black tracking-[0.25em] text-foreground sm:text-left">
                 {trackingCode}
               </p>
-              <p className="mt-1 text-center text-[11px] text-warm-muted sm:text-left">Quote this to front desk staff for manual look-up.</p>
+              <p className="mt-1 text-center text-[11px] text-muted-foreground sm:text-left">Quote this to front desk staff for manual look-up.</p>
             </div>
 
             {/* Action buttons */}
@@ -331,7 +331,7 @@ export default function TrackView({
           className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl public-cta-secondary px-6 text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-[0.99]"
         >
           <span>Back to Homepage</span>
-          <ArrowRight className="size-4 text-warm-muted" aria-hidden />
+          <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
         </Link>
       </div>
     </div>

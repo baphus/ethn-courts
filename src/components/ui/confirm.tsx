@@ -19,7 +19,7 @@ function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const confirm = React.useCallback<ConfirmContextValue>((message, options = {}) => new Promise((resolve) => {
     if (pending.current) { resolve(false); return }
     // Stay inside the current modal's focus and accessibility boundary.
-    const host = document.activeElement?.closest('[data-slot="dialog-content"], [data-slot="sheet-content"], dialog[open]') ?? document.body
+    const host = document.activeElement?.closest('[data-slot="dialog-content"], [data-slot="sheet-content"], dialog[open], .daylight') ?? document.body
     pending.current = { message, options, host, resolve }
     setActive(pending.current)
   }), [])

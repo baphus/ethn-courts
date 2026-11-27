@@ -18,11 +18,12 @@ export function ViewToggle({
       <span
         aria-hidden
         className={cn(
-          "absolute top-1 left-1 size-7 rounded-full bg-background shadow-sm transition-transform",
+          "absolute top-1 left-1 size-7 rounded-full bg-background shadow-sm transition-transform motion-reduce:transition-none",
           view === "grid" && "translate-x-7"
         )}
       />
       <Button
+        type="button"
         variant="ghost"
         size="icon-sm"
         aria-label="List view"
@@ -36,6 +37,7 @@ export function ViewToggle({
         <ListIcon />
       </Button>
       <Button
+        type="button"
         variant="ghost"
         size="icon-sm"
         aria-label="Grid view"

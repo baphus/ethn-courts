@@ -28,6 +28,6 @@ export function GlanceKpis({ state, range, onRange }: { state: AnalyticsState<Ov
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{c.label}</p>
         <div className="mt-1 text-xl font-semibold tabular-nums">{c.value ?? (state.error ? "Unavailable" : <Skeleton className="h-7 w-16 motion-reduce:animate-none" />)}</div>
         <p className="mt-0.5 text-[11px] text-muted-foreground">{c.hint}</p>
-      </div>)}</div>;
+      </div>)}</div>
   </section>;
 }

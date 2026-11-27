@@ -7,7 +7,7 @@ import { GET as listInvites, POST as createInvite } from "../src/app/api/auth/in
 import { GET as validateInvite } from "../src/app/api/auth/invites/validate/route";
 import { DELETE as revokeInvite } from "../src/app/api/auth/invites/revoke/route";
 
-test("legacy mail and invite routes are inert; only ETHN outbox stays scheduled", async () => {
+test("legacy mail and invite routes are inert; only ETHN outbox is scheduled by Vercel", async () => {
   for (const handler of [legacyCron, register, listInvites, createInvite, validateInvite, revokeInvite]) {
     const response = handler();
     assert.equal(response.status, 410);

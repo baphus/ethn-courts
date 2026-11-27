@@ -89,7 +89,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   if (q.length > 100 || selected.length > statuses.size || selected.some(status => !statuses.has(status)) || (from && !date(from)) || (to && !date(to)) || (from && to && from > to) || !/^\d+$/.test(pageRaw) || !/^\d+$/.test(limitRaw)) invalid();
   const page = Number(pageRaw), limit = Number(limitRaw);
   if (page < 1 || page > 1000 || limit < 1 || limit > 50) invalid();
-  await getStaff(pool, verify);
+  const actor = await getStaff(pool, verify);
   const offset = (page - 1) * limit;
   const values: unknown[] = [];
   const filters = [uuid.test(q) && !selected.length ? `(${visibleBooking} OR (${latePayment}))` : visibleBooking];
@@ -120,8 +120,16 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const total = Number((await client.query(`SELECT count(*)::int AS total FROM ethn.bookings b ${where}`, values)).rows[0].total);
-    const rows = await client.query<SummaryRow & { archived: boolean; tracking_code: string | null; guest_email: string | null; guest_phone: string | null }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+    const rows = await client.query<SummaryRow & { archived: boolean; tracking_code: string | null; guest_email: string | null; guest_phone: string | null; can_complete: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
       b.archived_at IS NOT NULL AS archived, b.tracking_code, b.guest_email, b.guest_phone,
+      CASE WHEN b.status = 'confirmed' AND b.archived_at IS NULL THEN
+        NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending'))
+        AND COALESCE((SELECT max(ends_at) FROM (
+          SELECT i.ends_at FROM ethn.booking_items i WHERE i.booking_id=b.id
+          UNION ALL SELECT ei.ends_at FROM ethn.extension_items ei JOIN ethn.extensions e ON e.id=ei.extension_id
+            WHERE e.booking_id=b.id AND e.status='confirmed'
+        ) AS reserved) <= statement_timestamp(), false)
+      ELSE false END AS can_complete,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
       FROM ethn.bookings b ${where} ORDER BY b.created_at DESC, b.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset]);
@@ -141,7 +149,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
       }
     }
     await client.query("COMMIT");
-    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
+    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived, canComplete: actor.role === "owner" && row.can_complete, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
 }

@@ -39,7 +39,7 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true),($3,'staff',false)", [owner, staff, disabled]);
     const futurePending = await booking("pending", { start: future });
     const overduePending = await booking("pending");
-    await booking("confirmed"); await booking("completed");
+    const confirmed = await booking("confirmed"); await booking("completed");
     const expired = await booking("expired");
     const held = await booking("held"), staleHold = await booking("held");
     await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [staleHold]);
@@ -60,6 +60,12 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
 
     const all = await searchEthnBookings(pool, async () => staff, new URLSearchParams());
     assert.equal(all.total, 5);
+    assert.equal(all.rows.find(row => row.id === confirmed)?.canComplete, true);
+    assert.equal(all.rows.find(row => row.id === futurePending)?.canComplete, false);
+    await admin.query("UPDATE ethn.staff_access SET role='staff' WHERE user_id=$1", [staff]);
+    const staffView = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${confirmed}`));
+    assert.equal(staffView.rows[0]?.canComplete, false);
+    await admin.query("UPDATE ethn.staff_access SET role='owner' WHERE user_id=$1", [staff]);
     assert.ok(all.rows.every(row => !["held", "expired"].includes(row.status)));
     for (const id of [held, staleHold, expired]) {
       const hidden = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${id}&archived=all`));
