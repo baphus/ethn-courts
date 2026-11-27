@@ -22,6 +22,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     { id: "7", kind: "booking_approved", payload: { email: base.email, staff: true, total: base.total }, attempts: 0 },
     { id: "8", kind: "booking_approved", payload: { ...base, email: "one,two@example.com" }, attempts: 0 },
     { id: "9", kind: "booking_approved", payload: { ...base, trackingToken: token, openPlayPublished: true }, attempts: 0 },
+    { id: "10", kind: "booking_submission", payload: { ...base, trackingToken: token }, attempts: 0 },
   ];
   const statuses: unknown[] = [], messages: Parameters<Parameters<typeof drainEthnOutbox>[1]["sendMail"]>[0][] = [];
   let released = false;
@@ -34,32 +35,39 @@ test("decision mail validates kinds and optional token without breaking submissi
   };
   const pool = { query, connect: async () => ({ query, release() { released = true; } }) };
   await drainEthnOutbox(pool as never, { sendMail: async m => { assert.equal(released, true); messages.push(m); } }, { bookingId, from: "mail@example.com", appUrl: "https://example.com" });
-  assert.match(messages.at(-1)!.text, /View public Open Plays: https:\/\/example\.com\/open-plays/);
+  assert.match(messages[6].text, /View public Open Plays: https:\/\/example\.com\/open-plays/);
   assert.doesNotMatch(messages[1].text, /View public Open Plays/);
-  assert.deepEqual(statuses, ["sent", "sent", "sent", "dead", "sent", "sent", "sent", "dead", "sent"]);
-  assert.deepEqual(messages.map(m => m.subject), ["Open Play booking request received — ETHN Courts", "You’re booked at ETHN Courts", "Your booking wasn’t confirmed — ETHN Courts", "Booking cancelled — ETHN Courts", "Refund recorded — ETHN Courts", "You’re booked at ETHN Courts", "You’re booked at ETHN Courts"]);
+  assert.deepEqual(statuses, ["sent", "sent", "sent", "dead", "sent", "sent", "sent", "dead", "sent", "sent"]);
+  assert.deepEqual(messages.map(m => m.subject), ["Booking submitted!", "You’re booked at ETHN Courts", "Your booking wasn’t confirmed — ETHN Courts", "Booking cancelled — ETHN Courts", "Refund recorded — ETHN Courts", "You’re booked at ETHN Courts", "You’re booked at ETHN Courts", "Booking submitted!"]);
   const actions = [
     `/checkout/track/${token}`, "/track", "/contact", "/contact", `/checkout/track/${token}`,
-  ].map(path => `https://example.com${path}`).concat(VENUE_MAP_LINK, `https://example.com/checkout/track/${token}`);
-  const actionLabels = ["Track booking", "Track with your code and email", "Contact ETHN Courts", "Contact ETHN Courts", "View booking", "Get directions", "View booking"];
+  ].map(path => `https://example.com${path}`).concat(VENUE_MAP_LINK, `https://example.com/checkout/track/${token}`, `https://example.com/checkout/track/${token}`);
+  const actionLabels = ["Track booking", "Track with your code and email", "Contact ETHN Courts", "Contact ETHN Courts", "View booking", "Get directions", "View booking", "Track booking"];
   for (const [index, message] of messages.entries()) {
     assert.match(message.html!, /<!doctype html>[\s\S]*mso-hide:all/);
     assert.equal(message.html!.match(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/)?.slice(1).join(" "), `${actions[index].replaceAll("&", "&amp;")} ${actionLabels[index]}`);
     assert.ok(message.text.includes(`${actionLabels[index]}: ${actions[index]}`));
     assert.ok(message.html!.includes('href="https://example.com/contact"'));
     const approved = [1, 5, 6].includes(index);
-    const qr = [0, 6].includes(index);
+    const submitted = [0, 7].includes(index);
+    const qr = submitted || index === 6;
+    if (submitted) {
+      assert.match(message.html, /<h1[^>]*>Booking submitted!<\/h1>/);
+      assert.match(message.text, /We’ll review your payment before confirming your booking\./);
+      assert.match(message.text, /Booking total: ₱100\.02/);
+      assert.doesNotMatch(message.text, /Total paid/);
+    }
     assert.deepEqual(message.attachments.map(a => a.cid), qr ? ["ethn-logo@ethn-courts", "booking-tracking@ethn-courts"] : ["ethn-logo@ethn-courts"]);
     for (const image of message.attachments) {
       assert.ok(message.html.includes(`src="cid:${image.cid}"`));
       assert.equal(image.content.subarray(1, 4).toString(), "PNG");
     }
     if (qr) assert.match(message.html, /not for check-in/);
-    if (approved || index === 0) {
+    if (approved || submitted) {
       assert.ok(message.text.includes(`${approved ? "Booking invoice" : "Booking breakdown"}\nBooking date: January 1, 2026`));
       assert.match(message.text, /8PM–1AM \(\+1 day\)\n10 × 30-min slots · ₱10\.00\/slot · Subtotal: ₱100\.00/i);
       assert.match(message.text, /3 × 30-min slots · approx\. ₱0\.01\/slot · Subtotal: ₱0\.02/);
-      assert.match(message.text, /Total slots: 13\nPayment method: GCash/);
+      assert.match(message.text, /Total slots: 13\n\nPayment\nPayment method: GCash/);
       assert.match(message.html, /Court &lt;1&gt;/);
     } else {
       assert.match(message.text, /Court schedule\nCourt <1>: Jan 1, 2026 · 8PM–1AM \(\+1 day\)/);
@@ -78,8 +86,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     assert.doesNotMatch(`${message.text}\n${message.html}`, /private note|private reference/);
   }
   assert.match(messages[0].text, /listing stays private until your booking is confirmed/);
-  assert.match(messages[0].text, /Booking total: ₱100\.02/);
-  assert.doesNotMatch(messages[0].text, /Total paid/);
+  assert.doesNotMatch(messages[7].text, /Open Play/);
   assert.match(messages[1].text, /Total paid: ₱100\.02/);
   assert.match(messages[2].text, /isn’t booked[\s\S]*Please resubmit/);
   assert.match(messages[2].html!, /Receipt &lt;unclear&gt; &amp; cropped\.<br>Please resubmit/);

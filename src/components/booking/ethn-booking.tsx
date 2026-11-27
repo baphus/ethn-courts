@@ -563,7 +563,7 @@ export default function EthnBooking({ bookingPage = false, afterBooking }: { boo
         </section>
     ) : bookingPage && draft ? <section className="mx-auto grid w-full max-w-6xl gap-4 rounded-2xl border border-border bg-card p-4 text-foreground public-card sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
       <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-2"><h2 className="font-display text-2xl font-bold text-foreground">Payment &amp; proof</h2></div>
-      <div className="min-w-0 space-y-4 lg:col-start-2 lg:row-start-2">{restored && <p className="rounded-lg bg-accent p-3 text-sm">Checkout restored in this tab. Refreshing does not reset your hold timer. If you already paid, do not pay again.</p>}
+      <div className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:col-start-2 lg:row-start-2 lg:self-start">{restored && <p className="rounded-lg bg-accent p-3 text-sm">Checkout restored in this tab. Refreshing does not reset your hold timer. If you already paid, do not pay again.</p>}
       {!clockReady && <Button variant="outline" className="public-cta-secondary mx-auto flex" disabled={loading} onClick={() => void load()}>Refresh server time</Button>}
       <BookingInvoice heading="Booking summary" date={draft.date} total={draft.checkout.total} totalLabel="Total due" items={draft.checkout.items.map(item => ({ court: availability?.courts.find(c => c.id === item.courtId)?.name ?? `Court ${item.courtId}`, startsAt: item.start, endsAt: item.end, durationMinutes: item.minutes, intervalMinutes: draft.checkout.intervalMinutes, hourlyRate: item.rate, amount: item.amount }))} />
       </div><div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2">
@@ -689,7 +689,7 @@ export default function EthnBooking({ bookingPage = false, afterBooking }: { boo
       {/* FIND US */}
       <section id="find-us" className="relative isolate scroll-mt-28 sm:scroll-mt-32 bg-muted px-4 py-12 text-center text-foreground sm:px-6">
         <Guides />
-        <h2 className="landing-heading mx-auto max-w-3xl text-[var(--daylight-lime)]">Your neighborhood court</h2>
+        <h2 className="landing-heading mx-auto max-w-3xl text-foreground">Your neighborhood court</h2>
         <p className="mx-auto mt-5 max-w-sm text-xs leading-5 text-muted-foreground">{VENUE_ADDRESS}. Better rallies, right where you live.</p>
         <a href="/book" className="mt-7 inline-flex min-h-10 items-center rounded-md public-cta-primary public-cta-on-dark px-5 text-xs font-bold transition-colors">Book a court</a>
       </section>

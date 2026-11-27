@@ -15,8 +15,8 @@ type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?
 type InlineImage = { filename: string; cid: string; content: Buffer; contentType: "image/png" };
 type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html: string; messageId: string; attachments: InlineImage[] }): Promise<unknown> };
 const notices: Record<string, { title: string; preheader: string; status: string; amount?: string }> = {
-  booking_submission: { title: "Payment proof received", preheader: "Your booking isn’t confirmed yet.", status: "We received your payment proof. Our team will review it and email you with the outcome. Your booking isn’t confirmed yet.", amount: "Booking total" },
-  open_play_submitted: { title: "Open Play booking request received", preheader: "Your booking isn?t confirmed yet.", status: "We received your payment proof and Open Play details. The listing stays private until your booking is confirmed.", amount: "Booking total" },
+  booking_submission: { title: "Booking submitted!", preheader: "Your booking isn’t confirmed yet.", status: "We’ll review your payment before confirming your booking.", amount: "Booking total" },
+  open_play_submitted: { title: "Booking submitted!", preheader: "Your booking isn’t confirmed yet.", status: "We’ll review your payment before confirming your booking. Your Open Play listing stays private until your booking is confirmed.", amount: "Booking total" },
   open_play_added: { title: "Open Play added to your booking", preheader: "Your Open Play details are saved.", status: "Your Open Play details are saved. An eligible listing appears on the site once your booking is confirmed." },
   booking_approved: { title: "You’re booked at ETHN Courts", preheader: "Your court time is confirmed and paid in full.", status: "Your payment has been verified and your court time is confirmed.", amount: "Total paid" },
   booking_rejected: { title: "Your booking wasn’t confirmed", preheader: "We couldn’t verify your payment proof.", status: "We couldn’t verify your payment proof, so your court time isn’t booked. See the reason below. If you believe you already paid, contact us before paying again." },
@@ -198,6 +198,8 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
               `Booking date: ${formatDisplayDate(invoice[0].booking_date)}`,
               ...invoice.map((item, index) => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)}\n${invoiceSlotRate(item.duration_minutes, item.interval_minutes)}${slotPrice(item, slots[index])} · Subtotal: ${invoiceMoney(item.amount)}`),
               `Total slots: ${slots.every(count => count !== undefined) ? slots.reduce((total, count) => total + count, 0) : "Unavailable"}`,
+            ] });
+            sections.push({ title: "Payment", lines: [
               ...(invoice[0].method_name ? [`Payment method: ${invoice[0].method_name}`] : []),
               `${approved ? "Total paid" : "Booking total"}: ${invoiceMoney(p.total as string)}`,
             ] });
@@ -217,7 +219,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
             ...notice,
             status: approved && p.staff === true ? "Our team booked your court time and recorded your payment in full." : approved && p.openPlayPublished === true ? `${notice.status} Your Open Play is now listed on our site.` : notice.status,
             audience: "Booking update", sections, action, links: links.filter(link => link !== action), footer,
-          }, approved ? notice.title : undefined, token && p.staff !== true && (submission || approved) ? tracking?.href : undefined);
+          }, approved || submission ? notice.title : undefined, token && p.staff !== true && (submission || approved) ? tracking?.href : undefined);
           deliveryStage = "SMTP";
           await transport.sendMail({ from: config.from, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
           status = "sent";
