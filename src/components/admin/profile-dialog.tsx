@@ -86,7 +86,7 @@ export default function ProfileDialog({ email, name }: Props) {
         <form className="grid gap-4" onSubmit={submit}>
           <div className="grid gap-2">
             <Label htmlFor="profile-name">Display name</Label>
-            <Input
+            <Input placeholder="Alex Reyes"
               id="profile-name"
               name="name"
               autoComplete="nickname"

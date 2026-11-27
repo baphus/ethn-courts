@@ -255,8 +255,8 @@ export default function CourtSetup() {
           <DialogTitle>Add court</DialogTitle>
           <DialogDescription>A new court starts inactive. Add hours and rates in Edit court before activating it.</DialogDescription>
           <form onSubmit={createCourt} className="space-y-4">
-            <label className="grid gap-1 text-sm font-medium">Court name<Input required maxLength={100} value={newCourt.name} onChange={e => setNewCourt({ ...newCourt, name: e.target.value })} /></label>
-            <label className="grid gap-1 text-sm font-medium">Description <span className="font-normal text-muted-foreground">Optional, shown on public pages</span><Textarea rows={3} maxLength={1000} value={newCourt.description} onChange={e => setNewCourt({ ...newCourt, description: e.target.value })} /></label>
+            <label className="grid gap-1 text-sm font-medium">Court name<Input placeholder="Court 1" required maxLength={100} value={newCourt.name} onChange={e => setNewCourt({ ...newCourt, name: e.target.value })} /></label>
+            <label className="grid gap-1 text-sm font-medium">Description <span className="font-normal text-muted-foreground">Optional, shown on public pages</span><Textarea placeholder="Surface, location, or amenities" rows={3} maxLength={1000} value={newCourt.description} onChange={e => setNewCourt({ ...newCourt, description: e.target.value })} /></label>
             {dialogError && <p role="alert" className="text-sm text-destructive">{dialogError}</p>}
             <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create court"}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setAddOpen(false)}>Cancel</Button></div>
           </form>

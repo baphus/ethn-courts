@@ -19,13 +19,13 @@ export type Expense = {
 export function ExpenseFields({ expense, today, disabled }: { expense?: Expense; today: string; disabled: boolean }) {
   const categories = expense && !newExpenseCategories.some(category => category === expense.category) ? [...newExpenseCategories, expense.category] : newExpenseCategories;
   return <>
-    <label className="grid gap-1 text-sm">Title<Input name="title" required maxLength={100} defaultValue={expense?.title} /></label>
+    <label className="grid gap-1 text-sm">Title<Input placeholder="Court cleaning" name="title" required maxLength={100} defaultValue={expense?.title} /></label>
     <label className="grid gap-1 text-sm">Category<FormSelect disabled={disabled} aria-label="Category" name="category" defaultValue={expense?.category ?? "Rent"} options={categories.map(value => ({ value, label: value }))} /></label>
-    <label className="grid gap-1 text-sm">Amount (PHP)<Input name="amount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={expense?.effectiveAmount} /></label>
+    <label className="grid gap-1 text-sm">Amount (PHP)<Input placeholder="500.00" name="amount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={expense?.effectiveAmount} /></label>
     <label className="grid gap-1 text-sm">Paid date<DateField name="paidDate" required max={today} disabled={disabled} defaultValue={expense?.paidDate ?? today} /></label>
-    <label className="grid gap-1 text-sm">Description (optional)<Input name="description" maxLength={2000} defaultValue={expense?.description ?? ""} /></label>
-    <label className="grid gap-1 text-sm">Vendor / payee (optional)<Input name="vendor" maxLength={160} defaultValue={expense?.vendor ?? ""} /></label>
-    <label className="grid gap-1 text-sm">Notes (optional)<Textarea name="notes" maxLength={2000} defaultValue={expense?.notes ?? ""} /></label>
+    <label className="grid gap-1 text-sm">Description (optional)<Input placeholder="What the expense covered" name="description" maxLength={2000} defaultValue={expense?.description ?? ""} /></label>
+    <label className="grid gap-1 text-sm">Vendor / payee (optional)<Input placeholder="Who received the payment" name="vendor" maxLength={160} defaultValue={expense?.vendor ?? ""} /></label>
+    <label className="grid gap-1 text-sm">Notes (optional)<Textarea placeholder="Receipt details or internal notes" name="notes" maxLength={2000} defaultValue={expense?.notes ?? ""} /></label>
   </>;
 }
 

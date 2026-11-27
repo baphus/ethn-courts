@@ -97,8 +97,8 @@ export default function SetupForm() {
             <form onSubmit={onSubmit}>
               <FieldGroup>
                 <Field><FieldLabel htmlFor="email">Email</FieldLabel><Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="owner@example.com" required disabled={busy} /></Field>
-                <Field><FieldLabel htmlFor="password">Password</FieldLabel><Input id="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={busy} /></Field>
-                <Field><FieldLabel htmlFor="setup-key">Setup key</FieldLabel><Input id="setup-key" type="password" autoComplete="off" value={setupKey} onChange={(e) => setSetupKey(e.target.value)} required disabled={busy} /><p className="text-xs text-muted-foreground">Enter the setup key provided by your administrator.</p></Field>
+                <Field><FieldLabel htmlFor="password">Password</FieldLabel><Input placeholder="Create a password" id="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={busy} /></Field>
+                <Field><FieldLabel htmlFor="setup-key">Setup key</FieldLabel><Input placeholder="Paste your setup key" id="setup-key" type="password" autoComplete="off" value={setupKey} onChange={(e) => setSetupKey(e.target.value)} required disabled={busy} /><p className="text-xs text-muted-foreground">Enter the setup key provided by your administrator.</p></Field>
                 {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
                 <Button type="submit" disabled={busy} className="public-cta-primary w-full rounded-lg font-bold">
                   {busy ? <span className="flex items-center justify-center gap-2"><LoadingAnimation size="compact" label="Creating account" />Creating account…</span> : "Create owner account"}

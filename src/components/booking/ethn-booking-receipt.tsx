@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, Download, ExternalLink, MapPin, QrCode } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, MapPin, QrCode } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { BookingStatusBadge } from "@/components/booking/booking-status";
 import { BookingInvoice } from "@/components/booking/ethn-booking-invoice";
@@ -62,10 +62,11 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
   return <div className="mx-auto w-full max-w-3xl space-y-4 pb-6 text-foreground">
     <section className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="h-2 bg-primary" />
-      <div className="p-5 sm:p-6">
-        <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-black tracking-tight outline-none sm:text-4xl">{receipt.status.toLowerCase() === "pending" ? "Payment proof submitted" : "Request received"}</h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">Thank you, {receipt.customerName}. Keep this receipt to check your reservation status.</p>
-        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm"><span className="font-semibold">Current status:</span> <BookingStatusBadge state={receipt.status} /></div>
+      <div className="p-5 text-center sm:p-6">
+        <span aria-hidden="true" className="mx-auto grid size-14 place-items-center rounded-full bg-accent text-primary"><Check className="size-7" strokeWidth={2.5} /></span>
+        <h1 ref={headingRef} tabIndex={-1} className="mt-4 font-display text-3xl font-black tracking-tight outline-none sm:text-4xl">{receipt.status.toLowerCase() === "pending" ? "Booking submitted!" : "Request received"}</h1>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">{receipt.status.toLowerCase() === "pending" ? "We’ll review your payment before confirming your booking." : `Thank you, ${receipt.customerName}. Keep this receipt to check your reservation status.`}</p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-sm"><span className="font-semibold">Current status:</span> <BookingStatusBadge state={receipt.status} /></div>
         <p className="mt-3 text-sm">{openPlaySaved === true ? "Open Play details saved. Your listing stays private until your booking is confirmed. " : openPlaySaved === false ? "Your booking request was received, but your Open Play listing could not be added because the court times no longer qualify. " : null}<a href="/track" className="font-semibold underline">{openPlaySaved === true ? "Manage your Open Play" : "Hosting an Open Play?"}</a> Use your tracking code and booking email.</p>
         {receipt.status.toLowerCase() === "pending" && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950">Pending review. Your reservation is not yet confirmed; staff must verify your payment.</p>}
       </div>
@@ -91,6 +92,6 @@ export default function EthnBookingReceipt({ receipt, trackingToken, code, openP
 
       <BookingInvoice date={receipt.operatingDate} items={receipt.items} paymentMethod={receipt.paymentMethod} email={receipt.maskedEmail} total={receipt.total} />
     </div><section aria-labelledby="venue-location" className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-foreground"><MapPin className="size-5" aria-hidden="true" /></span><div><h2 id="venue-location" className="text-xl font-bold">Find ETHN Courts</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{VENUE_ADDRESS}</p></div></div><iframe title="Map showing ETHN Courts" src={VENUE_MAP_EMBED} loading="lazy" referrerPolicy="no-referrer" className="mt-5 h-56 w-full rounded-xl border border-border" /><div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-bold"><a href={VENUE_MAP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-primary underline underline-offset-2">Get directions <ExternalLink className="size-4" aria-hidden="true" /></a>{venuePhoneLinks().map(({ label, href }) => <a key={href} href={href} className="inline-flex min-h-6 items-center text-primary underline underline-offset-2">{label}</a>)}<a href={VENUE_FACEBOOK_LINK} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">Message on Facebook</a></div></section>
-    <button type="button" onClick={onAnotherBooking} className={`${button} w-full border border-input bg-card hover:bg-accent sm:w-auto`}>Book another time</button>
+    <div className="text-center"><button type="button" onClick={onAnotherBooking} className={`${button} border border-input bg-card hover:bg-accent`}>Book another time</button></div>
   </div>;
 }
