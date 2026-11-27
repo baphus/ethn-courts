@@ -5,7 +5,7 @@
 // Also maps the few bare specifiers whose package "exports" only resolve
 // through Next's webpack/turbopack aliasing (next/server, @/…), which the
 // plain Node resolver cannot follow.
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -39,11 +39,22 @@ export async function resolve(specifier, context, next) {
 
 async function resolveRelative(specifier, parentURL, context, next) {
   const base = parentURL ?? pathToFileURL(process.cwd() + "/");
-  for (const candidate of [specifier, `${specifier}.ts`, `${specifier}/index.ts`]) {
+  for (const candidate of [specifier, `${specifier}.ts`, `${specifier}.tsx`, `${specifier}/index.ts`, `${specifier}/index.tsx`]) {
     const url = new URL(candidate, base);
     if (url.protocol !== "file:") continue;
     if (existsSync(fileURLToPath(url)))
       return next(candidate, { ...context, parentURL: base });
   }
   return next(specifier, { ...context, parentURL: base });
+}
+
+export async function load(url, context, next) {
+  if (!url.startsWith("file:") || !url.endsWith(".tsx")) return next(url, context);
+  const { default: ts } = await import("typescript");
+  const fileName = fileURLToPath(url);
+  const { outputText } = ts.transpileModule(readFileSync(fileName, "utf8"), {
+    fileName,
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ESNext, inlineSourceMap: true },
+  });
+  return { format: "module", source: outputText, shortCircuit: true };
 }

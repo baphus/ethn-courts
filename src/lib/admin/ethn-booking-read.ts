@@ -121,7 +121,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const total = Number((await client.query(`SELECT count(*)::int AS total FROM ethn.bookings b ${where}`, values)).rows[0].total);
-    const rows = await client.query<SummaryRow & { archived: boolean; tracking_code: string | null; guest_email: string | null; guest_phone: string | null; can_complete: boolean; can_cancel: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+    const rows = await client.query<SummaryRow & { archived: boolean; tracking_code: string | null; guest_email: string | null; guest_phone: string | null; can_complete: boolean; can_cancel: boolean; can_delete: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
       b.archived_at IS NOT NULL AS archived, b.tracking_code, b.guest_email, b.guest_phone,
       CASE WHEN b.status = 'confirmed' AND b.archived_at IS NULL THEN
         NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending'))
@@ -134,6 +134,9 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
       (b.status = 'confirmed' AND b.walk_in_actor IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('pending','confirmed'))
         AND COALESCE((SELECT min(i.starts_at) FROM ethn.booking_items i WHERE i.booking_id=b.id) > statement_timestamp(), false)) AS can_cancel,
+       (NOT EXISTS (SELECT 1 FROM ethn.payments p WHERE p.status = 'accepted'
+         AND (p.booking_id = b.id OR p.extension_id IN (SELECT e.id FROM ethn.extensions e WHERE e.booking_id = b.id)))
+         AND NOT EXISTS (SELECT 1 FROM ethn.booking_refunds r WHERE r.booking_id = b.id)) AS can_delete,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
       FROM ethn.bookings b ${where} ORDER BY b.created_at DESC, b.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset]);
@@ -154,7 +157,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
     }
     await client.query("COMMIT");
     const owner = actor.role === "owner";
-    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived, canComplete: owner && row.can_complete, canCancel: owner && row.can_cancel, canArchive: owner && !row.archived && archivableBookingStatuses.includes(row.status), canDelete: owner, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
+    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived, canComplete: owner && row.can_complete, canCancel: owner && row.can_cancel, canArchive: owner && !row.archived && archivableBookingStatuses.includes(row.status), canDelete: owner && row.can_delete, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
 }

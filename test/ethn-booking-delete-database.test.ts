@@ -33,12 +33,19 @@ test('owner deletion removes records, preserves running slots and retries proof 
    await decidePayment(pool,verify,{bookingId:paidOnline.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true});
    await bookingAction(pool,verify,paidOnline.checkoutId,'refund',{key:randomUUID(),reason:'Refunded externally',reference:'Verified transfer'});
    const deletion = {key:randomUUID(),reason:'Duplicate booking entered in error'};
-   const id = paidOnline.checkoutId;
    const search = (bookingId: string) => searchEthnBookings(pool, verify, new URLSearchParams({q:bookingId}));
-   const { rows: [refunded] } = await search(id);
-   assert.equal(refunded.canDelete,true);
+   const { rows: [refunded] } = await search(paidOnline.checkoutId);
+   assert.equal(refunded.canDelete,false);
    assert.equal(refunded.canArchive,true);
    assert.equal(refunded.canCancel,false);
+   await assert.rejects(bookingAction(pool,verify,paidOnline.checkoutId,'delete',deletion),/ACTION_CONFLICT/);
+   assert.equal((await pool.query("SELECT 1 FROM ethn.booking_refunds WHERE booking_id=$1",[paidOnline.checkoutId])).rowCount,1);
+   await assert.rejects(pool.query('SELECT ethn.permanently_delete_unpaid_booking_rows($1,$2,$3)',[paidOnline.checkoutId,actor,deletion.reason]),/permission denied/);
+   const unpaidInput = {...onlineInput,idempotencyKey:randomUUID()};
+   const {checkoutId:id} = await createCheckout(pool,unpaidInput);
+   const unpaidProof = await reserveProof(pool,{ownerToken,checkoutId:id,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
+   await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:id,reservationId:unpaidProof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Unpaid guest',email:'unpaid@example.test',phone:'123'}});
+   assert.equal((await search(id)).rows[0].canDelete,true);
    await assert.rejects(bookingAction(pool,async()=>randomUUID(),id,'delete',deletion),/FORBIDDEN/);
    const deleted = await bookingAction(pool,verify,id,'delete',deletion);
    assert.deepEqual(deleted,{bookingId:id,status:'deleted',proofCleanupPending:true});
@@ -49,17 +56,29 @@ test('owner deletion removes records, preserves running slots and retries proof 
    }
    assert.equal((await listInbox(pool,verify)).some(item=>item.link===`/admin/bookings/${id}`),false);
    assert.deepEqual((await admin.query("SELECT actor,detail FROM ethn.audit WHERE action='booking.delete'")).rows,[{actor,detail:{bookingId:id,reason:deletion.reason}}]);
-   await assert.rejects(createCheckout(pool,onlineInput),/IDEMPOTENCY_INCOMPLETE/);
+   await assert.rejects(createCheckout(pool,unpaidInput),/IDEMPOTENCY_INCOMPLETE/);
    assert.deepEqual(await cleanDeletedBookingProofs(pool,async()=>{throw Error('offline');},id),{attempted:1,failed:1});
    await admin.query("UPDATE ethn.deleted_booking_proofs SET next_attempt=now()-interval '1 minute',final_after=now()-interval '1 minute' WHERE booking_id=$1",[id]);
-   assert.deepEqual(await cleanDeletedBookingProofs(pool,async path=>assert.equal(path,proof.objectPath),id),{attempted:1,failed:0});
+   assert.deepEqual(await cleanDeletedBookingProofs(pool,async path=>assert.equal(path,unpaidProof.objectPath),id),{attempted:1,failed:0});
    assert.equal((await admin.query('SELECT 1 FROM ethn.deleted_booking_proofs WHERE booking_id=$1',[id])).rowCount,0);
    const anotherDate = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()+3*86400000));
    const current = {...first,start:`${anotherDate}T00:00:00.000Z`,end:`${anotherDate}T02:00:00.000Z`};
    const extra = {...current,start:current.end,end:`${anotherDate}T03:00:00.000Z`};
-   const paid = await createInternalBooking(pool,verify,{...input,date:anotherDate,ranges:[current],displayedTotal:'400.00',method:'cash',idempotencyKey:randomUUID()});
+   const expired = await createCheckout(pool,{...onlineInput,date:anotherDate,ranges:[current],displayedTotal:'400.00',idempotencyKey:randomUUID()});
+   const abandoned = await reserveProof(pool,{ownerToken,checkoutId:expired.checkoutId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
+   await pool.query('SELECT ethn.queue_abandoned_booking_proofs()');
+   assert.deepEqual(await cleanDeletedBookingProofs(pool,async()=>assert.fail('proof still in retention window'),expired.checkoutId),{attempted:0,failed:0});
+   await admin.query("UPDATE ethn.bookings SET expires_at=now()-interval '91 days' WHERE id=$1",[expired.checkoutId]);
+   await pool.query('SELECT ethn.queue_abandoned_booking_proofs()');
+   assert.equal((await pool.query('SELECT state FROM ethn.proof_reservations WHERE id=$1',[abandoned.reservationId])).rows[0].state,'deleted');
+   assert.equal((await pool.query('SELECT state FROM ethn.proof_reservations WHERE id=$1',[proof.reservationId])).rows[0].state,'attached');
+   assert.deepEqual(await cleanDeletedBookingProofs(pool,async path=>assert.equal(path,abandoned.objectPath),expired.checkoutId),{attempted:1,failed:0});
+   const paid = await createCheckout(pool,{...onlineInput,date:anotherDate,ranges:[current],displayedTotal:'400.00',idempotencyKey:randomUUID()});
+   const bookingId = paid.checkoutId;
+   const pendingProof = await reserveProof(pool,{ownerToken,checkoutId:bookingId,idempotencyKey:randomUUID(),mimeType:'image/png',byteSize:10});
+   await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:bookingId,reservationId:pendingProof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Pending guest',email:'pending@example.test',phone:'123'}});
    const extension = randomUUID(), extensionItem = randomUUID();
-   await admin.query("INSERT INTO ethn.extensions(id,booking_id,status,expires_at,operating_date,total,settings_version,created_by,idempotency_key) VALUES($1,$2,'confirmed',$3,$4,200,1,$5,$1::uuid::text)",[extension,paid.bookingId,extra.end,anotherDate,actor]);
+   await admin.query("INSERT INTO ethn.extensions(id,booking_id,status,expires_at,operating_date,total,settings_version,created_by,idempotency_key) VALUES($1,$2,'confirmed',$3,$4,200,1,$5,$1::uuid::text)",[extension,bookingId,extra.end,anotherDate,actor]);
    await admin.query('INSERT INTO ethn.extension_items(id,extension_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes) VALUES($1,$2,1,$3,$4,200,60,200,60)',[extensionItem,extension,extra.start,extra.end]);
    await admin.query("INSERT INTO ethn.court_allocations(id,extension_item_id,court_id,starts_at,ends_at,state) VALUES(gen_random_uuid(),$1,1,$2,$3,'confirmed')",[extensionItem,extra.start,extra.end]);
    const extProof = `extension-incoming/${'f'.repeat(64)}.png`;
@@ -67,14 +86,16 @@ test('owner deletion removes records, preserves running slots and retries proof 
    await admin.query(`WITH moved AS (
      UPDATE ethn.booking_items SET starts_at=statement_timestamp()-interval '30 minutes',ends_at=statement_timestamp()+interval '90 minutes'
      WHERE booking_id=$1 RETURNING id,starts_at,ends_at
-   ) UPDATE ethn.court_allocations a SET starts_at=m.starts_at,ends_at=m.ends_at FROM moved m WHERE a.item_id=m.id`,[paid.bookingId]);
-   await bookingAction(pool,verify,paid.bookingId,'delete',{key:randomUUID(),reason:'Duplicate paid booking'});
-   assert.equal((await admin.query('SELECT 1 FROM ethn.payments WHERE booking_id=$1',[paid.bookingId])).rowCount,0);
+   ) UPDATE ethn.court_allocations a SET starts_at=m.starts_at,ends_at=m.ends_at FROM moved m WHERE a.item_id=m.id`,[bookingId]);
+   await bookingAction(pool,verify,bookingId,'delete',{key:randomUUID(),reason:'Duplicate paid booking'});
+   assert.equal((await admin.query('SELECT 1 FROM ethn.payments WHERE booking_id=$1',[bookingId])).rowCount,0);
    assert.equal((await admin.query('SELECT 1 FROM ethn.extensions WHERE id=$1',[extension])).rowCount,0);
    assert.equal((await admin.query("SELECT 1 FROM ethn.court_allocations a JOIN ethn.court_blocks b ON b.id=a.block_id WHERE b.kind='deleted_booking' AND a.state='confirmed' AND a.starts_at < now() AND a.ends_at > now() AND a.ends_at < now()+interval '40 minutes'")).rowCount,1);
    assert.equal((await createInternalBooking(pool,verify,{...input,date:anotherDate,ranges:[extra],displayedTotal:'200.00',method:'cash',idempotencyKey:randomUUID()})).status,'confirmed');
-   assert.deepEqual(await cleanDeletedBookingProofs(pool,async path=>assert.equal(path,extProof),paid.bookingId),{attempted:1,failed:0});
-   assert.equal((await admin.query('SELECT 1 FROM ethn.deleted_booking_proofs WHERE booking_id=$1 AND next_attempt=final_after',[paid.bookingId])).rowCount,1);
+   const removed: string[] = [];
+   assert.deepEqual(await cleanDeletedBookingProofs(pool,async path=>{removed.push(path);},bookingId),{attempted:2,failed:0});
+   assert.deepEqual(removed.sort(),[extProof,pendingProof.objectPath].sort());
+   assert.equal((await admin.query('SELECT 1 FROM ethn.deleted_booking_proofs WHERE booking_id=$1 AND next_attempt=final_after',[bookingId])).rowCount,2);
  } finally {
    await pool.end();
    await admin.end();

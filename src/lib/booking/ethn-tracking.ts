@@ -16,7 +16,7 @@ export const openPlayDetails = z.object({
 }).strict();
 export const openPlayUpdate = codeCredential.extend({ listing: openPlayDetails.nullable() });
 
-export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, update = false) {
+export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, update = false, onMailQueued?: (bookingId: string) => void) {
   const mutation = update ? openPlayUpdate.safeParse(input) : undefined;
   const parsed = mutation ?? trackingInput.safeParse(input);
   if (!parsed.success) throw new Error("INVALID_INPUT");
@@ -33,7 +33,7 @@ export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, 
       if (update) await client.query("ROLLBACK");
       return null;
     }
-    let openPlay;
+    let openPlay, mailQueued = false;
     if (!token) {
       const active = booking.status === "pending" || booking.status === "confirmed";
       const editable = active && Boolean((await client.query("SELECT 1 FROM ethn.booking_open_play_sessions WHERE booking_id=$1 AND starts_at > clock_timestamp()", [booking.id])).rows.length);
@@ -48,6 +48,7 @@ export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, 
           else {
             await recordBookingAlert(client, booking.id, "open_play_added", owners, "online");
             await client.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES (gen_random_uuid(),$1,'open_play_added',$2::jsonb)", [booking.id, JSON.stringify({ email: booking.guest_email, code: booking.tracking_code, total: booking.total })]);
+            mailQueued = true;
           }
         } else await client.query("UPDATE ethn.booking_open_plays SET removed=true WHERE booking_id=$1", [booking.id]);
       }
@@ -57,6 +58,7 @@ export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, 
     const items = (await client.query("SELECT c.name AS court, i.starts_at, i.ends_at, i.amount::text, i.duration_minutes, i.interval_minutes, i.hourly_rate::text, false AS is_extension FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id WHERE i.booking_id = $1 UNION ALL SELECT c.name AS court, ei.starts_at, ei.ends_at, ei.amount::text, ei.duration_minutes, ei.interval_minutes, ei.hourly_rate::text, true FROM ethn.extension_items ei JOIN ethn.extensions e ON e.id=ei.extension_id JOIN ethn.courts c ON c.id=ei.court_id WHERE e.booking_id=$1 AND e.status='confirmed' ORDER BY starts_at, court", [booking.id])).rows;
     const payments = (await client.query("SELECT method, status, claimed_amount::text, review_reason FROM ethn.payments WHERE booking_id = $1 ORDER BY method, status, claimed_amount", [booking.id])).rows;
     if (update) { committing = true; await client.query("COMMIT"); }
+    if (mailQueued) onMailQueued?.(booking.id);
     return { ...(openPlay ? { openPlay } : {}), operatingDate: booking.operating_date, status: booking.status, total: booking.total, items: items.map(i => ({ court: i.court, startsAt: i.starts_at, endsAt: i.ends_at, amount: i.amount, durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, hourlyRate: i.hourly_rate, isExtension: i.is_extension })), payments: payments.map(p => ({ method: p.method, status: p.status, claimedAmount: p.claimed_amount, ...(booking.status === "rejected" && p.status === "rejected" && typeof p.review_reason === "string" ? { reviewReason: p.review_reason } : {}) })) };
   } catch (error) {
     if (committing) discard = true;

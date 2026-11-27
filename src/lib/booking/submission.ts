@@ -88,9 +88,21 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
     let result: object;
     if (timely) {
       const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      const code = Array.from({ length: 5 }, () => alphabet[randomInt(alphabet.length)]).join("");
       const token = randomBytes(32).toString("hex");
-      await client.query("UPDATE ethn.bookings SET status = 'pending', guest_name = $2, guest_email = $3, guest_phone = $4, tracking_code = $5, tracking_hash = $6, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone, code, hash(token)]);
+      let code: string;
+      await client.query("SAVEPOINT tracking_code");
+      for (let attempt = 1; ; attempt++) {
+        code = Array.from({ length: 5 }, () => alphabet[randomInt(alphabet.length)]).join("");
+        try {
+          await client.query("UPDATE ethn.bookings SET status = 'pending', guest_name = $2, guest_email = $3, guest_phone = $4, tracking_code = $5, tracking_hash = $6, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone, code, hash(token)]);
+          break;
+        } catch (error) {
+          const conflict = error as { code?: string; constraint?: string } | null;
+          if (attempt === 5 || conflict?.code !== "23505" || conflict.constraint !== "bookings_tracking_code_key") throw error;
+          await client.query("ROLLBACK TO SAVEPOINT tracking_code");
+        }
+      }
+      await client.query("RELEASE SAVEPOINT tracking_code");
       await client.query("UPDATE ethn.court_allocations SET state = 'pending' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = $1)", [checkout]);
       const openPlaySaved = openPlay && Boolean((await client.query(`INSERT INTO ethn.booking_open_plays (booking_id,title,description,event_url)
         SELECT booking_id,$2,$3,$4 FROM ethn.booking_open_play_sessions WHERE booking_id=$1 AND starts_at > clock_timestamp()

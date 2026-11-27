@@ -230,7 +230,7 @@ export async function changeExpense(pool: Db, verify: StaffVerifier, id: string,
     if (operation === 'edit') {
       if (typeof b.title !== 'string' || !b.title.trim() || b.title.trim().length > 100 || b.title.includes('\0') || typeof b.category !== 'string' || (b.category !== old.category && !newExpenseCategories.some(category => category === b.category)) || typeof b.amount !== 'string' || !/^\d{1,10}(?:\.\d{1,2})?$/.test(b.amount) || typeof b.paidDate !== 'string' || !validDate(b.paidDate)) throw new Error('INVALID_INPUT');
       const today = manilaDateStr((await c.query('SELECT clock_timestamp() AS now')).rows[0].now);
-      if (b.paidDate > today) throw new Error('INVALID_INPUT');
+      if (Number(b.amount) <= 0 || b.paidDate > today) throw new Error('INVALID_INPUT');
       await c.query('UPDATE ethn.expenses SET title=$2,category=$3,amount=$4,paid_date=$5,description=$6,vendor=$7,notes=$8,revision=$9 WHERE id=$1',[id,b.title.trim(),b.category,b.amount,b.paidDate,...expenseMetadata(b),randomUUID()]);
     } else {
       if (correction) throw new Error('EXPENSE_HAS_CORRECTIONS');

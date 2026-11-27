@@ -36,5 +36,6 @@ test('finance date range filters open from a trigger, not the page body',()=>{
 });
 test('mobile sidebar sheet gets the dark admin palette',()=>{
  const css=source('src/app/globals.css');
- assert.match(css,/\.dark \[data-sidebar="sidebar"\]:has\(\.admin-sidebar-nav\)\s*\{/);
+ assert.match(css,/\[data-sidebar="sidebar"\]:has\(\.admin-sidebar-nav\)\s*\{[^}]*--sidebar-foreground: var\(--foreground\);[^}]*background: var\(--muted\);/);
+  assert.match(css,/\.dark\s*\{[^}]*--foreground:/);
 });

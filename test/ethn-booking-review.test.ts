@@ -6,7 +6,8 @@ const source = await readFile(new URL("../src/components/booking/ethn-booking.ts
 
 test("booking date discard prompt runs before clearing selected times", () => {
   const change = source.slice(source.indexOf("function changeDate"), source.indexOf("const minDate"));
-  assert.match(change, /if \(date === chosenDate .*\) return;\s*if \(bookingPage && ranges.length > 0 && !window.confirm\([^\n]+\)\) return;\s*setRanges\(\[\]\)/);
+  assert.match(change, /if \(bookingPage && previousRanges.length > 0 && !await confirm\([^\n]+\)\) return;/);
+  assert.ok(change.indexOf('!await confirm(') < change.indexOf('setRanges([])'));
 });
 
 test("Open Play fields are on Review and listing validation precedes the hold", () => {

@@ -92,6 +92,13 @@
       "when": 1795771993731,
       "tag": "0012_mean_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795787374237,
+      "tag": "0013_protect_booking_finance_and_prune_proofs",
+      "breakpoints": true
     }
   ]
 }

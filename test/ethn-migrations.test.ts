@@ -8,9 +8,9 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 
 test("fresh ETHN migration includes full ordered chain and court migration matches reviewed SQL", () => {
   const migrations = readMigrationFiles({ migrationsFolder: "db/ethn-migrations" });
-  assert.equal(migrations.length, 12);
-  assert.match(migrations[10].sql.join(""), /CREATE UNIQUE INDEX payments_unique_method_transfer/);
-  assert.ok(migrations[8].folderMillis > migrations[7].folderMillis);
+  assert.ok(migrations.some(migration => /CREATE UNIQUE INDEX payments_unique_method_transfer/.test(migration.sql.join(""))));
+  assert.ok(migrations.some(migration => /CREATE FUNCTION ethn\.queue_abandoned_booking_proofs/.test(migration.sql.join(""))));
+  assert.ok(migrations.every((migration, index) => index === 0 || migration.folderMillis > migrations[index - 1].folderMillis));
   assert.equal(readFileSync('db/ethn-migrations/0002_sloppy_machine_man.sql','utf8'),readFileSync('db/ethn/0030_unified_bookings.sql','utf8'));
   const files = readdirSync("db/ethn").filter(name => /^00\d\d_.*\.sql$/.test(name) && name < "0029_").sort();
   const expected = files.map(name => `-- Source: ${name}\n${readFileSync(`db/ethn/${name}`, "utf8")}`).join("\n\n");

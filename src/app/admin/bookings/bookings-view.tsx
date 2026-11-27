@@ -143,7 +143,7 @@ export default function BookingsView() {
         <DialogHeader>
           <DialogTitle>{deleting ? "Delete booking permanently" : "Cancel booking"}</DialogTitle>
           <DialogDescription>{deleting
-            ? "This permanently deletes the booking, extensions, payment and refund records, and proofs. The current slot stays blocked until it ends; future slots are released. No notice or refund is sent. Finance totals can change."
+            ? "This permanently deletes the booking and its proofs. Bookings with accepted payments or recorded refunds cannot be deleted. The current slot stays blocked until it ends; future slots are released. No notice is sent."
             : "Cancelling releases the booking’s slots. Payment is retained and no refund is issued."}</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={event => {

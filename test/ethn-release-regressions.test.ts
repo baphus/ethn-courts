@@ -64,6 +64,17 @@ test("deleting a corrected expense rolls back without deleting the original or i
   assert.equal(db.calls.at(-1), "ROLLBACK");
 });
 
+test("editing an expense to zero rolls back before updating it", async () => {
+  const db = mock(sql => {
+    if (sql.includes("FROM ethn.staff_access")) return [{}];
+    if (sql.includes("FROM ethn.expenses")) return [{ revision: null, category: "Utilities" }];
+    if (sql.includes("clock_timestamp()")) return [{ now: new Date("2026-11-20T08:00:00Z") }];
+  });
+  await assert.rejects(changeExpense(db.pool, verify, id, "edit", { revision: null, lastCorrectionId: null, title: "Utilities", category: "Utilities", amount: "0.00", paidDate: "2026-11-20" }), /INVALID_INPUT/);
+  assert(!db.calls.some(sql => sql.startsWith("UPDATE")));
+  assert.equal(db.calls.at(-1), "ROLLBACK");
+});
+
 test("both sales amount fields accept centavos and reject too many decimals", () => {
   const source = readFileSync(new URL("../src/app/admin/finance/sales.tsx", import.meta.url), "utf8");
   const patterns = [...source.matchAll(/pattern="([^"]+)"/g)];

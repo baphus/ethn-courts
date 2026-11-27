@@ -18,9 +18,12 @@ test("submission checks storage before the transaction and timeliness under lock
     const calls: string[] = [];
     let fingerprint: string | undefined;
     const now = scenario === "expired" ? 3000 : 2000;
-    let connections = 0;
+    let connections = 0, trackingWrites = 0;
     const pool = { connect: async () => { connections++; return { release() { connections--; }, async query(sql: string, params: string[] = []) {
       calls.push(sql);
+      if (scenario === "on-time" && sql.includes("tracking_code = $5") && ++trackingWrites === 1) {
+        throw Object.assign(new Error("duplicate"), { code: "23505", constraint: "bookings_tracking_code_key" });
+      }
       if (sql.includes("FOR SHARE")) return { rows: [{ user_id: input.ownerToken }] };
       if (sql.includes("INSERT INTO ethn.notifications")) assert.equal(params[4], scenario === "expired" ? "late_payment_recorded" : scenario === "open-play" ? "open_play_submitted" : "proof_submitted");
       if (sql.startsWith("INSERT INTO ethn.idempotency")) fingerprint = params[2];
@@ -44,6 +47,10 @@ test("submission checks storage before the transaction and timeliness under lock
     } else {
       const result = await submission as { booked: boolean; openPlaySaved?: boolean };
       assert.equal(result.booked, scenario !== "expired");
+      if (scenario === "on-time") {
+        assert.equal(trackingWrites, 2);
+        assert(calls.includes("ROLLBACK TO SAVEPOINT tracking_code"));
+      }
       assert.equal(result.openPlaySaved, openPlay ? scenario === "open-play" : undefined);
       assert.equal(calls.some(sql => sql.startsWith("INSERT INTO ethn.booking_open_plays")), Boolean(openPlay));
       assert(calls.some(sql => sql.includes("INSERT INTO ethn.notifications")));

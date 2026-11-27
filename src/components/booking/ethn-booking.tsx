@@ -30,7 +30,7 @@ import { acceptedDate, addDays, bookingDate, gridSlotCount, gridTimes, handoffRa
 import { availabilityCache } from "./ethn-availability-cache";
 import { VENUE_ADDRESS, VENUE_MAP_EMBED, VENUE_MAP_LINK } from "@/lib/venue";
 
-type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
+type Availability = { date: string; operatingDate: string; serverNow: string; configured: boolean; message: string | null; merchant: string | null; settings: { version: string; intervalMinutes: number; minimumMinutes: number; horizonDays: number; holdMinutes: number }; courts: { id: string; name: string; description?: string | null; photoVersion?: string; windows: Window[]; occupied: Occupied[] }[] };
 type DayAvailability = Pick<Availability, "date" | "configured" | "message" | "courts">;
 type SharedAvailability = Omit<Availability, keyof DayAvailability>;
 type MonthAvailability = SharedAvailability & { days: DayAvailability[] };
@@ -222,7 +222,7 @@ export default function EthnBooking({ bookingPage = false, afterBooking }: { boo
       const { data, monotonic } = entry;
       clock.current = { server: Date.parse(data.serverNow), monotonic };
       const serverNow = clock.current.server + performance.now() - monotonic;
-      const selected = handoff ? handoffRanges(handoff.raw, handoff.date, data, serverNow) : [];
+      const selected = handoff ? handoffRanges(handoff.raw, handoff.date, data, serverNow + data.settings.holdMinutes * 60_000) : [];
       const accepted = acceptedDate(date, data.date, fellBack);
       setNow(serverNow); setClockReady(true); setAvailability(data); setChosenDate(accepted); setRanges(accepted ? selected || [] : []);
       if (accepted) setDateStatus(`Availability updated for ${bookingDate(accepted)}.`);
@@ -285,10 +285,12 @@ export default function EthnBooking({ bookingPage = false, afterBooking }: { boo
   const landingBookingHref = showLandingSummary ? `/book?${new URLSearchParams({ date: chosenDate, ranges: JSON.stringify(ranges.map(({ courtId, start, end }) => ({ courtId, start, end }))) })}` : undefined;
   const selectedCourts = bookingPage || showLandingSummary ? availability?.courts.filter(court => ranges.some(range => range.courtId === court.id)) ?? [] : [];
   const selectionSlots = gridSlotCount(ranges.reduce((minutes, range) => minutes + rangeMinutes(range), 0), availability?.settings.intervalMinutes);
-  const validRanges = availability && ranges.length > 0 && ranges.length <= 100 && ranges.every(r => Date.parse(r.end) - Date.parse(r.start) >= availability.settings.minimumMinutes * 60_000 && Date.parse(r.start) >= now);
+  const holdWindowMs = (availability?.settings.holdMinutes ?? 0) * 60_000;
+  const earliestStart = now + holdWindowMs;
+  const validRanges = availability && ranges.length > 0 && ranges.length <= 100 && ranges.every(r => Date.parse(r.end) - Date.parse(r.start) >= availability.settings.minimumMinutes * 60_000 && Date.parse(r.start) >= earliestStart);
   let total = "0.00";
   try { if (ranges.length) total = pesos(priceItems(ranges.map(r => ({ rate: r.rate, minutes: (Date.parse(r.end) - Date.parse(r.start)) / 60_000 })))); } catch { total = ""; }
-  const selectionBlockingReason = !availability?.configured ? availability?.message || "Booking is not configured yet." : !clockReady ? "Checking current availability…" : !ranges.length ? "Pick at least one available time." : ranges.length > 100 ? "Select at most 100 blocks." : ranges.some(r => Date.parse(r.start) < now) ? "A selected time has passed. Choose another time." : ranges.some(r => rangeMinutes(r) < availability.settings.minimumMinutes) ? `Choose at least ${availability.settings.minimumMinutes} consecutive minutes per block.` : !total ? "Price is unavailable for this selection." : "";
+  const selectionBlockingReason = !availability?.configured ? availability?.message || "Booking is not configured yet." : !clockReady ? "Checking current availability…" : !ranges.length ? "Pick at least one available time." : ranges.length > 100 ? "Select at most 100 blocks." : ranges.some(r => Date.parse(r.start) < earliestStart) ? "There is not enough time to pay before a selected slot starts. Choose a later time." : ranges.some(r => rangeMinutes(r) < availability.settings.minimumMinutes) ? `Choose at least ${availability.settings.minimumMinutes} consecutive minutes per block.` : !total ? "Price is unavailable for this selection." : "";
   const expired = draft ? now > 0 && now >= Date.parse(draft.checkout.expiresAt) : false;
   const proofUploadDisabled = busy || draft?.releaseRequested || expired || !clockReady || (draft?.checkout.acknowledgementRequired && !ack);
   const seconds = draft && now ? Math.max(0, Math.floor((Date.parse(draft.checkout.expiresAt) - now) / 1000)) : 0;
@@ -332,7 +334,7 @@ export default function EthnBooking({ bookingPage = false, afterBooking }: { boo
   async function beginCheckout() {
     if (lock.current) return;
     if (!validateGuest({ kind: "online", name, email, phone })) { setError("Enter a full name, valid email, and contact number."); return; }
-    if (!reviewing || !availability || !availability.configured || !clockReady || !validRanges || ranges.some(r => Date.parse(r.start) < clock.current.server + performance.now() - clock.current.monotonic) || !total) { setError("Your selected times are no longer valid. Return to slots and choose again."); return; }
+    if (!reviewing || !availability || !availability.configured || !clockReady || !validRanges || ranges.some(r => Date.parse(r.start) < clock.current.server + performance.now() - clock.current.monotonic + holdWindowMs) || !total) { setError("Your selected times are no longer valid. Return to slots and choose again."); return; }
     const listingError = openPlayValidationError();
     setOpenPlayError(listingError);
     if (listingError) return;
@@ -621,16 +623,16 @@ export default function EthnBooking({ bookingPage = false, afterBooking }: { boo
             const end = start + availability.settings.intervalMinutes * 60000;
             const rangeLabel = formatScheduleRange(start, end, chosenDate);
             return <tr key={start}><th scope="row" className={`bg-background px-1 py-2 text-center ${bookingPage ? "sticky left-0 z-10" : ""}`}><span className={`inline-block max-w-full wrap-break-word whitespace-pre-line font-medium tabular-nums ${bookingPage ? "text-sm leading-tight text-muted-foreground" : "rounded-full bg-muted px-2 py-2 text-xs font-bold leading-4 text-foreground sm:px-3"}`}>{rangeLabel.replace(" (+1 day)", "\n(+1 day)")}</span></th>{availability.courts.map(court => {
-            const wi = court.windows.findIndex(w => slots(w, court.occupied, availability.settings.intervalMinutes, now).some(s => s.start === start));
-            const window = court.windows[wi]; const grid = window ? slots(window, court.occupied, availability.settings.intervalMinutes, now) : []; const slot = grid.find(s => s.start === start); const active = !!slot && ranges.some(r => r.courtId === court.id && r.window === wi && start >= Date.parse(r.start) && end <= Date.parse(r.end));
+            const wi = court.windows.findIndex(w => slots(w, court.occupied, availability.settings.intervalMinutes, earliestStart).some(s => s.start === start));
+            const window = court.windows[wi]; const grid = window ? slots(window, court.occupied, availability.settings.intervalMinutes, earliestStart) : []; const slot = grid.find(s => s.start === start); const active = !!slot && ranges.some(r => r.courtId === court.id && r.window === wi && start >= Date.parse(r.start) && end <= Date.parse(r.end));
             const status = !slot ? "Closed" : !slot.available || window.hourlyRate === null ? "Unavailable" : "Available";
-            const label = active ? "Selected" : status;
+            const label = active ? (status === "Available" ? "Selected" : "Selected, unavailable") : status;
             const price = status === "Available" && window.hourlyRate !== null
               ? money(pesos(priceItems([{ rate: window.hourlyRate, minutes: availability.settings.intervalMinutes }])))
               : null;
             const content = price ? <span className="text-[0.65rem] leading-tight tabular-nums sm:text-xs">{price.replace(/\.00$/, "")}</span> : <span aria-hidden="true" className="text-lg leading-none">×</span>;
-            const style = `inline-flex size-11 shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-full border p-1 text-center font-bold leading-tight tabular-nums ${statusStyles[label === "Closed" ? "Unavailable" : label]}`;
-            return <td key={court.id} className="border-t border-border px-1 py-2 text-center">{<button type="button" disabled={busy || status !== "Available"} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatScheduleTime(start)} to ${slotDate(end)} ${formatScheduleTime(end)}, ${label}${price ? ` ${price}` : ""}`} onClick={() => { const rate = window?.hourlyRate; if (status !== "Available" || rate == null) return; setRanges(current => toggleSlot(current, court.id, wi, rate, new Date(start).toISOString(), new Date(end).toISOString())); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring enabled:hover:ring-2 enabled:hover:ring-ring disabled:cursor-not-allowed`}>{content}</button>}</td>;
+            const style = `inline-flex size-11 shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-full border p-1 text-center font-bold leading-tight tabular-nums ${statusStyles[status === "Available" && active ? "Selected" : status === "Closed" ? "Unavailable" : status]}`;
+            return <td key={court.id} className="border-t border-border px-1 py-2 text-center">{<button type="button" disabled={busy || (!active && status !== "Available")} aria-pressed={!!active} aria-label={`${court.name}, ${slotDate(start)} ${formatScheduleTime(start)} to ${slotDate(end)} ${formatScheduleTime(end)}, ${label}${price ? ` ${price}` : ""}`} onClick={() => { const rate = window?.hourlyRate; if ((!active && status !== "Available") || rate == null) return; setRanges(current => toggleSlot(current, court.id, wi, rate, new Date(start).toISOString(), new Date(end).toISOString())); }} className={`${style} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring enabled:hover:ring-2 enabled:hover:ring-ring disabled:cursor-not-allowed`}>{content}</button>}</td>;
           })}</tr>;
           })}
         </tbody></table></div>

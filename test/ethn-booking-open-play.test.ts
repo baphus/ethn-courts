@@ -26,9 +26,11 @@ test("customer Open Play is blocked for an ineligible booking", async () => {
 });
 
 test("a first listing can omit Reclub and notifies both sides only once", async () => {
-  let exists = false;
+  let exists = false, committed = false, scheduled = 0;
+  const schedule = (id: string) => { assert.equal(id, "booking"); assert(committed); scheduled++; };
   const kinds: unknown[] = [];
   const pool = { connect: async () => ({ release() {}, query: async (sql: string, values?: unknown[]) => {
+    if (sql === "BEGIN" || sql === "COMMIT") committed = sql === "COMMIT";
     if (sql.includes("FROM ethn.staff_access")) return { rows: [{ user_id: "owner" }] };
     if (sql.includes("FROM ethn.bookings")) return { rows: [{ id: "booking", status: "confirmed", guest_email: credential.email, tracking_code: credential.code, total: "100.00" }] };
     if (sql.startsWith("SELECT 1")) return { rows: [{}] };
@@ -45,9 +47,10 @@ test("a first listing can omit Reclub and notifies both sides only once", async 
     return { rows: [] };
   } }) };
   const input = { ...credential, listing: { title: listing.title, description: listing.description } };
-  await trackBooking(pool as never, input, true);
-  await trackBooking(pool as never, input, true);
+  await trackBooking(pool as never, input, true, schedule);
+  await trackBooking(pool as never, input, true, schedule);
   await trackBooking(pool as never, { ...credential, listing: null }, true);
-  await trackBooking(pool as never, input, true);
+  await trackBooking(pool as never, input, true, schedule);
+  assert.equal(scheduled, 1);
   assert.deepEqual(kinds, ["open_play_added", "customer"]);
 });
