@@ -69,30 +69,50 @@ export function listStaffOpenPlays(pool: Db): Promise<StaffOpenPlay[]> {
   return listOpenPlays(pool, true, "all");
 }
 
+export async function listPublicOpenPlayById(pool: Db, id: string): Promise<PublicOpenPlay | null> {
+  if (!uuid.test(id)) return null;
+  const client = await pool.connect();
+  try { return (await readOpenPlays(client, false, "current", { id }))[0] ?? null; }
+  catch (error) { serviceError(error); } finally { client.release(); }
+}
+
+export async function readPublicOpenPlaysInRange(client: PoolClient, start: Date, end: Date) {
+  return (await readOpenPlays(client, false, "current", { start, end }))
+    .map(({ id, title, startsAt, endsAt, courtIds }) => ({ id, title, startsAt, endsAt, courtIds }));
+}
+
 async function listOpenPlays(pool: Db, includeStaffDetails: boolean, window: OpenPlayWindow): Promise<StaffOpenPlay[]> {
   const client = await pool.connect();
-  try {
+  try { return await readOpenPlays(client, includeStaffDetails, window); }
+  catch (error) { serviceError(error); } finally { client.release(); }
+}
+
+async function readOpenPlays(client: PoolClient, includeStaffDetails: boolean, window: OpenPlayWindow, filter?: { id: string } | { start: Date; end: Date }): Promise<StaffOpenPlay[]> {
+    const params = !filter ? undefined : "id" in filter ? [filter.id] : [filter.start, filter.end];
+    const where = (time: "p" | "s", offset: number) => !filter ? "" : "id" in filter
+      ? ` AND p.id = $${offset}::uuid`
+      : ` AND ${time}.ends_at > $${offset} AND ${time}.starts_at < $${offset + 1}`;
+    const limit = filter ? "" : " LIMIT 100";
     const venueQuery = `SELECT p.id::text,p.title,p.description,p.starts_at,p.ends_at,p.informational_fee::text,p.version,p.event_url${includeStaffDetails ? ",p.host" : ""},
       array_agg(c.name ORDER BY c.id) AS court_names, array_agg(c.id::text ORDER BY c.id) AS court_ids
       FROM ethn.open_plays p JOIN ethn.court_blocks b ON b.open_play_id=p.id AND b.removed_at IS NULL
       JOIN ethn.court_allocations a ON a.block_id=b.id AND a.state='confirmed'
       JOIN ethn.courts c ON c.id=b.court_id
-      WHERE p.removed_at IS NULL${window === "current" ? " AND p.ends_at > clock_timestamp()" : ""}
+      WHERE p.removed_at IS NULL${window === "current" ? " AND p.ends_at > statement_timestamp()" : ""}${where("p", 1)}
       GROUP BY p.id`;
     const rows = (await client.query(window === "schedule" ? `WITH venue AS (${venueQuery})
       (SELECT * FROM venue WHERE ends_at > statement_timestamp() ORDER BY starts_at,id LIMIT 100)
       UNION ALL
       (SELECT * FROM venue WHERE ends_at <= statement_timestamp() ORDER BY ends_at DESC,id LIMIT 5)`
-      : `${venueQuery} ORDER BY p.starts_at,p.id LIMIT 100`)).rows;
+      : `${venueQuery} ORDER BY p.starts_at,p.id${limit}`, params)).rows;
     const customerRows = (await client.query(`SELECT p.id::text,p.title,p.description,p.event_url,p.hidden,s.starts_at,s.ends_at,s.court_names,s.court_ids
       FROM ethn.booking_open_plays p JOIN ethn.bookings b ON b.id=p.booking_id
       JOIN ethn.booking_open_play_sessions s ON s.booking_id=p.booking_id
-      WHERE NOT p.removed AND b.status='confirmed' AND s.ends_at > clock_timestamp() AND ($1 OR NOT p.hidden)
-      ORDER BY s.starts_at,p.booking_id LIMIT 100`, [includeStaffDetails])).rows;
+      WHERE NOT p.removed AND b.status='confirmed' AND b.archived_at IS NULL AND s.ends_at > statement_timestamp() AND ($1 OR NOT p.hidden)${where("s", 2)}
+      ORDER BY s.starts_at,p.booking_id${limit}`, [includeStaffDetails, ...(params ?? [])])).rows;
     const venueEvents = rows.map(row => ({ ...eventDto(row, row.informational_fee, row.version), ...(row.event_url ? { eventUrl: row.event_url as string } : {}), ...(includeStaffDetails ? { host: row.host as string | null } : {}) }));
     const customerEvents = customerRows.map(row => ({ ...eventDto(row, null, 1), eventUrl: row.event_url as string, ...(includeStaffDetails ? { hidden: row.hidden as boolean } : {}) }));
     return [...venueEvents, ...customerEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  } catch (error) { serviceError(error); } finally { client.release(); }
 }
 
 export async function listUpcomingOpenPlays(pool: Db, limit = 3) {

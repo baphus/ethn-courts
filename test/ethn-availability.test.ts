@@ -14,6 +14,13 @@ function fake(rate: string | null = null) {
     if(sql.includes('FROM ethn.payment_methods')) return {rows:[{id:'bank',name:'Bank',instructions:'Pay here',qrAvailable:false,version:'1'}]};
     if (sql.startsWith("SELECT id::text")) return { rows: [{ id: "1", name: "Court" }] };
     if (sql.includes("FROM ethn.court_hours")) return { rows: [{ court_id: "1", weekday: 4, opens: "07:00:00", closes: "03:00:00", hourly_rate: rate }] };
+    if (sql.includes("FROM ethn.open_plays p")) return { rows: [{ id: "venue", title: "Venue Play", starts_at: new Date("2026-11-19T22:00:00Z"), ends_at: new Date("2026-11-20T00:00:00Z"), court_ids: ["1"], hidden: true, host: "private host" }] };
+    if (sql.includes("FROM ethn.booking_open_plays p")) {
+      assert.equal(params[0], false);
+      assert.match(sql, /NOT p\.removed.*b\.status='confirmed'.*NOT p\.hidden/);
+      assert.match(sql, /s\.ends_at > \$2 AND s\.starts_at < \$3/);
+      return { rows: [{ id: "customer", title: "Customer Play", starts_at: new Date("2026-11-20T12:00:00Z"), ends_at: new Date("2026-11-20T13:00:00Z"), court_ids: ["1"], booking_id: "private-booking" }].filter(row => +row.starts_at < +(params[2] as Date) && +row.ends_at > +(params[1] as Date)) };
+    }
     if (sql.includes("FROM ethn.court_allocations")) {
       allocationBounds.push(params);
       return { rows: [
@@ -52,6 +59,14 @@ test("month reads occupancy once and projects it across Manila operating days", 
   assert.deepEqual({ ...shared, ...days[0] }, await getAvailability(f.pool, "2026-11-19"));
   assert.deepEqual(days.slice(0, 3).map(day => day.courts[0].occupied.map(row => row.state)), [["pending", "blocked"], ["blocked"], []]);
   assert(!JSON.stringify(snapshot).includes("private@example.com"));
+  assert.deepEqual(days.slice(0, 3).map(day => day.openPlays), [
+    [{ id: "venue", title: "Venue Play", startsAt: "2026-11-19T22:00:00.000Z", endsAt: "2026-11-20T00:00:00.000Z", courtIds: ["1"] }],
+    [
+      { id: "venue", title: "Venue Play", startsAt: "2026-11-19T22:00:00.000Z", endsAt: "2026-11-20T00:00:00.000Z", courtIds: ["1"] },
+      { id: "customer", title: "Customer Play", startsAt: "2026-11-20T12:00:00.000Z", endsAt: "2026-11-20T13:00:00.000Z", courtIds: ["1"] },
+    ],
+    [],
+  ]);
   const december = await getMonthAvailability(f.pool, "2026-12");
   assert.equal(december.days.at(-1)?.date, "2026-12-18");
   await assert.rejects(getMonthAvailability(f.pool, "2027-01"), /INVALID_INPUT/);

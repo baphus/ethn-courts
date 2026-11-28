@@ -35,9 +35,10 @@ function Session({ event, now, featured = false, live = false, past = false }: {
   );
 }
 
-export function OpenPlaySchedule({ events, initialNow }: { events: OpenPlay[]; initialNow: number }) {
+export function OpenPlaySchedule({ events, initialNow, targetEvent }: { events: OpenPlay[]; initialNow: number; targetEvent?: OpenPlay | null }) {
   const [now, setNow] = useState(initialNow);
-  const { upcoming, live, past, nextChange } = getSchedule(events, now);
+  const highlighted = targetEvent;
+  const { upcoming, live, past, nextChange } = getSchedule(highlighted ? events.filter(event => event.id !== highlighted.id) : events, now);
   const [next, ...later] = upcoming;
   const remaining = next ? Date.parse(next.startsAt) - now : Infinity;
   const nextTick = remaining >= 60_000 ? remaining % 60_000 + 1 : Infinity;
@@ -54,7 +55,7 @@ export function OpenPlaySchedule({ events, initialNow }: { events: OpenPlay[]; i
     };
   }, [nextChange, nextTick, now]);
 
-  if (!next && !live.length && !past.length) return (
+  if (!targetEvent && !next && !live.length && !past.length) return (
     <section className="rounded-xl border border-dashed border-input bg-card p-8 text-center">
       <EmptyIcon className="!size-8" />
       <h2 className="font-display text-2xl font-bold">No open plays scheduled yet</h2>
@@ -63,7 +64,8 @@ export function OpenPlaySchedule({ events, initialNow }: { events: OpenPlay[]; i
 
   return (
     <div className="grid gap-3">
-      {[
+      {highlighted && <section aria-labelledby="requested-open-play"><h2 id="requested-open-play" className="mb-3 font-display text-2xl font-bold">Selected Open Play</h2><Session event={highlighted} now={now} featured live={Date.parse(highlighted.startsAt) <= now && Date.parse(highlighted.endsAt) > now} past={Date.parse(highlighted.endsAt) <= now} />{!next && !live.length && !past.length ? null : <h2 className="mt-6 font-display text-2xl font-bold">Schedule</h2>}</section>}
+      {!next && !live.length && !past.length && targetEvent ? <section className="rounded-xl border border-dashed border-input bg-card p-8 text-center"><EmptyIcon className="!size-8" /><h2 className="font-display text-2xl font-bold">No other open plays scheduled</h2></section> : [
         <h2 key="next" className="font-display text-2xl font-bold">{next ? "Next Open Play" : "No upcoming sessions scheduled"}</h2>,
         next && <Session key={next.id} event={next} now={now} featured />,
         live.length > 0 && <h2 key="live" className="mt-6 font-display text-2xl font-bold">In progress</h2>,

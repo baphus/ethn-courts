@@ -6,6 +6,28 @@ import { createEthnBlock, getEthnCalendar, listUpcomingBlocks, releaseEthnBlock 
 const url=process.env.ETHN_CALENDAR_BLOCK_TEST_DATABASE_URL, adminUrl=process.env.ETHN_CALENDAR_BLOCK_TEST_ADMIN_URL;
 const owner="00000000-0000-4000-8000-000000000031",staff="00000000-0000-4000-8000-000000000032",disabled="00000000-0000-4000-8000-000000000033";
 const uuid=()=>randomUUID();
+
+test("owner calendar keeps a moderated Open Play on its existing booking interval", async () => {
+  const starts_at = new Date("2030-01-01T08:00:00Z"), ends_at = new Date("2030-01-01T09:00:00Z");
+  const pool = { connect: async () => ({ release() {}, async query(sql: string) {
+    if (sql.includes("FROM ethn.staff_access")) { assert.match(sql, /role='owner'/); return { rows: [{}] }; }
+    if (sql.includes("FROM ethn.settings")) return { rows: [{ anchor_minutes: 420, now: starts_at }] };
+    if (sql.includes("FROM ethn.courts")) return { rows: [{ id: "1", name: "Court 1", active: true }] };
+    if (sql.includes("FROM ethn.court_allocations")) {
+      assert.match(sql, /NOT op\.removed AND a\.state='confirmed' AND COALESCE\(bookings\.status,eb\.status\)='confirmed'/);
+      return { rows: [
+        { id: "booking-slot", court_id: "1", starts_at, ends_at, state: "confirmed", booking_id: "booking", guest_name: "Guest", block_id: null, open_play_hidden: true },
+        { id: "pending-slot", court_id: "1", starts_at, ends_at, state: "pending", booking_id: "pending", block_id: null, open_play_hidden: null },
+      ] };
+    }
+    return { rows: [] };
+  } }) };
+  const { courts } = await getEthnCalendar(pool as never, async () => owner, "2030-01-01");
+  assert.deepEqual(courts[0].intervals.map(({ kind, bookingId, openPlay }) => ({ kind, bookingId, openPlay })), [
+    { kind: "booking", bookingId: "booking", openPlay: { hidden: true } },
+    { kind: "booking", bookingId: "pending", openPlay: undefined },
+  ]);
+});
 const overlap=(start:Date,end:Date,kind="maintenance")=>({courtId:"1",startsAt:start.toISOString(),endsAt:end.toISOString(),reason:"maintenance",kind});
 test("block database contract and staff calendar on restricted disposable ETHN role",{skip:!url||!adminUrl},async()=>{
  const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:adminUrl});

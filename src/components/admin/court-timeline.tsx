@@ -19,15 +19,18 @@ function Block({ item, court, window, date, index, onBooking, onBlock }: { item:
   const action = target ? () => onBooking(target) : item.state !== "held" && item.kind !== "booking" && onBlock ? () => onBlock(court.name, item) : undefined;
   const { icon: Icon, className: tone } = statusStyle(item.state, item.kind);
   const isBooking = item.kind === "booking" && item.state !== "held";
+  const openPlay = isBooking ? item.openPlay : undefined;
   const name = item.state === "held" ? "Unavailable" : isBooking ? item.guestName || "Guest" : item.kind.replaceAll("_", " ");
   const sub = item.state === "held" ? null : isBooking ? item.state : item.reason;
   const compact = p.height < 48;
   const lead = isBooking ? <Avatar name={name} size="sm" /> : <Icon className="size-3.5 shrink-0" aria-hidden="true" />;
   const nameClass = `truncate font-medium ${isBooking ? "" : "capitalize"}`;
+  const openPlayBadge = openPlay ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-lime-300 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900"><span aria-hidden="true">●</span>Open Play</span> : null;
+  const hiddenBadge = openPlay?.hidden ? <span className="rounded-full border border-current/30 px-1.5 py-0.5 text-[10px] font-semibold">Hidden</span> : null;
   const content = compact
-    ? <span className="flex items-center gap-1.5 whitespace-nowrap">{lead}<span className={nameClass}>{name}</span><span className="truncate opacity-70">{range}</span></span>
+    ? <span className="flex items-center gap-1.5 whitespace-nowrap">{lead}<span className={nameClass}>{name}</span>{openPlayBadge}{hiddenBadge}<span className="truncate opacity-70">{range}</span></span>
     : <>
-        <span className="flex items-center gap-1.5">{lead}<span className={nameClass}>{name}</span></span>
+        <span className="flex items-center gap-1.5">{lead}<span className={nameClass}>{name}</span>{openPlayBadge}{hiddenBadge}</span>
         <span className="mt-0.5 block truncate opacity-80">{range}</span>
         {p.height >= 72 && sub ? <span className="mt-0.5 block truncate capitalize opacity-70">{sub}</span> : null}
       </>;

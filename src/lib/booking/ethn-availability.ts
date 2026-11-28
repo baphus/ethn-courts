@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { readPublicOpenPlaysInRange } from "../admin/ethn-open-plays";
 import { parsePesos } from "./core";
 import { scheduleWindows } from "./schedule";
 import { manilaDateStr, manilaWallClock } from "./slots";
@@ -44,6 +45,7 @@ async function readAvailability(pool: Pick<Pool, "connect">, requestedDate: stri
         AND (cb.kind IS DISTINCT FROM 'deleted_booking' OR a.ends_at > $3)
       ORDER BY a.starts_at`, [start, end, now])).rows;
     const methods = (await client.query('SELECT id,name,instructions,(qr IS NOT NULL) AS "qrAvailable",version::text FROM ethn.payment_methods WHERE enabled ORDER BY name,id')).rows;
+    const openPlays = await readPublicOpenPlaysInRange(client, start, end);
     const days = dates.map(date => {
       const dayStart = manilaWallClock(date).getTime() + anchor;
       let configured = methods.length > 0;
@@ -59,7 +61,8 @@ async function readAvailability(pool: Pick<Pool, "connect">, requestedDate: stri
           .map(a => ({ startsAt: (a.starts_at as Date).toISOString(), endsAt: (a.ends_at as Date).toISOString(), state: a.state as string }));
         return { id: court.id as string, name: court.name as string, description: court.description as string | null, photoVersion: court.photo_version as string, windows, occupied };
       });
-      return { date, configured, message: configured ? null : "Payment or pricing is not configured.", courts: result };
+      return { date, configured, message: configured ? null : "Payment or pricing is not configured.", courts: result,
+        openPlays: openPlays.filter(event => Date.parse(event.startsAt) < dayStart + DAY && Date.parse(event.endsAt) > dayStart) };
     });
     await client.query("COMMIT");
     return { settings: { version: settings.version as string, intervalMinutes: settings.interval_minutes as number, minimumMinutes: settings.minimum_minutes as number, anchorMinutes: settings.anchor_minutes as number, horizonDays: settings.horizon_days as number, holdMinutes: settings.hold_minutes as number }, serverNow: now.toISOString(), operatingDate, paymentMethods: methods, merchant: typeof settings.merchant === "string" && settings.merchant.trim() ? settings.merchant : null, days };
