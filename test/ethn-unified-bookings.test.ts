@@ -69,10 +69,11 @@ test('direct internal creation writes every court and one payment, or rolls back
 test('booking actions queue one customer notice with no staff notes or refund reference',async()=>{
  const id='00000000-0000-4000-8000-000000000002',actor='00000000-0000-4000-8000-000000000001';
  const email='guest@example.test',trackingToken='a'.repeat(64),total='500.00';
- for(const scenario of [{action:'cancel',email,token:null},{action:'cancel',email:null,token:null},{action:'refund',email,token:trackingToken},{action:'refund',email,token:'b'.repeat(64)}] as const){
-  const input={key:'test',reason:'Private note',...(scenario.action==='refund'?{reference:'Private reference'}:{})};
-  const fingerprint=createHash('sha256').update(JSON.stringify({id,action:scenario.action,reason:input.reason,reference:input.reference??null})).digest('hex');
-  const sent:unknown[]=[], alerts:unknown[]=[];let result:unknown;
+ for(const scenario of [{action:'cancel',email,token:null},{action:'cancel',email:null,token:null},{action:'refund',email,token:trackingToken,amount:'125.50'},{action:'refund',email,token:'b'.repeat(64)},{action:'refund',email,token:null,amount:'0.00'},{action:'refund',email,token:null,amount:'500.01'}] as const){
+  const amount='amount' in scenario?scenario.amount:undefined;
+   const input={...(amount!==undefined&&{amount}),key:'test',reason:'Private note',...(scenario.action==='refund'?{reference:'Private reference'}:{})};
+  const fingerprint=createHash('sha256').update(JSON.stringify({id,action:scenario.action,reason:input.reason,reference:input.reference??null,amount})).digest('hex');
+  const sent:unknown[]=[], alerts:unknown[]=[], refunds:unknown[]=[];let result:unknown;
   const client={async query(sql:string,args?:unknown[]){
    if(sql.startsWith('SELECT user_id'))return{rows:[{user_id:actor}]};
    if(sql.includes('INSERT INTO ethn.notifications'))alerts.push(args?.[3]);
@@ -82,16 +83,25 @@ test('booking actions queue one customer notice with no staff notes or refund re
    if(sql.includes('clock_timestamp() AS now'))return{rows:[{now:new Date('2026-11-24T00:00:00Z')}]};
    if(sql.includes('min(starts_at)'))return{rows:[{first_start:new Date('2026-12-01T00:00:00Z')}]};
    if(sql.includes('FROM ethn.payments'))return{rows:[{id,method:'cash',collected_amount:total}]};
-   if(sql.startsWith('SELECT payload'))return{rows:[{payload:{trackingToken:scenario.token}}]};
+   if(sql.startsWith('INSERT INTO ethn.booking_refunds'))refunds.push(args?.[2]);
+    if(sql.startsWith('SELECT payload'))return{rows:[{payload:{trackingToken:scenario.token}}]};
    if(sql.startsWith('INSERT INTO ethn.email_outbox'))sent.push([args?.[2],JSON.parse(String(args?.[3]))]);
    if(sql.startsWith('UPDATE ethn.idempotency'))result=JSON.parse(String(args?.[3]));
    return{rowCount:0,rows:[]};
   },release(){}};
   const pool={connect:async()=>client} as never;
-  const first=await bookingAction(pool,async()=>actor,id,scenario.action,input);
+  if(amount==='500.01'){
+    await assert.rejects(bookingAction(pool,async()=>actor,id,scenario.action,input),/INVALID_INPUT/);
+    assert.deepEqual([refunds,alerts,sent],[[],[],[]]);
+    continue;
+   }
+   const refund=scenario.action==='refund'&&amount!=='0.00'?amount??total:null;
+   const first=await bookingAction(pool,async()=>actor,id,scenario.action,input);
   assert.deepEqual(await bookingAction(pool,async()=>actor,id,scenario.action,input),first);
   const tracking=scenario.token?{code:'ABCDE',...(scenario.token===trackingToken?{trackingToken}:{})}:{staff:true};
-  assert.deepEqual(sent,scenario.email?[[`booking_${first.status}`,{email,total,...tracking}]]:[]);
-  assert.deepEqual(alerts, [scenario.action === 'refund' ? 'refund_recorded' : 'booking_cancelled']);
+  assert.deepEqual(sent,scenario.email?[[`booking_${first.status}`,{email,total:refund??total,...tracking}]]:[]);
+  assert.equal(first.status,refund?'refunded':'cancelled');
+   assert.deepEqual(refunds,refund?[refund]:[]);
+   assert.deepEqual(alerts, [refund ? 'refund_recorded' : 'booking_cancelled']);
  }
 });

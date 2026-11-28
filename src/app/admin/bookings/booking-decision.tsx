@@ -3,12 +3,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormSelect } from "@/components/ui/form-select";
 import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSidebarActivity } from "@/components/admin/admin-shell";
 
 const success = {
   approve: "Payment approved.", reject: "Payment rejected.",
-  refund: "Full refund recorded."
+  refund: "Booking cancelled."
 };
 type Action = keyof typeof success;
 const rejectionReasons = [
@@ -17,9 +18,10 @@ const rejectionReasons = [
   "The payment proof is incomplete or unreadable.",
   "The payment was sent to a different account.",
 ];
-export default function BookingDecision({id,initialAction,status,proof,canRefund,onSaved,onDelete,className}:{id:string;initialAction?: "approve" | "reject" | "refund";status:string;proof:boolean;canRefund:boolean;onSaved:()=>void;onDelete?:()=>void;className?:string}) {
+export default function BookingDecision({id,initialAction,status,proof,canRefund,total,onSaved,onDelete,className}:{id:string;initialAction?: "approve" | "reject" | "refund";status:string;proof:boolean;canRefund:boolean;total:string;onSaved:()=>void;onDelete?:()=>void;className?:string}) {
  const canReview = status === "pending" && proof;
   const [action,setAction]=useState<Action|null>(initialAction === "refund" ? (canRefund ? initialAction : null) : canReview ? initialAction ?? null : null);const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [pending,setPending]=useState<{url:string;body:Record<string,unknown>}|null>(null);const lock=useRef(false);
+ const [refundAmount,setRefundAmount]=useState("");
  const [rejectionReason,setRejectionReason]=useState("");
  const [reference,setReference]=useState("");
   const reasonId=useId();
@@ -51,23 +53,23 @@ export default function BookingDecision({id,initialAction,status,proof,canRefund
    void refreshCounts().catch(() => {});
    onSaved();
  }
- function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="refund")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:{key,reason:decisionReason};setPending({url,body});void send(url,body);}
+ function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="refund")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}if(action==="refund"&&(!/^\d{1,10}(?:\.\d{1,2})?$/.test(refundAmount.trim())||Number(refundAmount)>Number(total))){setError("Enter a refund amount from ₱0 to ₱"+total+".");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:{key,reason:decisionReason,amount:refundAmount.trim()};setPending({url,body});void send(url,body);}
  const reviewReason = canReview ? undefined : "Only pending bookings with payment proof can be reviewed.";
   const refundReason = canRefund ? undefined : "Requires an eligible confirmed booking with full payment, before play starts, and no active extension.";
   return <section className={`space-y-4 rounded-xl border bg-card p-5 ${className ?? ""}`}><h2 className="font-semibold">Booking actions</h2>
     <div className="flex flex-wrap gap-2">
-      {([["approve", "Approve", reviewReason], ["reject", "Reject", reviewReason], ["refund", "Cancel (full refund)", refundReason]] as const).map(([option, label, reasonUnavailable]) => <Button key={option} type="button" variant="outline" title={reasonUnavailable} aria-disabled={!!reasonUnavailable || !!pending} className={reasonUnavailable || pending ? "opacity-50" : undefined} onClick={() => {
+      {([["approve", "Approve", reviewReason], ["reject", "Reject", reviewReason], ["refund", "Cancel booking", refundReason]] as const).map(([option, label, reasonUnavailable]) => <Button key={option} type="button" variant="outline" title={reasonUnavailable} aria-disabled={!!reasonUnavailable || !!pending} className={reasonUnavailable || pending ? "opacity-50" : undefined} onClick={() => {
         if (reasonUnavailable || pending) return;
-        setAction(option);setReason("");setRejectionReason("");setError("");
+        setAction(option);setRefundAmount("");setReason("");setRejectionReason("");setError("");
       }}>{label}{reasonUnavailable && <span className="sr-only">: {reasonUnavailable}</span>}</Button>)}
       {onDelete && <Button type="button" variant="destructive" className="sm:ml-auto" disabled={!!pending} onClick={onDelete}>Delete</Button>}
     </div>
-    {action&&!pending&&<div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold capitalize">{action==="approve"?"Approve payment?":`Confirm ${action}`}</h3>{action==="refund"&&<p className="text-sm">Only record this after returning the full payment outside ETHN Courts. This releases the court time and does not send money.</p>}{action==="reject"&&<div className="grid gap-1 text-sm">
+    {action&&!pending&&<div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold capitalize">{action==="approve"?"Approve payment?":action==="refund"?"Confirm cancellation":`Confirm ${action}`}</h3>{action==="refund"&&<p className="text-sm">Enter the amount already returned to the customer, or ₱0 if none. Cancelling releases all booked court time and does not send money.</p>}{action==="refund"&&<label className="grid gap-1 text-sm">Amount refunded (₱)<Input inputMode="decimal" required value={refundAmount} onChange={e=>setRefundAmount(e.target.value)} /></label>}{action==="reject"&&<div className="grid gap-1 text-sm">
    <label htmlFor={reasonId}>Rejection reason (required)</label>
    <FormSelect id={reasonId} aria-describedby={`${reasonId}-hint`} required value={rejectionReason || null} placeholder="Select a reason" onValueChange={value => {setRejectionReason(value ?? "");setReason("");setError("");}} options={[...rejectionReasons.map(value => ({ value, label: value })), { value: "other", label: "Other" }]} />
    <p id={`${reasonId}-hint`} className="text-muted-foreground">The customer will see this reason. Do not include private payment details.</p>
  </div>}{(action==="refund"||(action==="reject"&&rejectionReason==="other"))&&<div className="grid gap-1 text-sm">
    <label htmlFor={`${reasonId}-text`}>{action==="reject"?"Other reason (required)":"Reason (required)"}</label>
    <Textarea placeholder={action==="reject"?"Why the payment could not be verified":undefined} id={`${reasonId}-text`} required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} />
- </div>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"Approve booking":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
+ </div>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"Approve booking":action==="refund"?"Confirm cancellation":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
 }

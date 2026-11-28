@@ -113,7 +113,7 @@ export default function BookingsView() {
         <DropdownMenuContent align="end">
           <div title={reviewReason}><DropdownMenuItem disabled={!row.canApprove} onClick={() => openBooking(row.id, "approve")}><Check aria-hidden="true" /> Approve{reviewReason && <span className="sr-only">: {reviewReason}</span>}</DropdownMenuItem></div>
           <div title={reviewReason}><DropdownMenuItem disabled={!row.canApprove} onClick={() => openBooking(row.id, "reject")}><X aria-hidden="true" /> Reject{reviewReason && <span className="sr-only">: {reviewReason}</span>}</DropdownMenuItem></div>
-          <div title={refundReason}><DropdownMenuItem disabled={!row.canRefund} onClick={() => openBooking(row.id, "refund")}><Ban aria-hidden="true" /> Cancel (full refund){refundReason && <span className="sr-only">: {refundReason}</span>}</DropdownMenuItem></div>
+          <div title={refundReason}><DropdownMenuItem disabled={!row.canRefund} onClick={() => openBooking(row.id, "refund")}><Ban aria-hidden="true" /> Cancel booking{refundReason && <span className="sr-only">: {refundReason}</span>}</DropdownMenuItem></div>
           <DropdownMenuSeparator />
           <div title={deleteReason}><DropdownMenuItem disabled={!row.canDelete} variant={row.canDelete ? "destructive" : "default"} onClick={() => reviewDelete(row.id)}><Trash2 aria-hidden="true" /> Delete{deleteReason && <span className="sr-only">: {deleteReason}</span>}</DropdownMenuItem></div>
         </DropdownMenuContent>
