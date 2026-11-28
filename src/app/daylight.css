@@ -67,6 +67,11 @@
 .daylight :is([data-slot="input"], [data-slot="textarea"]) { border-radius: .75rem; }
 .daylight:not(.admin-shell-canvas) [data-slot="dialog-footer"] button { border-radius: 9999px; }
 .daylight :is(.public-cta-primary, .public-cta-secondary) { border-radius: 9999px; transition: background-color 120ms ease-out, color 120ms ease-out; }
+
+/* Compact portrait screens need round targets; wider grids use pill-shaped slots. */
+@media (max-aspect-ratio: 3/4) {
+  .daylight .booking-slot { width: 2.75rem; }
+}
 .daylight .public-cta-primary { color: var(--primary-foreground); background-color: var(--primary); border-color: var(--primary); }
 .daylight .public-cta-secondary { color: var(--secondary-foreground); background-color: var(--secondary); border-color: var(--secondary); }
 .daylight .public-cta-on-dark { border-color: currentColor; }
