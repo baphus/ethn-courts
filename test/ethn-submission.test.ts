@@ -25,6 +25,7 @@ test("submission checks storage before the transaction and timeliness under lock
         throw Object.assign(new Error("duplicate"), { code: "23505", constraint: "bookings_tracking_code_key" });
       }
       if (sql.includes("FOR SHARE")) return { rows: [{ user_id: input.ownerToken }] };
+      if (sql.includes("'booking_owner_proof_submitted'")) assert.deepEqual(params, [input.checkoutId, [input.ownerToken], scenario === "open-play"]);
       if (sql.includes("INSERT INTO ethn.notifications")) assert.equal(params[3], scenario === "expired" ? "late_payment_recorded" : scenario === "open-play" ? "open_play_submitted" : "proof_submitted");
       if (sql.startsWith("INSERT INTO ethn.idempotency")) fingerprint = params[2];
       const rows = sql.startsWith("INSERT INTO ethn.idempotency") ? [{ key: input.idempotencyKey }]
@@ -56,6 +57,7 @@ test("submission checks storage before the transaction and timeliness under lock
       assert(calls.some(sql => sql.includes("INSERT INTO ethn.notifications")));
        assert.equal(calls.at(-1), "COMMIT");
     }
+    assert.equal(calls.filter(sql => sql.includes("'booking_owner_proof_submitted'")).length, scenario === "expired" || scenario === "bad-proof" ? 0 : 1);
     const locked = calls.findIndex(sql => sql.includes("FROM ethn.bookings") && sql.includes("FOR UPDATE"));
     assert(locked > 0 && calls.indexOf("inspect") >= 0 && calls.indexOf("inspect") < calls.indexOf("BEGIN"));
   }

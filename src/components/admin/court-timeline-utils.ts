@@ -52,7 +52,7 @@ export function mergeIntervals(intervals: Interval[]): Interval[] {
 export const mergeDay = (day: Calendar): Calendar => ({ ...day, courts: day.courts.map(c => ({ ...c, intervals: mergeIntervals(c.intervals) })) });
 export function dashboardCourtSchedule(day: Calendar, now: number): Calendar {
   return { ...day, courts: day.courts.map(court => ({ ...court, intervals: court.intervals.filter(item =>
-    Date.parse(item.endsAt) > now && (item.kind !== "booking" || item.state === "confirmed"),
+    Date.parse(item.endsAt) > now && (item.kind !== "booking" || item.state === "confirmed" || item.state === "held"),
   ) })) };
 }
 export function bookingCount(court: Court) {

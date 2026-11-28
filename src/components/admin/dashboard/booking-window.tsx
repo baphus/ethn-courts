@@ -24,7 +24,7 @@ export function BookingWindow() {
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">{([["free", "Open"], ["partial", "Partly unavailable"], ["full", "Unavailable"], ["closed", "Closed"]] as const).map(([k, l]) => <span key={k} className="flex items-center gap-1.5"><span className={`size-3 rounded ${cls[k]}`} />{l}</span>)}</div>
         </div>
         {!cells.length ? <p className="py-6 text-center text-sm text-muted-foreground">No opening hours configured for this date.</p> : <div className="overflow-x-auto"><table className="w-full border-separate border-spacing-x-1 border-spacing-y-1 text-[10px]" style={{ minWidth: 120 + cells.length * 34 }}>
-          <caption className="sr-only">Court availability by hour. Held bookings, reservations and blocks show as unavailable.</caption>
+          <caption className="sr-only">Court availability by hour. Time blocked by another booking or event shows as unavailable.</caption>
           <thead><tr><td className="w-24" />{cells.map(t => <th key={t} scope="col" className="font-normal text-muted-foreground">{formatScheduleTime(t)}</th>)}</tr></thead>
           <tbody>{d.courts.map((court, r) => <tr key={court.id}>
             <th scope="row" className="truncate pr-2 text-left text-xs font-medium">{court.name}</th>

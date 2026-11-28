@@ -5,6 +5,12 @@ export type View = "monthly" | "weekly" | "daily" | "schedule";
 export type Interval = { id: string; startsAt: string; endsAt: string; state: string; kind: "booking" | "maintenance" | "private" | "open_play" | "deleted_booking"; bookingId: string | null; guestName: string | null; blockId: string | null; reason: string | null; slotCount?: number };
 export type Calendar = { date: string; serverNow: string; window: { startsAt: string; endsAt: string }; courts: { id: string; name: string; active: boolean; intervals: Interval[] }[] };
 
+export function visibleCalendar(day: Calendar): Calendar {
+  return { ...day, courts: day.courts.map(court => ({
+    ...court, intervals: court.intervals.filter(item => item.state !== "completed" && item.state !== "expired"),
+  })) };
+}
+
 export function rangeDates(date: string, view: View): string[] {
   if (view === "daily") return [date];
   const first = view === "monthly" ? `${date.slice(0, 7)}-01` : date;
@@ -36,6 +42,10 @@ export function uniqueScheduleDays(dates: string[], days: Record<string, Calenda
       seen.add(key); return true;
     }) })) }];
   }));
+}
+
+export function isEmptyRange(dates: string[], days: Record<string, Calendar | null>): boolean {
+  return dates.every(date => days[date]?.courts.every(court => court.intervals.length === 0) === true);
 }
 
 export async function loadDates(dates: string[], signal: AbortSignal, load: (date: string, signal: AbortSignal) => Promise<Calendar>): Promise<Record<string, Calendar | null>> {

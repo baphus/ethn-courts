@@ -116,8 +116,13 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
       result = { booked: false, checkoutId: checkout, status: "payment_exception", requiresStaffReview: true, message: "Not booked. Contact the venue to reconcile payment." };
     }
     await client.query("INSERT INTO ethn.payments (id, booking_id, method, merchant_snapshot, status, claimed_reference, claimed_amount, proof_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", [randomUUID(), checkout, method.id, JSON.stringify({name:method.name,instructions:method.instructions}), timely ? "unverified" : "exception", reference, claimedAmount, reservation]);
-    if (timely) await recordNewBookingAlerts(client, checkout, "online", owners, "openPlaySaved" in result && result.openPlaySaved === true);
-    else await recordBookingAlert(client, checkout, "late_payment_recorded", owners);
+    if (timely) {
+      const hasOpenPlay = "openPlaySaved" in result && result.openPlaySaved === true;
+      await recordNewBookingAlerts(client, checkout, "online", owners, hasOpenPlay);
+      if (owners.length) await client.query(`INSERT INTO ethn.email_outbox (id, booking_id, kind, payload)
+        SELECT gen_random_uuid(), $1, 'booking_owner_proof_submitted', jsonb_build_object('ownerId', owner_id, 'openPlay', $3::boolean)
+        FROM unnest($2::uuid[]) AS recipients(owner_id)`, [checkout, owners, hasOpenPlay]);
+    } else await recordBookingAlert(client, checkout, "late_payment_recorded", owners);
     await client.query("INSERT INTO ethn.audit (booking_id, actor, action, detail) VALUES ($1,$2,'booking.submit',$3::jsonb)", [checkout, owner, JSON.stringify({ outcome: timely ? "pending" : "payment_exception", reservationId: reservation })]);
     await client.query("UPDATE ethn.idempotency SET result = $4::jsonb WHERE owner_hash = $1 AND operation = 'submission' AND key = $2 AND fingerprint = $3", [owner, input.idempotencyKey, fingerprint, JSON.stringify(result)]);
     committing = true; await client.query("COMMIT"); return result;

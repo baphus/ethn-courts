@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadDates, rangeDates, stepPeriod, uniqueScheduleDays, type Calendar } from "../src/app/admin/calendar/calendar-range.ts";
+import { isEmptyRange, loadDates, rangeDates, stepPeriod, uniqueScheduleDays, type Calendar } from "../src/app/admin/calendar/calendar-range.ts";
 
 const day = (date: string): Calendar => ({ date, serverNow: "2026-12-31T16:00:00Z", window: { startsAt: `${date}T00:00:00Z`, endsAt: "2027-01-01T00:00:00Z" }, courts: [{ id: "1", name: "Court", active: true, intervals: [{ id: "a", startsAt: "2026-12-31T15:00:00Z", endsAt: "2027-01-01T17:00:00Z", state: "confirmed", kind: "private", bookingId: null, guestName: null, blockId: "a", reason: "" }] }] });
 
@@ -22,6 +22,17 @@ test("schedule deduplicates intervals crossing operating windows", () => {
   const result = uniqueScheduleDays(dates, { [dates[0]]: day(dates[0]), [dates[1]]: day(dates[1]) });
   assert.equal(result[dates[0]]!.courts[0].intervals.length, 1);
   assert.equal(result[dates[1]]!.courts[0].intervals.length, 0);
+});
+
+test("empty calendar ranges exclude allocations and unknown dates", () => {
+  const dates = ["2026-12-31", "2027-01-01"];
+  const first = day(dates[0]);
+  const emptyDay = { ...first, courts: first.courts.map(court => ({ ...court, intervals: [] })) };
+  const days = { [dates[0]]: emptyDay, [dates[1]]: { ...day(dates[1]), courts: [] } };
+  assert.equal(isEmptyRange(dates, days), true);
+  assert.equal(isEmptyRange(dates, { ...days, [dates[0]]: first }), false);
+  assert.equal(isEmptyRange(dates, { ...days, [dates[1]]: null }), false);
+  assert.equal(isEmptyRange(dates, { [dates[0]]: emptyDay }), false);
 });
 
 test("loading bounds concurrency, records failures, and stops after abort", async () => {

@@ -68,13 +68,13 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
 }
 
 export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params: URLSearchParams) {
-  const allowed = new Set(["q", "status", "from", "to", "page", "limit", "archived"]);
+  const allowed = new Set(["q", "status", "from", "to", "page", "limit", "excludeCompleted"]);
   for (const key of new Set(params.keys())) if (!allowed.has(key) || (key !== "status" && params.getAll(key).length !== 1)) invalid();
   const q = (params.get("q") ?? "").trim();
   const selected = params.getAll("status");
+  const excludeCompleted = params.get("excludeCompleted");
+  if (excludeCompleted !== null && excludeCompleted !== "true") invalid();
   if (selected.length === 1 && selected[0] === "") selected.pop();
-  const archived = params.get("archived");
-  if (archived !== null && archived !== "true" && archived !== "false" && archived !== "all" && archived !== "include") invalid();
   const from = params.get("from") ?? "", to = params.get("to") ?? "";
   const pageRaw = params.get("page") ?? "1", limitRaw = params.get("limit") ?? "20";
   if (q.length > 100 || selected.length > statuses.size || selected.some(status => !statuses.has(status)) || (from && !date(from)) || (to && !date(to)) || (from && to && from > to) || !/^\d+$/.test(pageRaw) || !/^\d+$/.test(limitRaw)) invalid();
@@ -83,16 +83,11 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   const actor = await getStaff(pool, verify);
   const offset = (page - 1) * limit;
   const values: unknown[] = [];
-  const filters = [uuid.test(q) && !selected.length ? `(${visibleBooking} OR (${latePayment}))` : visibleBooking];
-  if (archived !== "all" && archived !== "include") {
-    filters.push(archived === "true" ? "b.archived_at IS NOT NULL" : "b.archived_at IS NULL");
-  }
+  const filters = [uuid.test(q) && !selected.length ? `(${visibleBooking} OR (${latePayment}))` : visibleBooking, "b.archived_at IS NULL"];
+  if (excludeCompleted) filters.push("b.status <> 'completed'");
   if (selected.length) {
-    values.push(selected.includes("confirmed") ? [...new Set([...selected, "completed"])] : selected);
-    const statusMatch = `b.status = ANY($${values.length}::text[])`;
-    filters.push(archived === "include" ? `(b.archived_at IS NOT NULL OR ${statusMatch})` : statusMatch);
-  } else if (archived === "include") {
-    filters.push("b.archived_at IS NOT NULL");
+    values.push(!excludeCompleted && selected.includes("confirmed") ? [...new Set([...selected, "completed"])] : selected);
+    filters.push(`b.status = ANY($${values.length}::text[])`);
   }
   if (from) { values.push(from); filters.push(`b.operating_date >= $${values.length}::date`); }
   if (to) { values.push(to); filters.push(`b.operating_date <= $${values.length}::date`); }
@@ -111,8 +106,8 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const total = Number((await client.query(`SELECT count(*)::int AS total FROM ethn.bookings b ${where}`, values)).rows[0].total);
-    const rows = await client.query<SummaryRow & { archived: boolean; tracking_code: string | null; guest_email: string | null; guest_phone: string | null; can_approve: boolean; can_refund: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
-      b.archived_at IS NOT NULL AS archived, b.tracking_code, b.guest_email, b.guest_phone,
+    const rows = await client.query<SummaryRow & { tracking_code: string | null; guest_email: string | null; guest_phone: string | null; can_approve: boolean; can_refund: boolean }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+      b.tracking_code, b.guest_email, b.guest_phone,
       (b.status = 'pending' AND (SELECT count(*) = 1 AND bool_and(p.status='unverified' AND r.id IS NOT NULL)
         FROM ethn.payments p LEFT JOIN ethn.proof_reservations r ON r.id=p.proof_id AND r.booking_id=b.id AND r.owner_hash=b.owner_hash AND r.state='attached'
         WHERE p.booking_id=b.id)) AS can_approve,
@@ -141,7 +136,7 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
     }
     await client.query("COMMIT");
     const owner = actor.role === "owner";
-    return { rows: rows.rows.map(row => ({ ...summary(row), archived: row.archived, canApprove: owner && row.can_approve, canRefund: owner && row.can_refund, canDelete: owner, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
+    return { rows: rows.rows.map(row => ({ ...summary(row), canApprove: owner && row.can_approve, canRefund: owner && row.can_refund, canDelete: owner, trackingCode: row.tracking_code, guestEmail: row.guest_email, guestPhone: row.guest_phone, ...summarizeBookingSchedule(schedules.get(row.id) ?? []) })), page, limit, total };
   } catch (error) { discardClient=await rollback(client); throw error; }
   finally { client.release(discardClient); }
 }
@@ -153,10 +148,10 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
   let discard: Error | undefined;
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const b = (await client.query(`SELECT id, operating_date::text, status, no_show, expires_at, total::text, guest_name, guest_email, guest_phone, created_at, walk_in_actor, archived_at,
+    const b = (await client.query(`SELECT id, operating_date::text, status, no_show, expires_at, total::text, guest_name, guest_email, guest_phone, created_at, walk_in_actor,
       statement_timestamp() AS now, EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending')) AS unresolved_extension,
       NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending','confirmed')) AS extensions_clear
-      FROM ethn.bookings b WHERE b.id = $1 AND (${visibleBooking} OR (${latePayment}))`, [id])).rows[0];
+      FROM ethn.bookings b WHERE b.id = $1 AND b.archived_at IS NULL AND (${visibleBooking} OR (${latePayment}))`, [id])).rows[0];
     if (!b) { await client.query("COMMIT"); return null; }
     const [items, payments] = await Promise.all([
       client.query(`SELECT i.court_id::text, c.name AS court_name, i.starts_at, i.ends_at, i.duration_minutes, i.hourly_rate::text, i.amount::text,
@@ -179,7 +174,7 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
     const canCancel = b.status === 'confirmed' && b.extensions_clear && items.rows.length > 0 && items.rows.every(item => item.starts_at > b.now);
     const accepted = payments.rows.filter(payment => payment.status === 'accepted');
     const canRefund = canCancel && accepted.length === 1 && accepted[0].collected_amount === b.total;
-    return { id: b.id, canComplete, canCancel, canRefund, paymentMethod, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
+    return { id: b.id, canComplete, canCancel, canRefund, paymentMethod, internal: !!b.walk_in_actor, operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
   } catch (error) { await client.query("ROLLBACK").catch(() => { discard = error instanceof Error ? error : new Error("DB_ERROR"); }); if (discard) (client as typeof client & { release(error?: Error): void }).release(discard); throw error; }
   finally { if (!discard) client.release(); }
 }

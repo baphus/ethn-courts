@@ -34,8 +34,10 @@ test("availability exposes overnight windows and private occupancy projection wi
   assert(!JSON.stringify(result).includes("private@example.com"));
   const sql = f.calls.find(s => s.includes("FROM ethn.court_allocations"))!;
   assert.match(sql, /state IN \('held','pending','confirmed','completed'\)/);
-  assert.match(sql, /tstzrange\(starts_at, ends_at, '\[\)'\) && tstzrange\(\$1::timestamptz, \$2::timestamptz, '\[\)'\)/);
-  assert.match(sql, /state <> 'held' OR expires_at > \$3/);
+  assert.match(sql, /tstzrange\(a\.starts_at, a\.ends_at, '\[\)'\) && tstzrange\(\$1::timestamptz, \$2::timestamptz, '\[\)'\)/);
+  assert.match(sql, /b\.id = COALESCE\(i\.booking_id, e\.booking_id\)/);
+  assert.match(sql, /b\.archived_at IS NULL/);
+  assert.match(sql, /a\.state <> 'held' OR a\.expires_at > \$3/);
   assert.equal((await getAvailability(fake("100.00").pool, null)).configured, true);
   await assert.rejects(getAvailability(fake().pool, "2026-02-30"), /INVALID_INPUT/);
 });

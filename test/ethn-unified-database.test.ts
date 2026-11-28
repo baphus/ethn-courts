@@ -97,13 +97,15 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.equal(online.accepted_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
   await bookingAction(pool,verify,checkout.checkoutId,'refund',{key:randomUUID(),reason:'Internal note',reference:'External transfer'});
   const onlineNotices=await queued(checkout.checkoutId);
-  assert.deepEqual(onlineNotices.map(n=>n.kind),['booking_approved','booking_refunded','booking_submission']);
-  const [approved, refunded, submission]=onlineNotices;
+  assert.deepEqual(onlineNotices.map(n=>n.kind),['booking_approved','booking_owner_proof_submitted','booking_refunded','booking_submission']);
+  const [approved, ownerNotice, refunded, submission]=onlineNotices;
+   assert.deepEqual(ownerNotice.payload, { ownerId: actor, openPlay: false });
    const inbox = (await listInbox(pool,verify)).filter(item=>item.link===`/admin/bookings/${checkout.checkoutId}`);
    assert.deepEqual(inbox.map(item=>item.kind).sort(), ['booking_confirmed','proof_submitted','refund_recorded']);
    assert.ok(inbox.every(item=>item.booking?.customerName==='Online guest' && item.booking.reference===submission.payload.code && item.booking.amount==='400.00' && item.booking.slots.length===2));
    assert.equal(inbox.find(item=>item.kind==='refund_recorded')?.booking?.amountKind,'refund_amount');
-   assert.ok(!JSON.stringify(inbox).includes('test@example.test'));
+   assert.ok(inbox.every(item => item.booking?.customerEmail === 'test@example.test'));
+    assert.ok(!JSON.stringify(inbox).includes(submission.payload.trackingToken));
   assert.match(submission.payload.trackingToken,/^[0-9a-f]{64}$/);
   assert.deepEqual(refunded.payload,{email:'test@example.test',total:'400.00',code:submission.payload.code,trackingToken:submission.payload.trackingToken});
   assert.equal(approved.payload.trackingToken,refunded.payload.trackingToken);

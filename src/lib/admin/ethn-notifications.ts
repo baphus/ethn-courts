@@ -10,10 +10,22 @@ export async function getSidebarCounts(pool: Db, verify: StaffVerifier) {
   const { userId } = await getStaff(pool, verify);
   const client = await pool.connect();
   try {
-    const { rows } = await client.query<{ pendingBookings: string; unreadNotifications: string }>(`SELECT
-      (SELECT count(*) FROM ethn.bookings WHERE status='pending') AS "pendingBookings",
-      (SELECT count(*) FROM ethn.notifications WHERE ${inboxRecipient} AND read_at IS NULL) AS "unreadNotifications"`, [userId]);
-    return { pendingBookings: Number(rows[0].pendingBookings), unreadNotifications: Number(rows[0].unreadNotifications) };
+    const { rows: [row] } = await client.query<{ pendingBookings: string; totalNotifications: string; unreadSummary: { label: string; count: number }[] }>(`WITH inbox AS (SELECT event_key, read_at FROM ethn.notifications WHERE ${inboxRecipient}), unread AS (
+      SELECT CASE split_part(event_key, ':', 1)
+        WHEN 'proof_submitted' THEN 'Payment proofs to review'
+        WHEN 'open_play_submitted' THEN 'New bookings with Open Play'
+        WHEN 'open_play_added' THEN 'Open Plays added'
+        WHEN 'late_payment_recorded' THEN 'Late payments recorded'
+        WHEN 'booking_confirmed' THEN 'Bookings confirmed'
+        WHEN 'booking_cancelled' THEN 'Bookings cancelled'
+        WHEN 'refund_recorded' THEN 'Refunds recorded'
+        ELSE 'Other updates'
+      END AS label FROM inbox WHERE read_at IS NULL
+    ) SELECT (SELECT count(*) FROM ethn.bookings WHERE status='pending') AS "pendingBookings",
+      (SELECT count(*) FROM inbox) AS "totalNotifications",
+      COALESCE(json_agg(summary ORDER BY summary.label), '[]'::json) AS "unreadSummary"
+    FROM (SELECT label, count(*) AS count FROM unread GROUP BY label) summary`, [userId]);
+    return { pendingBookings: Number(row.pendingBookings), totalNotifications: Number(row.totalNotifications), unreadNotifications: row.unreadSummary.reduce((total, group) => total + group.count, 0), unreadSummary: row.unreadSummary };
   } finally { client.release(); }
 }
 

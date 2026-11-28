@@ -14,7 +14,7 @@ test("query validation rejects malformed or unbounded parameters", async () => {
   let connections = 0;
   const pool = { connect: async () => { connections++; throw new Error("unexpected DB access"); } };
   const verify = async () => staff;
-  for (const query of ["q=x&q=y", "unknown=x", "status=held", "status=pending&status=held", "status=expired", "status=pending&status=rejected&status=confirmed&status=completed&status=cancelled&status=refunded&status=pending", "archived=current", "archived=true&archived=all", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
+  for (const query of ["q=x&q=y", "unknown=x", "excludeCompleted=false", "excludeCompleted=true&excludeCompleted=true", "status=held", "status=pending&status=held", "status=expired", "status=pending&status=rejected&status=confirmed&status=completed&status=cancelled&status=refunded&status=pending", "archived=true", "archived=false", "archived=all", "archived=include", "page=1001", "limit=0", "from=2026-02-30", "from=2026-01-02&to=2026-01-01"]) {
     await assert.rejects(searchEthnBookings(pool as never, verify, new URLSearchParams(query)), /INVALID_INPUT/);
   }
   assert.equal(connections, 0);
@@ -62,12 +62,16 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     assert.equal(all.total, 5);
     const confirmedRows = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=confirmed"));
     assert.deepEqual(confirmedRows.rows.map(row => [row.status, row.canRefund]).sort(), [["completed", false], ["confirmed", false]]);
+    const visible = await searchEthnBookings(pool, async () => staff, new URLSearchParams("excludeCompleted=true&limit=1"));
+    assert.equal(visible.total, all.total - 1);
+    const visibleConfirmed = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=confirmed&excludeCompleted=true"));
+    assert.deepEqual(visibleConfirmed.rows.map(row => row.id), [confirmed]);
     await admin.query("UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1", [staff]);
     await assert.rejects(searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${confirmed}`)), /FORBIDDEN/);
     await admin.query("UPDATE ethn.staff_access SET enabled=true WHERE user_id=$1", [staff]);
     assert.ok(all.rows.every(row => !["held", "expired"].includes(row.status)));
     for (const id of [held, staleHold, expired]) {
-      const hidden = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${id}&archived=all`));
+      const hidden = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${id}`));
       assert.equal(hidden.total, 0);
       assert.deepEqual(hidden.rows, []);
       assert.equal(await ethnBookingDetail(pool, async () => staff, id), null);
@@ -87,29 +91,13 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     const page = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&limit=1&page=2"));
     assert.equal(page.rows.length, 1); assert.equal(page.total, 2);
 
-    await admin.query("UPDATE ethn.bookings SET archived_at=clock_timestamp(), archived_by=$2 WHERE id=ANY($1::uuid[])", [[rejected, expired], owner]);
+    await admin.query("UPDATE ethn.bookings SET archived_at=clock_timestamp(), archived_by=$2 WHERE id=ANY($1::uuid[])", [[rejected, expired, completed], owner]);
     const query = "status=pending&status=rejected";
     const current = await searchEthnBookings(pool, async () => staff, new URLSearchParams(query));
     assert.equal(current.total, 2);
-    assert.ok(current.rows.every(row => row.status === "pending" && !row.archived));
-    const archived = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`${query}&archived=true`));
-    assert.equal(archived.total, 1);
-    assert.equal(archived.rows[0].id, rejected);
-    assert.equal(archived.rows[0].archived, true);
-    const combined = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`${query}&archived=all&limit=2`));
-    assert.equal(combined.total, 3);
-    assert.equal(combined.rows.length, 2);
-    assert.equal(combined.rows[0].id, rejected);
-
-    const included = await searchEthnBookings(pool, async () => staff, new URLSearchParams(`status=pending&archived=include&q=Guest&from=${day}&to=${day}`));
-    assert.equal(included.total, 3);
-    assert.deepEqual(new Set(included.rows.map(row => row.id)), new Set([futurePending, overduePending, rejected]));
-    const noMatch = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&archived=include&q=does-not-match"));
-    assert.equal(noMatch.total, 0);
-    const archivedOnly = await searchEthnBookings(pool, async () => staff, new URLSearchParams("archived=true"));
-    assert.deepEqual(archivedOnly.rows.map(row => row.id), [rejected]);
-    const legacyAll = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=pending&archived=all"));
-    assert.equal(legacyAll.total, 2);
+    assert.ok(current.rows.every(row => row.status === "pending"));
+    assert.equal((await searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${completed}`))).total, 0);
+    assert.equal(await ethnBookingDetail(pool, async () => staff, completed), null);
 
     const detail = await ethnBookingDetail(pool, async () => staff, overduePending);
     assert.ok(detail);

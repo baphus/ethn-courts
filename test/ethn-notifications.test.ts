@@ -12,6 +12,22 @@ test("sidebar counts and bulk read reject unauthenticated requests without a dat
   await assert.rejects(dismissInboxNotification(pool, async () => null, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), /UNAUTHENTICATED/);
 });
 
+test("sidebar summary returns all unread counts for the verified recipient", async () => {
+  const recipient = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const unreadSummary = [{ label: "Bookings confirmed", count: 1 }, { label: "Payment proofs to review", count: 51 }];
+  const pool = { connect: async () => ({ release() {}, async query(sql: string, params: string[]) {
+    assert.deepEqual(params, [recipient]);
+    if (sql.includes("FROM ethn.staff_access")) return { rows: [{ role: "owner" }] };
+    assert.match(sql, /recipient=\$1 AND link <> '\/admin\/exceptions' AND dismissed_at IS NULL/);
+    assert.match(sql, /FROM inbox WHERE read_at IS NULL/);
+    assert.match(sql, /\(SELECT count\(\*\) FROM inbox\) AS "totalNotifications"/);
+    assert.match(sql, /GROUP BY label/);
+    assert.doesNotMatch(sql, /\bLIMIT\b/i);
+    return { rows: [{ pendingBookings: "1", totalNotifications: "60", unreadSummary }] };
+  } }) };
+  assert.deepEqual(await getSidebarCounts(pool as never, async () => recipient), { pendingBookings: 1, totalNotifications: 60, unreadNotifications: 52, unreadSummary });
+});
+
 const url = process.env.ETHN_NOTIFICATIONS_TEST_DATABASE_URL;
 test("persistent notifications isolate recipients, deduplicate booking alerts and persist read state", { skip: !url }, async () => {
   const admin = new Client({ connectionString: process.env.ETHN_NOTIFICATIONS_TEST_ADMIN_URL });
@@ -35,6 +51,7 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     assert.equal(rows.length, 1);
     assert.equal(rows[0].title, "Payment proof submitted");
     assert.equal(rows[0].kind, "proof_submitted");
+    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, totalNotifications: 1, unreadNotifications: 1, unreadSummary: [{ label: "Payment proofs to review", count: 1 }] });
     assert.deepEqual(rows[0].booking, { customerName: "Test Guest", customerEmail: "guest@example.test", customerPhone: "09123456789", reference: booking, bookingDate: rows[0].booking?.bookingDate, paymentMethod: null, bookingTotal: "10.00", slots: [], amount: "10.00", amountKind: "booking_total" });
     assert.match(rows[0].booking!.bookingDate, /^\d{4}-\d{2}-\d{2}$/);
     const { rows: emails } = await admin.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_owner_alert' ORDER BY payload->>'ownerId'", [booking]);
@@ -52,7 +69,7 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     await admin.query(`INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link)
       SELECT gen_random_uuid(),$1,'extra:' || n,'Test','Test',$2 FROM generate_series(1,51) AS n`, [a, `/admin/bookings/${booking}`]);
     assert.equal((await listInbox({ connect }, verify, true)).length, 50);
-    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, unreadNotifications: 51 });
+    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, totalNotifications: 52, unreadNotifications: 51, unreadSummary: [{ label: "Other updates", count: 51 }] });
     const other = await getSidebarCounts({ connect }, async () => b);
     assert.ok(other.unreadNotifications > 0);
     const unreadId = (await listInbox({ connect }, verify, true))[0].id;
@@ -64,7 +81,7 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     assert.ok(!(await listInbox({ connect }, verify)).some(item => item.id === unreadId));
     assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 50 });
     assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 0 });
-    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, unreadNotifications: 0 });
+    assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, totalNotifications: 51, unreadNotifications: 0, unreadSummary: [] });
     assert.deepEqual(await getSidebarCounts({ connect }, async () => b), other);
     assert.deepEqual(await listInbox({ connect }, verify, true), []);
     assert.equal((await admin.query("SELECT read_at FROM ethn.notifications WHERE recipient=$1 AND event_key='exception:retired'", [a])).rows[0].read_at, null);

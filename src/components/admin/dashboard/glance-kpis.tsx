@@ -9,7 +9,7 @@ export const rangeOptions: { value: Range; label: string }[] = [{ value: "week",
 export function GlanceKpis({ state, range, onRange }: { state: AnalyticsState<OverviewData>; range: Range; onRange: (range: Range) => void }) {
   const k = state.data?.kpis;
   const cards: { label: string; value: React.ReactNode; hint?: string; title: string }[] = [
-    { label: "Reserved hours", value: k && `${k.reservedHours} h`, hint: k && `of ${k.capacityHours} open hours so far`, title: "Court time reserved by confirmed or completed bookings." },
+    { label: "Reserved hours", value: k && `${k.reservedHours} h`, hint: k && `of ${k.capacityHours} open hours so far`, title: "Court time reserved by approved bookings." },
     { label: "Capacity occupied", value: !k ? undefined : k.occupiedPercent === null ? "—" : <>{Math.round(k.occupiedPercent)}%</>, hint: "Customer bookings only", title: "Reserved hours ÷ actual opening hours elapsed. Blocks and Open Play are not counted as bookings." },
     { label: "Peak-hour occupancy", value: !k ? undefined : k.peak ? <>{Math.round(k.peak.percent)}%</> : "—", hint: !k ? undefined : k.peak ? `${hourLabel(k.peak.hourOffset, true)}–${hourLabel(k.peak.hourOffset + 1, true)}` : "Not enough data", title: "Busiest hour of the operating day across the range." },
     { label: "Avg reservation", value: !k ? undefined : k.averageReservationMinutes === null ? "—" : minutesLabel(k.averageReservationMinutes), hint: k && `${k.reservationCount} court reservations`, title: "Average originally booked time per court reservation." },

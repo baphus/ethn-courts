@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-export type BookingSummary = { id: string; guestName: string | null; status: string; operatingDate: string; createdAt: string; total: string; itemCount: number; archived: boolean };
+export type BookingSummary = { id: string; guestName: string | null; status: string; operatingDate: string; createdAt: string; total: string; itemCount: number };
 export const money = (value: string) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value));
 export const dateTime = (value: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 export const errorMessage = (status: number) => status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : status === 404 ? "Booking not found." : status === 400 ? "Check your search filters and try again." : "Service unavailable. Please try again.";

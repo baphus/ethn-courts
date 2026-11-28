@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import NextTopLoader from "nextjs-toploader";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,7 +16,8 @@ interface Props {
   children: React.ReactNode;
 }
 
-type SidebarCounts = { pendingBookings: number; unreadNotifications: number };
+type SidebarCounts = { pendingBookings: number; totalNotifications: number; unreadNotifications: number; unreadSummary: { label: string; count: number }[] };
+const unreadToastId = "staff-unread-summary";
 const SidebarActivity = createContext<{
   counts: SidebarCounts | null;
   refreshCounts: () => Promise<void>;
@@ -27,17 +28,8 @@ export default function AdminShell({ email, name, className, children }: Props) 
   const [counts, setCounts] = useState<SidebarCounts | null>(null);
   const request = useRef<AbortController | null>(null);
   const router = useRouter();
-  useEffect(() => {
-    if (!counts) return;
-    try {
-      if (!sessionStorage.getItem("ethn:show-unread-after-login")) return;
-      sessionStorage.removeItem("ethn:show-unread-after-login");
-    } catch { return; }
-    const count = counts.unreadNotifications;
-    if (count > 0) toast(`${count} unread notification${count === 1 ? "" : "s"}`, {
-      action: { label: "Open unread inbox", onClick: () => router.push("/admin/notifications?unread=1") },
-    });
-  }, [counts, router]);
+  const pathname = usePathname();
+  const summaryPending = useRef(false);
   const refreshCounts = useCallback(async () => {
     request.current?.abort();
     const controller = new AbortController();
@@ -46,13 +38,42 @@ export default function AdminShell({ email, name, className, children }: Props) 
       const response = await fetch("/api/ethn/admin/sidebar-counts", { cache: "no-store", signal: controller.signal });
       if (response.ok) {
         const nextCounts: SidebarCounts = await response.json();
-        if (!controller.signal.aborted) setCounts(nextCounts);
+        if (controller.signal.aborted) return;
+        setCounts(nextCounts);
+        if (summaryPending.current) {
+          summaryPending.current = false;
+          try { sessionStorage.removeItem("ethn:show-unread-after-login"); } catch { /* Storage is optional. */ }
+          const count = nextCounts.unreadNotifications;
+          if (count > 0) toast(`${count} unread notification${count === 1 ? "" : "s"}`, {
+            id: unreadToastId,
+            description: nextCounts.unreadSummary.map(({ label, count }) => `${label}: ${count}`).join(" · "),
+            duration: Infinity,
+            dismissible: true,
+            closeButton: true,
+            action: { label: "Open unread inbox", onClick: () => router.push("/admin/notifications?unread=1") },
+          });
+        }
       } else if (!controller.signal.aborted && (response.status === 401 || response.status === 403)) {
         setCounts(null);
       }
     } catch { /* Keep last successful counts on transient failure. */ }
     finally { if (request.current === controller) request.current = null; }
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    let signedIn = false;
+    try {
+      signedIn = sessionStorage.getItem("ethn:show-unread-after-login") === "1";
+    } catch { /* Dashboard reminders do not need storage. */ }
+    if (pathname === "/admin" || signedIn) {
+      summaryPending.current = true;
+      void refreshCounts();
+    }
+    return () => {
+      summaryPending.current = false;
+      toast.dismiss(unreadToastId);
+    };
+  }, [pathname, refreshCounts]);
 
   useEffect(() => {
     let lastSync = -Infinity;
@@ -62,7 +83,8 @@ export default function AdminShell({ email, name, className, children }: Props) 
       lastSync = now;
       void refreshCounts();
     };
-    sync();
+    if (request.current) lastSync = performance.now();
+    else sync();
     const interval = window.setInterval(sync, 60_000);
     window.addEventListener("focus", sync);
     document.addEventListener("visibilitychange", sync);

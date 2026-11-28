@@ -14,7 +14,7 @@ import { StatusBadge } from "./dashboard-status";
 import { CourtSchedule } from "./court-schedule";
 import { CourtCard } from "./court-card";
 import { KpiRow, type Kpi } from "./kpi-row";
-import { CheckCircle2, Clock } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Avatar } from "./court-avatar";
 import { courtStatus, currentPosition, dashboardCourtSchedule, intervalLabel, timelineTime } from "./court-timeline-utils";
 import { useBookingDetail, useCourtDay, useNow } from "./use-court-day";
@@ -40,7 +40,6 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
 
   const placeholder = overviewError ? "Unavailable" : <LoadingSkeleton className="h-7 w-16 motion-reduce:animate-none" />;
   const kpis: Kpi[] = overview || owner ? [
-    { label: "Completed", Icon: Clock, value: overview ? overview.counts.completed : placeholder },
     { label: "Confirmed", Icon: CheckCircle2, value: overview ? Number(overview.counts.confirmed) || 0 : placeholder },
   ] : [];
 
@@ -64,7 +63,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
     {day && <section aria-label="Court summaries" className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
       {statuses.map(({ court, status }) => <CourtCard key={court.id} court={court} status={status} now={now} live={live} onOpen={setBooking} />)}
     </section>}
-    <CourtSchedule title="Court timeline" description="Shows current and upcoming confirmed bookings and court blocks. Check the calendar for pending bookings and holds."
+    <CourtSchedule title="Court timeline" description="Shows current and upcoming reservations and unavailable court time. Check the calendar for pending bookings."
       date={selectedDate} onDateChange={setDate} day={error ? null : day} now={now} onBooking={setBooking} onBlock={(court, item) => setBlock({ court, item })}>
       {error ? <p role="alert" className="rounded-xl border border-destructive p-4">{error} Occupancy unknown.</p> : <Skeleton />}
     </CourtSchedule>

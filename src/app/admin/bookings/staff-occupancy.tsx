@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CourtSchedule } from "@/components/admin/court-schedule";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import { manilaDateStr } from "@/lib/booking/slots";
-import type { Calendar } from "@/app/admin/calendar/calendar-range";
+import { visibleCalendar, type Calendar } from "@/app/admin/calendar/calendar-range";
 
 export default function StaffOccupancy({ revision, onBooking }: { revision: number; onBooking: (id: string) => void }) {
   const [date, setDate] = useState(() => manilaDateStr(new Date()));
@@ -16,9 +16,7 @@ export default function StaffOccupancy({ revision, onBooking }: { revision: numb
     fetch(`/api/ethn/admin/calendar?date=${encodeURIComponent(date)}`, { cache: "no-store", signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json() as Promise<Calendar>; })
       .then(day => {
-        if (!controller.signal.aborted) setResult({ date, revision, day: {
-          ...day, courts: day.courts.map(court => ({ ...court, intervals: court.intervals.filter(item => item.state !== "held" && item.state !== "expired") })),
-        } });
+        if (!controller.signal.aborted) setResult({ date, revision, day: visibleCalendar(day) });
       })
       .catch(() => { if (!controller.signal.aborted) setResult({ date, revision, day: null }); });
     return () => controller.abort();

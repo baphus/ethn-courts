@@ -32,6 +32,11 @@ async function getAuthUser(userId: string) {
   throw new Error("STAFF_UNAVAILABLE");
 }
 
+export async function getStaffNotificationEmail(userId: string): Promise<string | null> {
+  const user = await getAuthUser(userId);
+  return user?.email_confirmed_at && !isDeactivated(user) ? user.email ?? null : null;
+}
+
 export async function authUserExists(userId: string): Promise<boolean> {
   return !!(await getAuthUser(userId));
 }
