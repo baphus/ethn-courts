@@ -32,7 +32,10 @@ test("availability exposes overnight windows and private occupancy projection wi
   assert.equal(result.configured, false);
   assert.deepEqual(result.courts[0].windows, [{ opensAt: "2026-11-18T23:00:00.000Z", closesAt: "2026-11-19T19:00:00.000Z", hourlyRate: null }]);
   assert(!JSON.stringify(result).includes("private@example.com"));
-  assert(f.calls.some(s => s.includes("expires_at > $3") && s.includes("starts_at < $2 AND ends_at > $1")));
+  const sql = f.calls.find(s => s.includes("FROM ethn.court_allocations"))!;
+  assert.match(sql, /state IN \('held','pending','confirmed','completed'\)/);
+  assert.match(sql, /tstzrange\(starts_at, ends_at, '\[\)'\) && tstzrange\(\$1::timestamptz, \$2::timestamptz, '\[\)'\)/);
+  assert.match(sql, /state <> 'held' OR expires_at > \$3/);
   assert.equal((await getAvailability(fake("100.00").pool, null)).configured, true);
   await assert.rejects(getAvailability(fake().pool, "2026-02-30"), /INVALID_INPUT/);
 });

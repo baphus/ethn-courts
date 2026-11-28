@@ -4,6 +4,8 @@ Current booking-backed behavior: Reclub links are optional for both customer and
 
 A checkout with a saved Open Play queues an Open Play–specific customer receipt and Owner notification instead of the ordinary submission alerts. The first add through tracking queues distinct notices once; edits and re-adds do not. When approval publishes the listing, the existing approval email links to the public page. Email still depends on the ETHN outbox and mail configuration.
 
+Staff-created venue sessions accept an optional `host` string (up to 100 characters). Create stores blank or omitted values as null; edits preserve an omitted Host and clear an explicitly blank one. The authenticated Owner listing and create/edit responses include Host for venue sessions only. Public queries do not select Host, and customer bookings do not supply a private name to this feature. Apply `0016_open_play_host.sql` before deploying the updated Owner workflow.
+
 ## Original venue event contract (historical)
 
 Migration: apply `db/ethn/0019_open_plays.sql` after `0017_expenses.sql` on a fresh ETHN chain. It is standalone after 0017; do not assume or require `0018_booking_outcomes.sql`.

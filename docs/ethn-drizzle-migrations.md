@@ -31,6 +31,14 @@ Apply `0013_protect_booking_finance_and_prune_proofs.sql` before deploying the u
 
 Apply `0014_allow_audited_paid_booking_deletion.sql` before enabling Delete for all bookings. It allows owners to remove payments and refunds along with bookings, which can change historical finance reports. It does not issue refunds. The existing deletion reason, detached audit entry, current-slot protection, and proof cleanup remain. The migration itself does not delete records.
 
+Apply `0015_notification_dismissal.sql` before deploying the updated inbox. Deleting a notification dismisses it from that recipient’s list and unread count without deleting the original event or booking.
+
+Apply `0016_open_play_host.sql` before deploying the updated staff Open Plays page. Existing venue sessions have no Host until an Owner adds one. Public listings do not expose it.
+
+Apply `0017_sales_crud.sql` before deploying Sales edit/delete. It adds revisions and soft deletion; the migration itself does not change any sale or correction amounts. `0018_certain_riptide.sql` revokes runtime insertion of new sale corrections without changing correction history.
+
+Keep the exact mixed line endings in `0000_fresh_ethn.sql`: deployed migration history hashes those bytes. Later migration SQL uses LF.
+
 ## Prerequisites
 
 1. Confirm target project identity and backup/restore plan. Prefer new database over deleting existing data. No reset command is provided.

@@ -1,8 +1,6 @@
 import type { Pool } from "pg";
-import { addDaysManilaStr } from "@/lib/courts";
 import { manilaDateStr } from "@/lib/booking/slots";
 import { getStaff, type StaffVerifier } from "@/lib/admin/ethn-payments";
-import { getFinance } from "@/lib/admin/ethn-finance";
 import { summarizeBookingSchedule } from "./ethn-booking-schedule";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,54 +24,36 @@ function date(value: string): boolean {
   return !Number.isNaN(d.getTime()) && d.getUTCFullYear() === Number(value.slice(0, 4)) && d.getUTCMonth() + 1 === Number(value.slice(5, 7)) && d.getUTCDate() === Number(value.slice(8, 10));
 }
 
-export function dashboardDateOffset(day: string, offset: number) {
-  return addDaysManilaStr(day, offset);
-}
-
 export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
-  const actor = await getStaff(pool, verify);
+  await getStaff(pool, verify);
   const client = await pool.connect();
-  let discardClient=false;
-  let result: { operatingDate: string; calendarDate: string; counts: Record<string, number>; periods: { current: number; prior: number; today: number }; recentBookings: (ReturnType<typeof summary> & { slotCount: number })[] };
+  let discardClient = false;
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const clock = (await client.query("SELECT clock_timestamp() AS now, anchor_minutes FROM ethn.settings WHERE singleton = true")).rows[0];
     if (!clock) throw new Error("NOT_CONFIGURED");
     const now = new Date(clock.now);
     const operatingDate = manilaDateStr(new Date(now.getTime() - Number(clock.anchor_minutes) * 60_000));
-    const counts = (await client.query(`SELECT
-      count(*) FILTER (WHERE b.status = 'held' AND b.expires_at > $2::timestamptz)::int AS held,
-      count(*) FILTER (WHERE b.status = 'pending')::int AS pending,
-      count(*) FILTER (WHERE b.status = 'confirmed')::int AS confirmed,
-      count(*) FILTER (WHERE b.status = 'completed')::int AS completed,
-      count(*) FILTER (WHERE b.status = 'expired')::int AS expired,
-      count(*) FILTER (WHERE b.status = 'pending' AND x.earliest_start <= $2::timestamptz)::int AS "pendingReviewOverdue"
-      FROM ethn.bookings b LEFT JOIN LATERAL (SELECT min(i.starts_at) AS earliest_start FROM ethn.booking_items i WHERE i.booking_id = b.id) x ON true
-      WHERE b.operating_date = $1::date`, [operatingDate, now])).rows[0];
-    const periods = (await client.query(`SELECT
-      count(*) FILTER (WHERE operating_date >= $2::date)::int AS current,
-      count(*) FILTER (WHERE operating_date < $2::date)::int AS prior,
-      count(*) FILTER (WHERE operating_date = $1::date AND status = 'confirmed')::int AS today
-      FROM ethn.bookings WHERE status <> 'held' AND operating_date BETWEEN $3::date AND $1::date`,
-      [operatingDate, dashboardDateOffset(operatingDate, -14), dashboardDateOffset(operatingDate, -29)])).rows[0];
-    const recent = await client.query<SummaryRow & { slot_count: number }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
-      x.item_count, x.slot_count FROM ethn.bookings b CROSS JOIN LATERAL (
+    const { confirmed, completed } = (await client.query(`SELECT
+      count(*) FILTER (WHERE status = 'confirmed')::int AS confirmed,
+      count(*) FILTER (WHERE status = 'completed')::int AS completed
+      FROM ethn.bookings WHERE operating_date = $1::date AND status IN ('confirmed','completed')`, [operatingDate])).rows[0];
+    const recent = await client.query<SummaryRow & { slot_count: number; approved_at: Date }>(`SELECT b.id, b.guest_name, b.status, b.operating_date::text, b.created_at, b.total::text,
+      x.item_count, x.slot_count, approval.approved_at FROM ethn.bookings b
+      CROSS JOIN LATERAL (
+        SELECT max(p.verified_at) AS approved_at FROM ethn.payments p
+        WHERE p.booking_id = b.id AND p.extension_id IS NULL AND p.status = 'accepted'
+      ) approval CROSS JOIN LATERAL (
         SELECT count(*)::int AS item_count, coalesce(sum(i.duration_minutes / i.interval_minutes), 0)::int AS slot_count
         FROM ethn.booking_items i WHERE i.booking_id = b.id
       ) x
-      WHERE ${visibleBooking} AND b.archived_at IS NULL ORDER BY b.created_at DESC, b.id DESC LIMIT 8`);
+      WHERE b.status IN ('confirmed','completed') AND b.archived_at IS NULL AND approval.approved_at IS NOT NULL
+      ORDER BY approval.approved_at DESC, b.id DESC LIMIT 8`);
     await client.query("COMMIT");
-    result = { operatingDate, calendarDate: manilaDateStr(now), counts, periods, recentBookings: recent.rows.map(row => ({ ...summary(row), slotCount: row.slot_count })) };
-  } catch (error) { discardClient=await rollback(client); throw error; }
+    return { operatingDate, calendarDate: manilaDateStr(now), counts: { confirmed, completed },
+      recentBookings: recent.rows.map(row => ({ ...summary(row), slotCount: row.slot_count, approvedAt: row.approved_at.toISOString() })) };
+  } catch (error) { discardClient = await rollback(client); throw error; }
   finally { client.release(discardClient); }
-  if (actor.role !== "owner") return result;
-  const today = result.calendarDate;
-  const [current, prior, month] = await Promise.all([
-    getFinance(pool, verify, dashboardDateOffset(today, -14), today),
-    getFinance(pool, verify, dashboardDateOffset(today, -29), dashboardDateOffset(today, -15)),
-    getFinance(pool, verify, `${today.slice(0, 7)}-01`, today),
-  ]);
-  return { ...result, finance: { current: current.components.bookingAndExtensionCollections, prior: prior.components.bookingAndExtensionCollections, month: month.totals } };
 }
 
 export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params: URLSearchParams) {

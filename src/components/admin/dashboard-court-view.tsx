@@ -40,7 +40,7 @@ export function DashboardCourtView({ overview, owner, overviewError, retryOvervi
 
   const placeholder = overviewError ? "Unavailable" : <LoadingSkeleton className="h-7 w-16 motion-reduce:animate-none" />;
   const kpis: Kpi[] = overview || owner ? [
-    { label: "Pending", Icon: Clock, value: overview ? Number(overview.counts.pending) || 0 : placeholder },
+    { label: "Completed", Icon: Clock, value: overview ? overview.counts.completed : placeholder },
     { label: "Confirmed", Icon: CheckCircle2, value: overview ? Number(overview.counts.confirmed) || 0 : placeholder },
   ] : [];
 

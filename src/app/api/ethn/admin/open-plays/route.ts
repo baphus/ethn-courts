@@ -1,13 +1,13 @@
 import { hasValidOrigin } from "@/lib/request-origin";
 import { readAdminJson } from "@/lib/admin/ethn-json";
-import { createOpenPlay, listPublicOpenPlays } from "@/lib/admin/ethn-open-plays";
+import { createOpenPlay, listStaffOpenPlays } from "@/lib/admin/ethn-open-plays";
 import { adminResponse, getCurrentStaff, staffPool, verifyStaffIdentity } from "@/lib/admin/ethn-staff-server";
 import { openPlayError } from "@/lib/admin/ethn-open-play-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET() {
-  try { await getCurrentStaff(); return adminResponse(await listPublicOpenPlays(staffPool, true)); }
+  try { await getCurrentStaff(); return adminResponse(await listStaffOpenPlays(staffPool)); }
   catch (error) { return openPlayError(error); }
 }
 export async function POST(request: Request) {

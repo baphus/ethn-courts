@@ -42,16 +42,16 @@ export function CollectionsChart({ owner, currentMonth }: { owner: boolean; curr
     <span className="min-w-28 text-center text-xs font-medium">{activeMonth ? monthName(activeMonth) : "—"}</span>
     <button type="button" aria-label="Next month" disabled={!activeMonth || !latestMonth || activeMonth >= latestMonth} onClick={() => { const next = shiftMonth(activeMonth, 1); setMonth(owner && next === latestMonth ? "" : next); }} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronRight className="size-4" /></button>
   </div>;
-  return <Card title={owner && metric === "collections" ? "Total collections" : "Occupancy"} subtitle={metric === "collections" ? data?.collections?.included : "Daily share of open hours reserved by customers (held bookings, blocks and Open Play excluded)"}
-    action={<div className="flex flex-wrap items-center gap-2">{owner && <Segmented label="Chart metric" value={metric} onChange={setMetric} options={[{ value: "collections", label: "Total collections" }, { value: "occupancy", label: "Occupancy" }]} />}{nav}</div>}>
-    <Body state={state} skeleton="h-72">{() => !view ? <p role="alert" className="text-sm text-muted-foreground">Total collections unavailable. Please try again.</p> : <>
+  return <Card title={owner && metric === "collections" ? "Approved booking payments" : "Occupancy"} subtitle={metric === "collections" ? data?.collections?.included : "Daily share of open hours reserved by approved bookings (court blocks excluded)"}
+    action={<div className="flex flex-wrap items-center gap-2">{owner && <Segmented label="Chart metric" value={metric} onChange={setMetric} options={[{ value: "collections", label: "Approved booking payments" }, { value: "occupancy", label: "Occupancy" }]} />}{nav}</div>}>
+    <Body state={state} skeleton="h-72">{() => !view ? <p role="alert" className="text-sm text-muted-foreground">Approved booking payments unavailable. Please try again.</p> : <>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
         {view.showCollections && data?.collections ? <>
           <p className="text-2xl font-semibold tabular-nums">{pesos(data.collections.totals.collected)}<span className="ml-2 text-xs font-normal text-muted-foreground">collected</span></p>
           <p className="text-xs text-muted-foreground">Average {pesos(data.collections.totals.averagePerDay)} per elapsed day</p>
         </> : <p className="text-2xl font-semibold tabular-nums">{view.occupancy === null ? "—" : `${view.occupancy}%`}<span className="ml-2 text-xs font-normal text-muted-foreground">{view.reserved} of {view.capacity} open hours reserved</span></p>}
       </div>
-      <div role="group" aria-label={`${view.showCollections ? "Daily total collections" : "Daily occupancy"} for ${monthName(activeMonth)}`} className="h-64 w-full">
+      <div role="group" aria-label={`${view.showCollections ? "Daily approved booking payments" : "Daily occupancy"} for ${monthName(activeMonth)}`} className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={view.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" />

@@ -8,19 +8,27 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 
 test("fresh ETHN migration includes full ordered chain and court migration matches reviewed SQL", () => {
   const migrations = readMigrationFiles({ migrationsFolder: "db/ethn-migrations" });
+  const referenceSql = (name: string) => readFileSync(`db/ethn/${name}.sql`, "utf8").replace(/\r\n/g, "\n");
+  assert.equal(migrations[0].hash, "86a0e9b4f97d3a4d61013cc661b96fc38b84521a4106fb6f52bc6500f199e752");
+  assert.equal(migrations[17].hash, "a4e8f142fe92912379adf71cb4773356dcb9a7eb3d1da71beff6eafa35ccb94a");
+  assert.match(migrations[18].sql.join(""), /REVOKE INSERT .* ON ethn\.sale_corrections FROM ethn_checkout;/);
+  for (const name of readdirSync("db/ethn-migrations").filter(name => name.endsWith(".sql") && name !== "0000_fresh_ethn.sql")) {
+    assert.ok(!readFileSync(`db/ethn-migrations/${name}`, "utf8").includes("\r"), `${name} must use LF for stable migration hashes`);
+  }
   assert.ok(migrations.some(migration => /CREATE UNIQUE INDEX payments_unique_method_transfer/.test(migration.sql.join(""))));
   assert.ok(migrations.some(migration => /CREATE FUNCTION ethn\.queue_abandoned_booking_proofs/.test(migration.sql.join(""))));
+  assert.ok(migrations.some(migration => /ALTER TABLE ethn\.open_plays ADD COLUMN host text/.test(migration.sql.join("")) && /GRANT SELECT \(host\), INSERT \(host\), UPDATE \(host\) ON ethn\.open_plays TO ethn_checkout/.test(migration.sql.join(""))));
   assert.ok(migrations.every((migration, index) => index === 0 || migration.folderMillis > migrations[index - 1].folderMillis));
-  assert.equal(readFileSync('db/ethn-migrations/0002_sloppy_machine_man.sql','utf8'),readFileSync('db/ethn/0030_unified_bookings.sql','utf8'));
+  assert.equal(readFileSync('db/ethn-migrations/0002_sloppy_machine_man.sql','utf8'),referenceSql('0030_unified_bookings'));
   const files = readdirSync("db/ethn").filter(name => /^00\d\d_.*\.sql$/.test(name) && name < "0029_").sort();
-  const expected = files.map(name => `-- Source: ${name}\n${readFileSync(`db/ethn/${name}`, "utf8")}`).join("\n\n");
-  assert.equal(migrations[0].sql.join(""), `-- Fresh ETHN schema through 0028. Immutable after first application.\n${expected}`);
+  const expected = files.map(name => `-- Source: ${name}\n${referenceSql(name.slice(0, -4))}`).join("\n\n");
+  assert.equal(migrations[0].sql.join("").replace(/\r\n/g, "\n"), `-- Fresh ETHN schema through 0028. Immutable after first application.\n${expected}`);
   assert.equal(files.length, 29);
   for (const [active, reference] of [["0003_owner_only_admin", "0031_owner_only_admin"], ["0004_finance_expense_actions", "0032_finance_expense_actions"], ["0005_nonconsecutive_customer_slots", "0033_nonconsecutive_customer_slots"]]) {
-    assert.equal(readFileSync(`db/ethn-migrations/${active}.sql`, "utf8"), readFileSync(`db/ethn/${reference}.sql`, "utf8"));
+    assert.equal(readFileSync(`db/ethn-migrations/${active}.sql`, "utf8"), referenceSql(reference));
   }
   assert.ok(migrations[1].folderMillis > migrations[0].folderMillis);
-  assert.equal(readFileSync("db/ethn-migrations/0001_court_details.sql", "utf8"), readFileSync("db/ethn/0029_court_details.sql", "utf8"));
+  assert.equal(readFileSync("db/ethn-migrations/0001_court_details.sql", "utf8"), referenceSql("0029_court_details"));
 });
 
 test("migration env accepts only .env.local and preserves precedence when both files exist", async () => {

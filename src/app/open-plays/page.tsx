@@ -8,7 +8,7 @@ export const metadata = { title: "Open Plays — ETHN Courts" };
 
 export default async function OpenPlaysPage() {
   let events: Awaited<ReturnType<typeof listPublicOpenPlays>> | null = null;
-  try { events = await listPublicOpenPlays({ connect: () => getCheckoutPool().connect() }, false, "schedule"); } catch { /* Show a safe unavailable state. */ }
+  try { events = await listPublicOpenPlays({ connect: () => getCheckoutPool().connect() }, "schedule"); } catch { /* Show a safe unavailable state. */ }
 
   return (
     <main className={`daylight ${daylightFonts} min-h-svh bg-background text-foreground`}>

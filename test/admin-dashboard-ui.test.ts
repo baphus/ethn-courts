@@ -4,12 +4,12 @@ import { readFileSync } from 'node:fs';
 
 const source = (file: string) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 
-test('dashboard leads with booking statuses and retains court view and optional finance', () => {
+test('dashboard leads with approved statuses and keeps full finance reporting off the dashboard', () => {
   const page = source('src/app/admin/page.tsx');
   assert.doesNotMatch(page, /aria-label="Needs attention"|Needs payment review/);
   const statuses = page.match(/<section aria-label="Today booking status"[\s\S]*?<\/section>/)?.[0] ?? '';
-  for (const state of ['confirmed', 'completed', 'pending']) assert.match(statuses, new RegExp(`"${state}"`));
-  assert.doesNotMatch(statuses, /"expired"/);
+  for (const state of ['confirmed', 'completed']) assert.match(statuses, new RegExp(`"${state}"`));
+  assert.doesNotMatch(statuses, /"(?:expired|pending)"/);
   assert.match(statuses, /data\.counts\[state\]/);
   assert.match(statuses, /<StatusBadge state=\{state\}/);
   assert.ok(page.indexOf('Today’s status') < page.indexOf('<HeroStats'));
@@ -23,13 +23,14 @@ test('dashboard leads with booking statuses and retains court view and optional 
   assert.match(page, /const owner = useDashboardOwner\(\)/);
   assert.match(page, /\{!owner && !data \?[^\n]+LoadingAnimation/);
   assert.match(statuses, /<Skeleton /);
-  assert.match(page, /\{\(owner \|\| data\?\.finance\) && <section[^>]*>[\s\S]*?Finance this month/);
-  assert.match(page, /Finance this month[^\n]*Total collections[^\n]*Recorded expenses[^\n]*Net after recorded expenses[^\n]*amount !== undefined[^\n]*<Skeleton/);
+  assert.doesNotMatch(page, /Finance this month|Recorded expenses|Net after recorded expenses/);
+  assert.match(page, /dateTime\(row\.approvedAt\)/);
+  assert.doesNotMatch(court, /label: "Pending"/);
   for (const file of ['dashboard/section-card.tsx', 'dashboard/glance-kpis.tsx', 'kpi-row.tsx']) {
     assert.doesNotMatch(source(`src/components/admin/${file}`), /cv-rise|animationDelay/);
   }
   assert.match(source('src/app/admin/layout.tsx'), /staff\.role === "owner" \? <DashboardCacheProvider key=\{staff\.userId\}/);
-  assert.ok(page.indexOf('Recent bookings') < page.indexOf('Finance this month'));
+  assert.match(page, /Recent bookings[\s\S]*?Most recently approved/);
 });
 
 test('finance reporting uses the Dashboard KPI cards', () => {

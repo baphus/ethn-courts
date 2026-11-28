@@ -9,7 +9,7 @@ const verify = async () => "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false) {
   const queries: string[] = [];
   let released = 0;
-  const pool = { connect: async () => ({ query: async (sql: string) => {
+  const pool = { connect: async () => ({ query: async (sql: string, args?: string[]) => {
     queries.push(sql);
     if (sql.includes("SELECT role FROM")) return { rows: [{ role }] };
     if (sql.includes("anchor_minutes FROM ethn.settings")) return { rows: [{ now, anchor_minutes: 420 }] };
@@ -21,8 +21,10 @@ function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false)
     if (sql.includes("WITH parts AS")) return { rows: [{ id: "item:1", booking_id: "booking", guest_name: null, status: "confirmed", operating_date: "2026-11-01", starts_at: now, ends_at: "2026-11-01T01:00:00Z", court: "Court 1" }] };
     if (sql.includes("SELECT 1 FROM ethn.staff_access")) return { rows: [{ '?column?': 1 }] };
     if (sql.includes("transaction_timestamp() AS now")) return { rows: [{ now }] };
-    if (sql.includes("WITH entries AS") && !sql.includes("sales_totals AS")) return { rows: [{ id: "cash", name: "Cash", amount: "0.00" }, { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" }, { id: "custom", name: "Custom QR", amount: "0.00" }, { id: "gcash", name: "GCash", amount: "-0.25" }] };
-    if (sql.includes("sales_totals AS")) return { rows: [{ date: "2026-11-01", bookingcash: "100.00", bookinggcash: "0.00", salescash: "25.00", salesgcash: "0.00", cash: "125.00", gcash: "0.00", other: "50.00", refunds: "10.00", collected: "175.00", expenses: "20.00" }] };
+    if (sql.includes("WITH receipts AS") && sql.includes("methods AS")) return { rows: [{ id: "cash", name: "Cash", amount: "0.00" }, { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" }, { id: "custom", name: "Custom QR", amount: "0.00" }, { id: "gcash", name: "GCash", amount: "0.25" }] };
+    if (sql.includes("WITH receipts AS")) {
+      return { rows: ["2026-10-31", "2026-11-01"].filter(date => args && date >= args[0] && date <= args[1]).map(date => ({ date, collected: "100.00" })) };
+    }
     return { rows: [] };
   }, release: () => { released++; } }) } as unknown as Pick<Pool, "connect">;
   return { pool, queries, releases: () => released };
@@ -43,7 +45,7 @@ test("staff cannot obtain finance; strict query validation and schedule segments
   assert.match(sql, /WHERE b\.status = 'confirmed'/);
   assert.match(sql, /p\.starts_at >= \$3/);
   assert.match(sql, /LIMIT 301/); assert.doesNotMatch(sql, /min\(p\.starts_at\)/);
-  assert.ok(!db.queries.some(q => q.includes("sales_totals AS")));
+  assert.ok(!db.queries.some(q => q.includes("WITH receipts AS")));
   assert.ok(db.releases() > 0);
 });
 
@@ -54,27 +56,39 @@ test("monthly dashboard counts only confirmed and completed bookings in both per
   assert.match(sql, /FROM ethn\.bookings WHERE status IN \('confirmed', 'completed'\) AND operating_date BETWEEN/);
 });
 
-test("owner dashboard separates booking collections from total collections before refunds and expenses", async () => {
+test("owner dashboard uses the same approved original payments for hero and chart", async () => {
   const db = mock("owner", "2026-10-31T17:00:00Z");
   const hero = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=hero")) as HeroStatsData;
-  assert.deepEqual(hero.bookingCollections, { today: "150.00", month: "150.00" });
-  assert.equal(hero.collections?.today, "175.00");
-  assert.equal(hero.collections?.month, "175.00");
+  assert.equal(hero.collections?.today, "100.00");
+  assert.equal(hero.collections?.month, "100.00");
+  assert.equal(db.queries.filter(q => q.includes("WITH receipts AS")).length, 2);
   const chart = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=chart&month=2026-11")) as ChartData;
   assert.ok("occupancy" in chart);
-  assert.equal(chart.collections?.totals.collected, "175.00");
+  assert.equal(chart.collections?.totals.collected, "100.00");
+  assert.deepEqual(chart.collections?.daily.map(day => day.date), ["2026-11-01"]);
+  const sql = db.queries.filter(q => q.includes("WITH receipts AS"));
+  assert.equal(sql.length, 3);
+  for (const query of sql) {
+    assert.match(query, /p\.status='accepted' AND p\.extension_id IS NULL AND b\.status IN \('confirmed','completed'\)/);
+    assert.match(query, /p\.verified_at >= .*Asia\/Manila/);
+    assert.doesNotMatch(query, /received_at|ethn\.sales/);
+  }
 });
 
-test("dashboard returns configured method names, zero balances, and signed collections", async () => {
+test("dashboard returns configured method names, zero balances, and approved collections", async () => {
   const db = mock("owner", "2026-11-04T02:00:00Z");
   const result = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=methods&range=week"));
+  const sql = db.queries.find(query => query.includes("WITH receipts AS"))!;
+  assert.match(sql, /p\.status='accepted' AND p\.extension_id IS NULL AND b\.status IN \('confirmed','completed'\)/);
+  assert.match(sql, /p\.verified_at >= .*Asia\/Manila/);
+  assert.doesNotMatch(sql, /received_at|ethn\.sales/);
   assert.deepEqual(result, {
-    range: "week", from: "2026-11-02", to: "2026-11-04", collected: "125.25",
+    range: "week", from: "2026-11-02", to: "2026-11-04", collected: "125.75",
     paymentMethods: [
       { id: "cash", name: "Cash", amount: "0.00" },
       { id: "metrobank", name: "Metrobank Transfer", amount: "125.50" },
       { id: "custom", name: "Custom QR", amount: "0.00" },
-      { id: "gcash", name: "GCash", amount: "-0.25" },
+      { id: "gcash", name: "GCash", amount: "0.25" },
     ],
   });
 });
@@ -87,9 +101,9 @@ test("overview separates booking and block utilization over elapsed capacity", a
   assert.equal(result.kpis.blockedHours, 0.3);
   assert.equal(result.kpis.capacityHours, 1);
   const sql = db.queries.find(q => q.includes("WITH w AS"))!;
-  assert.match(sql, /a\.block_id IS NULL AND a\.state IN \('pending','confirmed','completed'\)/);
+  assert.match(sql, /booking\.status IN \('confirmed','completed'\) AND a\.state IN \('confirmed','completed'\)/);
   assert.match(sql, /a\.block_id IS NOT NULL AND a\.state = 'confirmed'/);
-  assert.doesNotMatch(sql, /'held'/);
+  assert.doesNotMatch(sql, /'held'|'pending'/);
 });
 
 test("opening windows preserve one-hour and overnight actual duration", () => {

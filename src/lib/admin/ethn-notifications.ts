@@ -4,7 +4,7 @@ import { getStaff, type StaffVerifier } from "./ethn-payments";
 type Db = Pick<Pool, "connect">;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const limit = 50;
-const inboxRecipient = "recipient=$1 AND link <> '/admin/exceptions'";
+const inboxRecipient = "recipient=$1 AND link <> '/admin/exceptions' AND dismissed_at IS NULL";
 
 export async function getSidebarCounts(pool: Db, verify: StaffVerifier) {
   const { userId } = await getStaff(pool, verify);
@@ -65,13 +65,24 @@ export async function markAllInboxRead(pool: Db, verify: StaffVerifier) {
   } finally { client.release(); }
 }
 
+export async function dismissInboxNotification(pool: Db, verify: StaffVerifier, id: string) {
+  const { userId } = await getStaff(pool, verify);
+  if (!uuid.test(id)) throw new Error("INVALID_INPUT");
+  const client = await pool.connect();
+  try {
+    const { rowCount } = await client.query(`UPDATE ethn.notifications SET dismissed_at=statement_timestamp()
+      WHERE ${inboxRecipient} AND id=$2`, [userId, id]);
+    return rowCount === 1;
+  } finally { client.release(); }
+}
+
 export async function markInboxRead(pool: Db, verify: StaffVerifier, id: string) {
   const { userId } = await getStaff(pool, verify);
   if (!uuid.test(id)) throw new Error("INVALID_INPUT");
   const client = await pool.connect();
   try {
     const result = await client.query(`UPDATE ethn.notifications SET read_at=COALESCE(read_at,clock_timestamp())
-      WHERE id=$1 AND recipient=$2 RETURNING id,read_at`, [id, userId]);
+      WHERE recipient=$1 AND id=$2 AND dismissed_at IS NULL RETURNING id,read_at`, [userId, id]);
     if (!result.rows[0]) return null;
     return { id: result.rows[0].id as string, readAt: (result.rows[0].read_at as Date).toISOString() };
   } finally { client.release(); }

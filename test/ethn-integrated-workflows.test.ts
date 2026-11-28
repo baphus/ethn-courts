@@ -10,7 +10,7 @@ import { correctExpense } from "../src/lib/admin/ethn-expense-corrections";
 import { getFinance } from "../src/lib/admin/ethn-finance";
 import { putEthnHours } from "../src/lib/admin/ethn-hours";
 import { createExtensionHold } from "../src/lib/admin/ethn-extensions";
-import { createSale, correctSale } from "../src/lib/admin/ethn-sales";
+import { createSale } from "../src/lib/admin/ethn-sales";
 import { manilaDateStr } from "../src/lib/booking/slots";
 
 const url = process.env.ETHN_INTEGRATED_TEST_DATABASE_URL;
@@ -58,9 +58,9 @@ test("integrated ETHN allocation, calendar, extension, completion, and finance w
     await admin.query("INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,1,$3,$4,100,60,100,30,30)",[ids.dueItem,ids.dueBooking,dueStart,dueEnd]);
     await admin.query("INSERT INTO ethn.court_allocations(id,item_id,court_id,starts_at,ends_at,state) VALUES($1,$2,1,$3,$4,'confirmed')",[randomUUID(),ids.dueItem,dueStart,dueEnd]);
     assert.equal((await completeBooking(pool,verify,ids.dueBooking)).changed,true);
-    const sale = await createSale(pool,verify,{description:"Fixture sale",note:null,amount:"10.00",method:"cash",receivedAt:new Date().toISOString(),idempotencyKey:randomUUID()});
-    const correction = await correctSale(pool,verify,sale.id,{amount:"8.00",method:"gcash",reason:"fixture",expectedCorrectionId:null,idempotencyKey:randomUUID()});
-    await admin.query("UPDATE ethn.sale_corrections SET created_at=($1::date::timestamp AT TIME ZONE 'Asia/Manila')+interval '1 hour' WHERE id=$2",[today,correction.id]);
+    const sale = await createSale(pool,verify,{itemName:"Fixture sale",category:"Other",description:null,note:null,amount:"10.00",method:"cash",receivedAt:new Date().toISOString(),idempotencyKey:randomUUID()});
+    await admin.query(`INSERT INTO ethn.sale_corrections(id,sale_id,amount_delta,cash_delta,gcash_delta,reason,created_by,created_at)
+      VALUES($1,$2,-2,-10,8,'Historical correction fixture',$3,($4::date::timestamp AT TIME ZONE 'Asia/Manila')+interval '1 hour')`, [randomUUID(),sale.id,owner,today]);
     const client = await pool.connect();
     try { await client.query("INSERT INTO ethn.expenses(id,title,category,amount,paid_date,created_by) VALUES($1,'Fixture expense','Other',5,$2,$3)",[ids.expense,ledgerDate,owner]); }
     finally { client.release(); }

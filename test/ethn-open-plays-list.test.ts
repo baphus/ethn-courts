@@ -5,7 +5,7 @@ import { listPublicOpenPlays, listUpcomingOpenPlays } from "../src/lib/admin/eth
 
  test("open play listing includes past events but keeps removal and allocation filters", async () => {
   const source = await readFile(new URL("../src/lib/admin/ethn-open-plays.ts", import.meta.url), "utf8");
-  const listing = source.slice(source.indexOf("export async function listPublicOpenPlays"), source.indexOf("async function allocateOpenPlay"));
+  const listing = source.slice(source.indexOf("async function listOpenPlays"), source.indexOf("async function allocateOpenPlay"));
   assert.match(listing, /WHERE p\.removed_at IS NULL/);
   assert.match(listing, /window === "current" \? " AND p\.ends_at > clock_timestamp\(\)" : ""/);
   assert.match(listing, /b\.removed_at IS NULL/);
@@ -32,7 +32,7 @@ test("public schedule selects recent venue history separately so past rows canno
     queries.push([sql, args]);
     return { rows: [] };
   } }) };
-  assert.deepEqual(await listPublicOpenPlays(pool as never, false, "schedule"), []);
+  assert.deepEqual(await listPublicOpenPlays(pool as never, "schedule"), []);
   assert.equal(queries[0][1], undefined);
   assert.match(queries[0][0], /ends_at > statement_timestamp\(\) ORDER BY starts_at,id LIMIT 100/);
   assert.match(queries[0][0], /ends_at <= statement_timestamp\(\) ORDER BY ends_at DESC,id LIMIT 5/);

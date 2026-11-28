@@ -29,7 +29,11 @@ async function readAvailability(pool: Pick<Pool, "connect">, requestedDate: stri
     const end = new Date(manilaWallClock(dates[dates.length - 1]).getTime() + anchor + DAY);
     const courts = (await client.query("SELECT id::text, name, description, CASE WHEN photo IS NULL THEN '0' ELSE details_version::text END AS photo_version FROM ethn.courts WHERE active ORDER BY id")).rows;
     const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
-    const allocations = (await client.query("SELECT court_id::text, starts_at, ends_at, state FROM ethn.court_allocations WHERE starts_at < $2 AND ends_at > $1 AND (state IN ('pending','confirmed','completed') OR (state = 'held' AND expires_at > $3)) ORDER BY starts_at", [start, end, now])).rows;
+    const allocations = (await client.query(`SELECT court_id::text, starts_at, ends_at, state FROM ethn.court_allocations
+      WHERE state IN ('held','pending','confirmed','completed')
+        AND tstzrange(starts_at, ends_at, '[)') && tstzrange($1::timestamptz, $2::timestamptz, '[)')
+        AND (state <> 'held' OR expires_at > $3)
+      ORDER BY starts_at`, [start, end, now])).rows;
     const methods = (await client.query('SELECT id,name,instructions,(qr IS NOT NULL) AS "qrAvailable",version::text FROM ethn.payment_methods WHERE enabled ORDER BY name,id')).rows;
     const days = dates.map(date => {
       const dayStart = manilaWallClock(date).getTime() + anchor;

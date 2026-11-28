@@ -3,7 +3,7 @@ import { addDaysManilaStr as addDays } from "../courts";
 import { manilaDateStr } from "../booking/slots";
 import { getAvailability } from "../booking/ethn-availability";
 import { scheduleWindows } from "../booking/schedule";
-import { getFinance, listCollectionMethods } from "./ethn-finance";
+import { approvedBookingSource } from "./ethn-finance";
 import { getStaff, type StaffVerifier } from "./ethn-payments";
 import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analyticsParams } from "./dashboard-analytics-helpers";
 
@@ -12,15 +12,15 @@ import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analy
  * Financial figures are produced only for owners and are never part of a staff payload.
  *
  * Definitions (also shown in the UI):
- * - Reserved time: customer booking allocations in pending/confirmed/completed. Held bookings are NOT reservations.
+ * - Reserved time: customer booking allocations in confirmed/completed.
  * - Blocked time: maintenance/private/Open Play blocks, kept separate from booking utilisation.
  * - Capacity: current configured opening windows (scheduleWindows), active courts only, clipped to "now"; historical schedules may differ.
- * - Collections: getFinance totals (accepted booking/extension payments + manual sales after corrections).
+ * - Collections: verified original payments for confirmed or completed bookings, by Manila approval date.
  */
 
 type Db = Pick<Pool, "connect">;
 export type Range = "week" | "month";
-const COLLECTIONS_SCOPE = "Verified booking and extension payments plus manual sales after corrections. Before refunds and expenses. Not net profit.";
+const COLLECTIONS_SCOPE = "Verified payments for approved bookings, by Manila approval date. Before expenses. Not net profit.";
 const MAX_WINDOWS = 4000;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -83,9 +83,13 @@ SELECT b.court_id::text AS court_id, b.op_date::text AS op_date, b.hour_offset,
        sum(COALESCE(r.blocked_s, 0))::float8 AS blocked_s
 FROM b
 LEFT JOIN LATERAL (
-  SELECT sum(CASE WHEN a.block_id IS NULL AND a.state IN ('pending','confirmed','completed') THEN extract(epoch FROM (LEAST(a.ends_at, b.e) - GREATEST(a.starts_at, b.s))) END) AS reserved_s,
+  SELECT sum(CASE WHEN booking.status IN ('confirmed','completed') AND a.state IN ('confirmed','completed') THEN extract(epoch FROM (LEAST(a.ends_at, b.e) - GREATEST(a.starts_at, b.s))) END) AS reserved_s,
          sum(CASE WHEN a.block_id IS NOT NULL AND a.state = 'confirmed' THEN extract(epoch FROM (LEAST(a.ends_at, b.e) - GREATEST(a.starts_at, b.s))) END) AS blocked_s
   FROM ethn.court_allocations a
+  LEFT JOIN ethn.booking_items i ON i.id = a.item_id
+  LEFT JOIN ethn.extension_items ei ON ei.id = a.extension_item_id
+  LEFT JOIN ethn.extensions e ON e.id = ei.extension_id AND e.status IN ('confirmed','completed')
+  LEFT JOIN ethn.bookings booking ON booking.id = coalesce(i.booking_id, e.booking_id)
   WHERE a.court_id = b.court_id AND a.starts_at < b.e AND a.ends_at > b.s
 ) r ON true
 WHERE b.e > b.s
@@ -114,7 +118,7 @@ async function loadOccupancy(pool: Db, pick: (operatingDate: string) => [string,
     }
     const rows = ids.length ? (await client.query(OCCUPANCY_SQL, [ids, days, opens, closes])).rows.map(r => ({ courtId: r.court_id as string, opDate: r.op_date as string, hourOffset: Number(r.hour_offset), capacityS: Number(r.capacity_s), reservedS: Number(r.reserved_s), blockedS: Number(r.blocked_s) })) : [];
     const avg = (await client.query(`SELECT avg(i.duration_minutes)::float8 AS avg_minutes, count(*)::int AS n FROM ethn.booking_items i JOIN ethn.bookings b ON b.id = i.booking_id
-      WHERE b.operating_date BETWEEN $1::date AND $2::date AND b.status IN ('pending','confirmed','completed') AND i.starts_at < $3::timestamptz`, [from, to, now])).rows[0];
+      WHERE b.operating_date BETWEEN $1::date AND $2::date AND b.status IN ('confirmed','completed') AND i.starts_at < $3::timestamptz`, [from, to, now])).rows[0];
     return { ...empty, rows, avgMinutes: avg.avg_minutes === null ? null : Number(avg.avg_minutes), reservationCount: Number(avg.n) };
   });
 }
@@ -167,30 +171,40 @@ function overviewPayload(range: Range, o: Occupancy) {
   };
 }
 
-async function hero(pool: Db, verify: StaffVerifier, owner: boolean) {
-  const base = await readOnly(pool, async client => {
-    const { operatingDate, calendarDate } = await clock(client);
-    const [priorFrom, priorTo] = priorEquivalent(operatingDate);
-    const row = (await client.query(`SELECT count(*) FILTER (WHERE operating_date >= $1::date)::int AS current,
-      count(*) FILTER (WHERE operating_date BETWEEN $3::date AND $4::date)::int AS prior
-      FROM ethn.bookings WHERE status IN ('confirmed', 'completed') AND operating_date BETWEEN $3::date AND $2::date`, [`${operatingDate.slice(0, 7)}-01`, operatingDate, priorFrom, priorTo])).rows[0];
-    return { operatingDate, calendarDate, bookings: { month: Number(row.current), priorMonthToDate: Number(row.prior) } };
-  });
-  if (!owner) return base;
-  const [priorFrom, priorTo] = priorEquivalent(base.calendarDate);
-  const [today, month, prior] = await Promise.all([
-    getFinance(pool, verify, base.calendarDate, base.calendarDate),
-    getFinance(pool, verify, `${base.calendarDate.slice(0, 7)}-01`, base.calendarDate),
-    getFinance(pool, verify, priorFrom, priorTo),
-  ]);
-  return {
-    ...base,
-    bookingCollections: { today: today.components.bookingAndExtensionCollections, month: month.components.bookingAndExtensionCollections },
-    collections: { today: today.totals.collected, month: month.totals.collected, priorMonthToDate: prior.totals.collected, included: COLLECTIONS_SCOPE },
-  };
+async function requireOwner(client: PoolClient, userId: string) {
+  if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [userId])).rows.length) throw new Error("FORBIDDEN");
 }
 
-async function chart(pool: Db, verify: StaffVerifier, owner: boolean, params: URLSearchParams) {
+async function approvedPaymentDays(client: PoolClient, from: string, to: string) {
+  const { rows } = await client.query<{ date: string; collected: string }>(`WITH receipts AS (
+    SELECT (p.verified_at AT TIME ZONE 'Asia/Manila')::date AS day, sum(p.collected_amount) AS amount
+    ${approvedBookingSource} GROUP BY 1
+  ) SELECT d.day::date::text AS date, coalesce(r.amount, 0)::numeric(30,2)::text AS collected
+    FROM generate_series($1::date, $2::date, interval '1 day') d(day)
+    LEFT JOIN receipts r ON r.day = d.day::date ORDER BY d.day`, [from, to]);
+  return rows;
+}
+
+const totalPayments = (days: { collected: string }[]) => analyticsMoney(days.reduce((n, day) => n + analyticsCents(day.collected), BigInt(0)));
+
+async function hero(pool: Db, owner: boolean, userId: string) {
+  return readOnly(pool, async client => {
+    const { operatingDate, calendarDate } = await clock(client);
+    const [bookingPriorFrom, bookingPriorTo] = priorEquivalent(operatingDate);
+    const row = (await client.query(`SELECT count(*) FILTER (WHERE operating_date >= $1::date)::int AS current,
+      count(*) FILTER (WHERE operating_date BETWEEN $3::date AND $4::date)::int AS prior
+      FROM ethn.bookings WHERE status IN ('confirmed', 'completed') AND operating_date BETWEEN $3::date AND $2::date`, [`${operatingDate.slice(0, 7)}-01`, operatingDate, bookingPriorFrom, bookingPriorTo])).rows[0];
+    const base = { operatingDate, calendarDate, bookings: { month: Number(row.current), priorMonthToDate: Number(row.prior) } };
+    if (!owner) return base;
+    await requireOwner(client, userId);
+    const [priorFrom, priorTo] = priorEquivalent(calendarDate);
+    const month = await approvedPaymentDays(client, `${calendarDate.slice(0, 7)}-01`, calendarDate);
+    const prior = await approvedPaymentDays(client, priorFrom, priorTo);
+    return { ...base, collections: { today: month.at(-1)?.collected ?? "0.00", month: totalPayments(month), priorMonthToDate: totalPayments(prior) } };
+  });
+}
+
+async function chart(pool: Db, owner: boolean, userId: string, params: URLSearchParams) {
   const today = await readOnly(pool, async client => (await clock(client)).calendarDate);
   const month = analyticsMonth(params.get("month") ?? today.slice(0, 7), today.slice(0, 7));
   const monthStart = `${month}-01`, monthEnd = `${month}-${pad(lastDayOfMonth(Number(month.slice(0, 4)), Number(month.slice(5))))}`;
@@ -201,24 +215,36 @@ async function chart(pool: Db, verify: StaffVerifier, owner: boolean, params: UR
   for (let day = occupancy.from; day <= occupancy.to; day = addDays(day, 1)) { const s = byDay.get(day) ?? { cap: 0, res: 0, blk: 0 }; days.push({ date: day, percent: pct(s.res, s.cap), reservedHours: hrs(s.res), capacityHours: hrs(s.cap) }); }
   const result: Record<string, unknown> = { month, today, occupancy: { days } };
   if (!owner) return result;
-  const [current, lead] = await Promise.all([getFinance(pool, verify, monthStart, to), getFinance(pool, verify, addDays(monthStart, -6), addDays(monthStart, -1))]);
-  const all = [...lead.daily, ...current.daily];
-  const daily = current.daily.map((d, i) => {
-    const window = all.slice(Math.max(0, lead.daily.length + i - 6), lead.daily.length + i + 1);
-    const total = window.reduce((n, x) => n + analyticsCents(String(x.collected)), BigInt(0));
-    return { date: String(d.date), collected: String(d.collected), average: analyticsAverage(total, window.length) };
+  const all = await readOnly(pool, async client => {
+    await requireOwner(client, userId);
+    return approvedPaymentDays(client, addDays(monthStart, -6), to);
   });
-  result.collections = { included: COLLECTIONS_SCOPE, totals: { collected: current.totals.collected, averagePerDay: analyticsAverage(analyticsCents(current.totals.collected), daily.length) }, daily };
+  const leadDays = all.filter(day => day.date < monthStart).length;
+  const current = all.slice(leadDays);
+  const daily = current.map((day, i) => {
+    const index = leadDays + i;
+    const window = all.slice(Math.max(0, index - 6), index + 1);
+    const total = window.reduce((n, x) => n + analyticsCents(x.collected), BigInt(0));
+    return { date: day.date, collected: day.collected, average: analyticsAverage(total, window.length) };
+  });
+  const collected = totalPayments(current);
+  result.collections = { included: COLLECTIONS_SCOPE, totals: { collected, averagePerDay: analyticsAverage(analyticsCents(collected), daily.length) }, daily };
   return result;
 }
 
-async function methods(pool: Db, verify: StaffVerifier, range: Range) {
+async function methods(pool: Db, userId: string, range: Range) {
   return readOnly(pool, async client => {
-    const actor = await verify();
-    if (!(await client.query("SELECT 1 FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [actor])).rows.length) throw new Error("FORBIDDEN");
+    await requireOwner(client, userId);
     const { calendarDate: today } = await clock(client);
     const from = range === "week" ? weekStart(today) : `${today.slice(0, 7)}-01`;
-    const paymentMethods = await listCollectionMethods(client, from, today, true);
+    const { rows: paymentMethods } = await client.query<{ id: string; name: string; amount: string }>(`WITH receipts AS (
+      SELECT p.method AS id, sum(p.collected_amount) AS amount ${approvedBookingSource} GROUP BY 1
+    ), methods AS (
+      SELECT id FROM ethn.payment_methods WHERE enabled UNION SELECT id FROM receipts UNION SELECT 'cash'
+    ) SELECT methods.id, coalesce(p.name, CASE WHEN methods.id = 'cash' THEN 'Cash' ELSE methods.id END) AS name,
+      coalesce(r.amount, 0)::numeric(30,2)::text AS amount
+      FROM methods LEFT JOIN receipts r USING (id) LEFT JOIN ethn.payment_methods p USING (id)
+      ORDER BY (methods.id = 'cash') DESC, name, methods.id`, [from, today]);
     const collected = analyticsMoney(paymentMethods.reduce((total, method) => total + analyticsCents(method.amount), BigInt(0)));
     return { range, from, to: today, collected, paymentMethods };
   });
@@ -257,10 +283,10 @@ export async function ethnDashboardAnalytics(pool: Db, verify: StaffVerifier, pa
   const actor = await getStaff(pool, verify);
   const owner = actor.role === "owner";
   switch (params.get("section")) {
-    case "hero": check(params, ["section"]); return hero(pool, verify, owner);
-    case "chart": check(params, ["section", "month"]); return chart(pool, verify, owner, params);
+    case "hero": check(params, ["section"]); return hero(pool, owner, actor.userId);
+    case "chart": check(params, ["section", "month"]); return chart(pool, owner, actor.userId, params);
     case "overview": { check(params, ["section", "range"]); const range = rangeParam(params); return overviewPayload(range, await loadOccupancy(pool, od => [range === "week" ? weekStart(od) : `${od.slice(0, 7)}-01`, od])); }
-    case "methods": { check(params, ["section", "range"]); if (!owner) throw new Error("FORBIDDEN"); return methods(pool, verify, rangeParam(params)); }
+    case "methods": { check(params, ["section", "range"]); if (!owner) throw new Error("FORBIDDEN"); return methods(pool, actor.userId, rangeParam(params)); }
     case "schedule": check(params, ["section"]); return schedule(pool);
     case "window": check(params, ["section", "date"]); return bookingWindow(pool, params);
     default: return invalid();

@@ -32,6 +32,7 @@ export default function LoginForm() {
         setError(body.error?.message ?? "Sign-in failed.");
         return;
       }
+      try { sessionStorage.setItem("ethn:show-unread-after-login", "1"); } catch { /* Storage is optional. */ }
       router.push(next);
       router.refresh();
     } catch {

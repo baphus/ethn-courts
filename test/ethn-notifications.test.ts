@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Client, Pool } from "pg";
-import { getSidebarCounts, listInbox, markAllInboxRead, markInboxRead } from "../src/lib/admin/ethn-notifications";
+import { dismissInboxNotification, getSidebarCounts, listInbox, markAllInboxRead, markInboxRead } from "../src/lib/admin/ethn-notifications";
 import { lockBookingAlertOwners, recordNewBookingAlerts } from "../src/lib/booking/ethn-booking-alerts";
 
 test("sidebar counts and bulk read reject unauthenticated requests without a database connection", async () => {
@@ -9,6 +9,7 @@ test("sidebar counts and bulk read reject unauthenticated requests without a dat
   await assert.rejects(getSidebarCounts(pool, async () => null), /UNAUTHENTICATED/);
   await assert.rejects(listInbox(pool, async () => null), /UNAUTHENTICATED/);
   await assert.rejects(markAllInboxRead(pool, async () => null), /UNAUTHENTICATED/);
+  await assert.rejects(dismissInboxNotification(pool, async () => null, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), /UNAUTHENTICATED/);
 });
 
 const url = process.env.ETHN_NOTIFICATIONS_TEST_DATABASE_URL;
@@ -39,7 +40,7 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     const { rows: emails } = await admin.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_owner_alert' ORDER BY payload->>'ownerId'", [booking]);
     assert.deepEqual(emails, []);
     const grants = await admin.query(`SELECT privilege_type, column_name FROM information_schema.column_privileges WHERE table_schema='ethn' AND table_name='notifications' AND grantee='ethn_checkout'`);
-    assert.deepEqual(grants.rows.map(r => `${r.privilege_type}:${r.column_name}`).sort(), ["INSERT:body", "INSERT:event_key", "INSERT:id", "INSERT:link", "INSERT:recipient", "INSERT:title", "SELECT:body", "SELECT:created_at", "SELECT:event_key", "SELECT:id", "SELECT:link", "SELECT:read_at", "SELECT:recipient", "SELECT:title", "UPDATE:read_at"].sort());
+    assert.deepEqual(grants.rows.map(r => `${r.privilege_type}:${r.column_name}`).sort(), ["INSERT:body", "INSERT:event_key", "INSERT:id", "INSERT:link", "INSERT:recipient", "INSERT:title", "SELECT:body", "SELECT:created_at", "SELECT:dismissed_at", "UPDATE:dismissed_at", "SELECT:event_key", "SELECT:id", "SELECT:link", "SELECT:read_at", "SELECT:recipient", "SELECT:title", "UPDATE:read_at"].sort());
     assert.equal(rows.some(r => /owner_hash|trackingToken|guest_email|guest_phone|proof_id/i.test(JSON.stringify(r))), false);
     const id = rows[0].id;
     const firstRead = await markInboxRead({ connect }, verify, id);
@@ -54,7 +55,14 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, unreadNotifications: 51 });
     const other = await getSidebarCounts({ connect }, async () => b);
     assert.ok(other.unreadNotifications > 0);
-    assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 51 });
+    const unreadId = (await listInbox({ connect }, verify, true))[0].id;
+    assert.equal(await dismissInboxNotification({ connect }, async () => b, unreadId), false);
+    assert.equal(await dismissInboxNotification({ connect }, verify, unreadId), true);
+    assert.equal(await dismissInboxNotification({ connect }, verify, unreadId), false);
+    assert.equal(await markInboxRead({ connect }, verify, unreadId), null);
+    assert.equal((await getSidebarCounts({ connect }, verify)).unreadNotifications, 50);
+    assert.ok(!(await listInbox({ connect }, verify)).some(item => item.id === unreadId));
+    assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 50 });
     assert.deepEqual(await markAllInboxRead({ connect }, verify), { markedRead: 0 });
     assert.deepEqual(await getSidebarCounts({ connect }, verify), { pendingBookings: 1, unreadNotifications: 0 });
     assert.deepEqual(await getSidebarCounts({ connect }, async () => b), other);

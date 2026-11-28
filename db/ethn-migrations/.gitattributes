@@ -1,0 +1,3 @@
+*.sql text eol=lf
+# The applied baseline contains mixed line endings; preserve its exact bytes.
+0000_fresh_ethn.sql -text !eol

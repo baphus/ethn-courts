@@ -2,7 +2,41 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
-import { createOpenPlay, editOpenPlay, listPublicOpenPlays, removeOpenPlay } from "../src/lib/admin/ethn-open-plays";
+import { createOpenPlay, editOpenPlay, listPublicOpenPlays, listStaffOpenPlays, removeOpenPlay } from "../src/lib/admin/ethn-open-plays";
+
+const inputForValidation = { courtIds: ["1"], title: "Open play", description: "", fee: "0", startsAt: "2030-01-01T10:00:00.000Z", endsAt: "2030-01-01T11:00:00.000Z" };
+
+test("Open Play host rejects malformed values before accessing the database", async () => {
+  const pool = { connect: async () => { throw new Error("unexpected database access"); } };
+  for (const host of [null, 1, "x".repeat(101), "Test\0Host"]) {
+    await assert.rejects(createOpenPlay(pool, async () => null, { ...inputForValidation, host }), /INVALID_INPUT/);
+  }
+});
+
+test("only the staff listing selects and returns venue host names", async () => {
+  const startsAt = new Date(inputForValidation.startsAt), endsAt = new Date(inputForValidation.endsAt);
+  const shared = { title: "Session", description: "", starts_at: startsAt, ends_at: endsAt, court_names: ["Court 1"], court_ids: ["1"], host: "Private host" };
+  const queries: string[] = [];
+  const client = {
+    query: async (sql: string) => {
+      queries.push(sql);
+      return { rows: sql.includes("FROM ethn.open_plays")
+        ? [{ ...shared, id: "venue", informational_fee: "0.00", version: 1 }]
+        : [{ ...shared, id: "customer", hidden: false }] };
+    },
+    release() {},
+  };
+  const pool = { connect: async () => client as unknown as import("pg").PoolClient };
+  for (const window of ["all", "current", "schedule"] as const) {
+    const events = await listPublicOpenPlays(pool, window);
+    assert.ok(events.every(event => !Object.hasOwn(event, "host")));
+  }
+  assert.ok(queries.every(sql => !sql.includes("p.host")));
+  const staff = await listStaffOpenPlays(pool);
+  assert.equal(staff.find(event => event.id === "venue")?.host, "Private host");
+  assert.ok(!Object.hasOwn(staff.find(event => event.id === "customer")!, "host"));
+  assert.ok(queries.at(-2)?.includes("p.host"));
+});
 
 const url=process.env.ETHN_OPEN_PLAYS_TEST_DATABASE_URL;
 test("open plays atomically allocate multiple courts and expose only public event data",{skip:!url},async()=>{
@@ -16,28 +50,32 @@ test("open plays atomically allocate multiple courts and expose only public even
     await assert.rejects(createOpenPlay(pool,async()=>staff,input),/FORBIDDEN/);
     await admin.query("UPDATE ethn.staff_access SET enabled=true WHERE user_id=$1",[staff]);
     for(const bad of [{...input,courtIds:[]},{...input,fee:"-1"},{...input,startsAt:"invalid"},{...input,extra:true}]) await assert.rejects(createOpenPlay(pool,async()=>owner,bad),/INVALID_INPUT/);
-    const created=await createOpenPlay(pool,async()=>owner,input);assert.equal(created.fee,"0.00");
+    const created=await createOpenPlay(pool,async()=>owner,{...input,host:"  Venue club  "});assert.equal(created.fee,"0.00");
+    assert.equal(created.host,"Venue club");
+    assert.equal((await listStaffOpenPlays(pool)).find(e=>e.id===created.id)?.host,"Venue club");
     const events=await listPublicOpenPlays(pool);assert.ok(events.some(e=>e.id===created.id));assert.deepEqual(Object.keys(events.find(e=>e.id===created.id)!).sort(),["courtIds","courtNames","description","endsAt","fee","id","startsAt","title","version"]);
     await admin.query("UPDATE ethn.open_plays SET starts_at=clock_timestamp()-interval '2 hours',ends_at=clock_timestamp()-interval '1 hour' WHERE id=$1",[created.id]);
     assert.ok((await listPublicOpenPlays(pool)).some(e=>e.id===created.id));
     assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.court_allocations WHERE block_id IN (SELECT id FROM ethn.court_blocks WHERE open_play_id=$1) AND state='confirmed'",[created.id])).rows[0].n,2);
     assert.deepEqual(events.find(e=>e.id===created.id)!.courtIds,["1","2"]);assert.equal(events.find(e=>e.id===created.id)!.version,1);
-    const edited=await editOpenPlay(pool,async()=>owner,created.id,{...input,title:"Edited open play",expectedVersion:1});assert.equal(edited.version,2);
+    const edited=await editOpenPlay(pool,async()=>owner,created.id,{...input,title:"Edited open play",expectedVersion:1});assert.equal(edited.version,2);assert.equal(edited.host,"Venue club");
     assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.court_allocations WHERE block_id IN (SELECT id FROM ethn.court_blocks WHERE open_play_id=$1) AND state='released'",[created.id])).rows[0].n,2);
+    assert.equal((await editOpenPlay(pool,async()=>owner,created.id,{...input,host:" ",expectedVersion:2})).host,null);
+    assert.equal((await listStaffOpenPlays(pool)).find(e=>e.id===created.id)?.host,null);
     await assert.rejects(editOpenPlay(pool,async()=>owner,created.id,{...input,expectedVersion:1}),/STALE_OPEN_PLAY/);
-    const before=(await admin.query("SELECT title,version FROM ethn.open_plays WHERE id=$1",[created.id])).rows[0];
+    const before=(await admin.query("SELECT title,version,host FROM ethn.open_plays WHERE id=$1",[created.id])).rows[0];
     const conflict=await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'open-play-conflict','2026-11-21','confirmed',clock_timestamp(),0,1) RETURNING id",[randomUUID()]);
     const conflictStart=new Date(start.getTime()+2*3600000),conflictEnd=new Date(conflictStart.getTime()+3600000);
     await admin.query("INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,1,$3,$4,0,60,0,30,30)",[randomUUID(),conflict.rows[0].id,conflictStart,conflictEnd]);
     const bookingItem=(await admin.query("SELECT id FROM ethn.booking_items WHERE booking_id=$1",[conflict.rows[0].id])).rows[0].id;
     await admin.query("INSERT INTO ethn.court_allocations(id,item_id,court_id,starts_at,ends_at,state) VALUES($1,$2,1,$3,$4,'confirmed')",[randomUUID(),bookingItem,conflictStart,conflictEnd]);
-    await assert.rejects(editOpenPlay(pool,async()=>owner,created.id,{...input,startsAt:conflictStart.toISOString(),endsAt:conflictEnd.toISOString(),title:"Should roll back",expectedVersion:2}),/SLOT_TAKEN/);
-    assert.deepEqual((await admin.query("SELECT title,version FROM ethn.open_plays WHERE id=$1",[created.id])).rows[0],before);
+    await assert.rejects(editOpenPlay(pool,async()=>owner,created.id,{...input,startsAt:conflictStart.toISOString(),endsAt:conflictEnd.toISOString(),title:"Should roll back",host:"Should roll back",expectedVersion:3}),/SLOT_TAKEN/);
+    assert.deepEqual((await admin.query("SELECT title,version,host FROM ethn.open_plays WHERE id=$1",[created.id])).rows[0],before);
     assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.court_allocations WHERE item_id=$1 AND state='confirmed'",[bookingItem])).rows[0].n,1);
     await admin.query("DELETE FROM ethn.court_allocations WHERE item_id=$1",[bookingItem]);await admin.query("DELETE FROM ethn.booking_items WHERE id=$1",[bookingItem]);await admin.query("DELETE FROM ethn.bookings WHERE id=$1",[conflict.rows[0].id]);
     await removeOpenPlay(pool,async()=>owner,created.id);await removeOpenPlay(pool,async()=>owner,created.id);
     assert.ok(!(await listPublicOpenPlays(pool)).some(e=>e.id===created.id));
-    assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.court_allocations WHERE block_id IN (SELECT id FROM ethn.court_blocks WHERE open_play_id=$1) AND state='released'",[created.id])).rows[0].n,4);
+    assert.equal((await admin.query("SELECT count(*)::int n FROM ethn.court_allocations WHERE block_id IN (SELECT id FROM ethn.court_blocks WHERE open_play_id=$1) AND state='released'",[created.id])).rows[0].n,6);
     const grants=(await pool.query("SELECT has_table_privilege(current_user,'ethn.open_plays','DELETE') d,has_column_privilege(current_user,'ethn.open_plays','created_by','SELECT') s,has_column_privilege(current_user,'ethn.open_plays','version','UPDATE') v")).rows[0];
     assert.equal(grants.d,false);assert.equal(grants.s,false);assert.equal(grants.v,true);
   } finally {

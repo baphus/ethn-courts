@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import NextTopLoader from "nextjs-toploader";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AdminSidebar from "./admin-sidebar";
@@ -24,6 +26,18 @@ export const useSidebarActivity = () => useContext(SidebarActivity);
 export default function AdminShell({ email, name, className, children }: Props) {
   const [counts, setCounts] = useState<SidebarCounts | null>(null);
   const request = useRef<AbortController | null>(null);
+  const router = useRouter();
+  useEffect(() => {
+    if (!counts) return;
+    try {
+      if (!sessionStorage.getItem("ethn:show-unread-after-login")) return;
+      sessionStorage.removeItem("ethn:show-unread-after-login");
+    } catch { return; }
+    const count = counts.unreadNotifications;
+    if (count > 0) toast(`${count} unread notification${count === 1 ? "" : "s"}`, {
+      action: { label: "Open unread inbox", onClick: () => router.push("/admin/notifications?unread=1") },
+    });
+  }, [counts, router]);
   const refreshCounts = useCallback(async () => {
     request.current?.abort();
     const controller = new AbortController();
@@ -41,7 +55,13 @@ export default function AdminShell({ email, name, className, children }: Props) 
   }, []);
 
   useEffect(() => {
-    const sync = () => { if (!document.hidden) void refreshCounts(); };
+    let lastSync = -Infinity;
+    const sync = () => {
+      const now = performance.now();
+      if (document.hidden || now - lastSync < 1_000) return;
+      lastSync = now;
+      void refreshCounts();
+    };
     sync();
     const interval = window.setInterval(sync, 60_000);
     window.addEventListener("focus", sync);

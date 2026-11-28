@@ -28,7 +28,7 @@ export function PaymentMethods({ range }: { range: Range }) {
           </div>}
           <ul className="w-full min-w-0 space-y-2 text-sm">{rows.map(r => <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><span className="flex min-w-0 items-center gap-2"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ background: r.color }} /><span className="[overflow-wrap:anywhere]">{r.name}</span></span><span className="text-right whitespace-nowrap tabular-nums"><b className="font-semibold">{pesos(r.amount)}</b>{donut && <span className="ml-2 text-xs text-muted-foreground">{Math.round(Number(cents(r.amount) * BigInt(1000) / total)) / 10}%</span>}</span></li>)}</ul>
         </div>
-        <p className="mt-3 text-[11px] text-muted-foreground">Reporting period: {formatDisplayDate(d.from)} – {formatDisplayDate(d.to)}. Includes booking and extension receipts and manual sales after corrections.</p>
+        <p className="mt-3 text-[11px] text-muted-foreground">Reporting period: {formatDisplayDate(d.from)} – {formatDisplayDate(d.to)}. Verified booking payments by approval date.</p>
       </>;
     }}</Body>
   </Card>;

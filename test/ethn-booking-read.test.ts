@@ -39,7 +39,7 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true),($3,'staff',false)", [owner, staff, disabled]);
     const futurePending = await booking("pending", { start: future });
     const overduePending = await booking("pending");
-    const confirmed = await booking("confirmed"); await booking("completed");
+    const confirmed = await booking("confirmed"); const completed = await booking("completed");
     const expired = await booking("expired");
     const held = await booking("held"), staleHold = await booking("held");
     await admin.query("UPDATE ethn.bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", [staleHold]);
@@ -48,13 +48,12 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     await admin.query("UPDATE ethn.payments SET reviewed_at=clock_timestamp(),reviewed_by=$1,review_reason='late review' WHERE booking_id=$2", [owner, overduePending]);
 
     for (const auth of [null, disabled, "00000000-0000-4000-8000-000000000099"]) await assert.rejects(ethnDashboard(pool, async () => auth), /UNAUTHENTICATED|FORBIDDEN/);
+    await admin.query(`INSERT INTO ethn.payments(id,booking_id,method,merchant_snapshot,status,collected_amount,received_at,verified_at,verified_by)
+      VALUES($1,$2,'cash','Cash','accepted',100,$5,$5,$6),($3,$4,'cash','Cash','accepted',100,$5,clock_timestamp(),$6)`, [uuid(), confirmed, uuid(), completed, past, owner]);
     const dashboard = await ethnDashboard(pool, async () => owner);
-    assert.equal(dashboard.counts.held, 1);
-    assert.equal(dashboard.counts.expired, 1);
-    assert.equal(dashboard.recentBookings.length, 5);
-    assert.ok(dashboard.recentBookings.every(row => !["held", "expired"].includes(row.status)));
-    assert.equal(dashboard.counts.pending, 2);
-    assert.equal(dashboard.counts.pendingReviewOverdue, 1);
+    assert.deepEqual(dashboard.counts, { confirmed: 1, completed: 1 });
+    assert.deepEqual(dashboard.recentBookings.map(row => row.id), [completed, confirmed]);
+    assert.equal(dashboard.recentBookings[1].approvedAt, past);
     assert.ok(dashboard.operatingDate === day || dashboard.operatingDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10));
     assert.ok(!JSON.stringify(dashboard).includes("OWNER_HASH_SECRET"));
 
