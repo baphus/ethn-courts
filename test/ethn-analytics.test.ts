@@ -1,16 +1,18 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { ethnDashboardAnalytics } from "../src/lib/admin/ethn-analytics";
-import type { ChartData, HeroStatsData, MonthlyData } from "../src/app/admin/dashboard-analytics-types";
+import type { ChartData, HeroStatsData, MonthlyData, OccupancyData } from "../src/app/admin/dashboard-analytics-types";
 import { scheduleWindows } from "../src/lib/booking/schedule";
 import type { Pool } from "pg";
 
 const verify = async () => "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false) {
   const queries: string[] = [];
+  const bindings = new Map<string, unknown[]>();
   let released = 0;
   const pool = { connect: async () => ({ query: async (sql: string, args?: string[]) => {
     queries.push(sql);
+    if (args) bindings.set(sql, args);
     if (sql.includes("SELECT role FROM")) return { rows: [{ role }] };
     if (sql.includes("anchor_minutes FROM ethn.settings")) return { rows: [{ now, anchor_minutes: 420 }] };
     if (sql.includes("AS current") && sql.includes("AS prior")) {
@@ -36,7 +38,7 @@ function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false)
     }
     return { rows: [] };
   }, release: () => { released++; } }) } as unknown as Pick<Pool, "connect">;
-  return { pool, queries, releases: () => released };
+  return { pool, queries, bindings, releases: () => released };
 }
 
 test("staff cannot obtain finance; strict query validation and schedule segments", async () => {
@@ -136,6 +138,34 @@ test("monthly analytics keeps calendar and operating months separate before the 
   assert.equal(result.overview.to, "2026-10-31");
   assert.ok(!("collections" in result));
   assert.ok(!db.queries.some(sql => sql.includes("WITH receipts AS")));
+});
+
+test("custom occupancy includes future reserved time and full open windows across months", async () => {
+  const db = mock("owner", "2026-10-31T17:00:00Z", true);
+  const result = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=occupancy&from=2026-10-31&to=2026-11-01")) as OccupancyData;
+  const sql = db.queries.find(q => q.includes("WITH w AS"))!;
+  assert.deepEqual(db.bindings.get(sql), [["1"], ["2026-11-01"], ["2026-10-31T23:00:00.000Z"], ["2026-11-01T00:00:00.000Z"]]);
+  assert.match(sql, /booking\.status IN \('confirmed','completed'\) AND a\.state IN \('confirmed','completed'\)/);
+  assert.doesNotMatch(sql, /walk_in_actor|payments/);
+  const averageSql = db.queries.find(q => q.includes("avg(i.duration_minutes)"))!;
+  assert.deepEqual(db.bindings.get(averageSql), ["2026-10-31", "2026-11-01", null]);
+  assert.deepEqual(result.days.map(day => [day.date, day.percent]), [["2026-10-31", null], ["2026-11-01", 50]]);
+  assert.equal(result.kpis.occupiedPercent, 50);
+  assert.equal(result.courts[0].percent, 50);
+  assert.ok(!("collections" in result));
+});
+
+test("occupancy defaults to the full operating month and strictly bounds custom dates", async () => {
+  const db = mock("owner", "2026-10-31T17:00:00Z");
+  const request = (query = "") => ethnDashboardAnalytics(db.pool, verify, new URLSearchParams(`section=occupancy${query}`));
+  const result = await request() as OccupancyData;
+  assert.equal(result.from, "2026-10-01");
+  assert.equal(result.to, "2026-10-31");
+  assert.equal(result.days.length, 31);
+  assert.equal((await request("&from=2028-02-29&to=2028-02-29") as OccupancyData).days.length, 1);
+  for (const query of ["&from=2026-11-01", "&from=&to=", "&from=2026-11-02&to=2026-11-01", "&from=2026-11-31&to=2026-12-01", "&from=2026-10-31&to=2026-12-01", "&from=2026-11-01&from=2026-11-01&to=2026-11-01", "&month=2026-11"]) {
+    await assert.rejects(request(query), /INVALID_INPUT/);
+  }
 });
 
 test("opening windows preserve one-hour and overnight actual duration", () => {

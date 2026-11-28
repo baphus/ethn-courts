@@ -27,6 +27,23 @@ export function analyticsParams(params: URLSearchParams, allowed: readonly strin
   }
 }
 
+export function validOccupancyPeriod(from: string, to: string): boolean {
+  const midnight = (value: string) => {
+    if (!/^[1-9]\d{3}-\d{2}-\d{2}$/.test(value)) return NaN;
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().startsWith(`${value}T`) ? date.getTime() : NaN;
+  };
+  const span = midnight(to) - midnight(from);
+  return span >= 0 && span <= 30 * 86_400_000;
+}
+
+export function operatingMonthPeriod(date: string): { from: string; to: string } {
+  const month = date.slice(0, 7);
+  const end = new Date(`${month}-01T00:00:00Z`);
+  end.setUTCMonth(end.getUTCMonth() + 1, 0);
+  return { from: `${month}-01`, to: `${month}-${end.getUTCDate()}` };
+}
+
 export function analyticsMonth(month: string, current: string): string {
   const parse = (value: string) => {
     const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);

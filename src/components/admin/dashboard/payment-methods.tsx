@@ -1,17 +1,19 @@
 "use client";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { useState } from "react";
 import { cents, pesos } from "@/app/admin/dashboard-overview-types";
 import type { MethodsData, Range } from "@/app/admin/dashboard-analytics-types";
 import { formatDisplayDate } from "@/lib/display-date";
-import { Body, Card, useAnalytics, usePrefersReducedMotion } from "./section-card";
+import { Body, Card, Segmented, useAnalytics, usePrefersReducedMotion } from "./section-card";
 
 const colors = ["#0ea5e9", "#8b5cf6", "var(--chart-1)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
 /** Owner-only. Accepted collections by method; the server omits this section for staff. */
-export function PaymentMethods({ range }: { range: Range }) {
+export function PaymentMethods() {
+  const [range, setRange] = useState<Range>("month");
   const state = useAnalytics<MethodsData>(`section=methods&range=${range}`);
   const reduce = usePrefersReducedMotion();
-  return <Card title="Payment methods" subtitle="Accepted collections, not booking totals or claimed amounts">
+  return <Card title="Payment methods" subtitle="Accepted collections, not booking totals or claimed amounts" action={<Segmented label="Payment period" value={range} onChange={setRange} options={[{ value: "week", label: "This week" }, { value: "month", label: "This month" }]} />}>
     <Body state={state} skeleton="h-56">{d => {
       const rows = d.paymentMethods.map((method, index) => ({ ...method, color: colors[index % colors.length] }));
       const total = cents(d.collected);

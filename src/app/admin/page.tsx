@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { GuestName } from "./guest-name";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, CalendarDays, DollarSign, ScrollText, Settings } from "lucide-react";
 import { LoadingAnimation } from "@/components/ui/loading-animation";
 import { formatDisplayDate } from "@/lib/display-date";
 import { dateTime } from "./bookings/booking-list";
 import { pesos, type DashboardOverview } from "./dashboard-overview-types";
-import type { MonthlyData, OverviewData, Range } from "./dashboard-analytics-types";
+import type { ChartData, OccupancyData } from "./dashboard-analytics-types";
 import { StatusBadge } from "@/components/admin/dashboard-status";
 import { ViewToggle } from "@/components/admin/view-toggle";
 import { DashboardCourtView } from "@/components/admin/dashboard-court-view";
@@ -24,6 +24,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useDashboardOwner, useDashboardResource } from "@/components/admin/dashboard/dashboard-resource";
 import { PaymentMethods } from "@/components/admin/dashboard/payment-methods";
+import { OccupancyFilters } from "@/components/admin/dashboard/occupancy-filters";
+import { operatingMonthPeriod, validOccupancyPeriod } from "@/lib/admin/dashboard-analytics-helpers";
 
 export default function DashboardPage() {
   const [courtView, setCourtView] = useState(false);
@@ -33,10 +35,23 @@ export default function DashboardPage() {
 }
 
 function NormalDashboard({ data, error, retry, owner }: { data: DashboardOverview | null; error: string; retry: () => void; owner: boolean }) {
-  const [range, setRange] = useState<Range>("month");
-  const monthly = useAnalytics<MonthlyData>("section=monthly");
-  const weekly = useAnalytics<OverviewData>(range === "week" ? "section=overview&range=week" : null);
-  const overview = range === "week" ? weekly : { ...monthly, data: monthly.data?.overview ?? null };
+  const [period, setPeriod] = useState<{ from: string; to: string } | null | undefined>(undefined);
+  useEffect(() => {
+    const read = () => { const params = new URLSearchParams(window.location.search); const from = params.get("occupancyFrom"), to = params.get("occupancyTo"); setPeriod(from && to && validOccupancyPeriod(from, to) ? { from, to } : null); };
+    read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read);
+  }, []);
+  const occupancy = useAnalytics<OccupancyData>(period === undefined ? null : period ? `section=occupancy&${new URLSearchParams(period)}` : "section=occupancy");
+  const operatingDate = occupancy.data?.operatingDate ?? data?.operatingDate;
+  const selected = period ?? (operatingDate ? operatingMonthPeriod(operatingDate) : null);
+  const chart = useAnalytics<ChartData>(owner ? "section=chart" : null);
+  function updatePeriod(next: { from: string; to: string } | null) {
+    const params = new URLSearchParams(window.location.search);
+    params.delete("occupancyFrom"); params.delete("occupancyTo");
+    if (next) { params.set("occupancyFrom", next.from); params.set("occupancyTo", next.to); }
+    window.history.pushState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}${window.location.hash}`);
+    setPeriod(next);
+  }
+  const overview = occupancy;
   const recentBookings = data?.recentBookings.filter(row => row.status !== "completed") ?? [];
   return <div className="space-y-5 pb-24">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">{data ? `Operating date ${formatDisplayDate(data.operatingDate)}` : "Overview"}</p></div></header>
@@ -51,11 +66,12 @@ function NormalDashboard({ data, error, retry, owner }: { data: DashboardOvervie
         <p className="mt-1 text-sm text-muted-foreground">{data.pendingReview.total === 0 ? "No bookings awaiting review." : `${data.pendingReview.total} awaiting review · ${data.pendingReview.pastStart} at or past scheduled start`}</p>
       </section>}
       <HeroStats owner={owner}/>
-      <CollectionsChart owner={owner} monthly={monthly}/>
-      <GlanceKpis state={overview} range={range} onRange={setRange}/>
+      <CollectionsChart owner={owner} payments={chart} occupancy={occupancy}/>
+      <OccupancyFilters period={selected} onApply={updatePeriod} onReset={() => updatePeriod(null)}/>
+      <GlanceKpis state={overview}/>
       <UpcomingSchedule/>
       <BookingWindow/>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"><PeakHours state={overview}/><div className="space-y-4">{(owner) && <PaymentMethods range={range}/>}<CourtOccupancy state={overview}/></div></div>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"><PeakHours state={overview}/><div className="space-y-4">{(owner) && <PaymentMethods/>}<CourtOccupancy state={overview}/></div></div>
       <section className="rounded-xl border bg-card shadow-sm"><div className="flex items-center justify-between gap-4 p-5"><div><h2 className="font-semibold">Recent bookings</h2><p className="mt-1 text-sm text-muted-foreground">Most recently approved.</p></div><Link href="/admin/bookings?status=confirmed" className="text-sm font-medium text-primary hover:underline">View all</Link></div>{!data ? <OverviewSlot error={error} retry={retry}/> : recentBookings.length === 0 ? <p className="px-5 pb-8 pt-3 text-center text-sm text-muted-foreground">No approved bookings yet.</p> : <><div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm"><thead className="border-y bg-muted/40 text-xs text-muted-foreground"><tr>{["Guest", "Booking date", "Status", "Slots", "Total", "Approved"].map(h => <th key={h} scope="col" className="px-5 py-3 font-medium">{h}</th>)}</tr></thead><tbody className="divide-y">{recentBookings.map(row => <tr key={row.id}><td className="px-5 py-3 font-medium"><Link className="text-primary hover:underline" href={`/admin/bookings/${encodeURIComponent(row.id)}`}><GuestName name={row.guestName} /></Link></td><td className="px-5 py-3">{formatDisplayDate(row.operatingDate)}</td><td className="px-5 py-3"><StatusBadge state={row.status}/></td><td className="px-5 py-3">{row.slotCount}</td><td className="px-5 py-3">{pesos(row.total)}</td><td className="px-5 py-3 text-muted-foreground">{dateTime(row.approvedAt)}</td></tr>)}</tbody></table></div><ul className="divide-y md:hidden">{recentBookings.map(row => <li key={row.id}><Link href={`/admin/bookings/${encodeURIComponent(row.id)}`} className="block space-y-2 p-5 hover:bg-muted/50"><div className="flex justify-between gap-3"><span className="font-semibold"><GuestName name={row.guestName} /></span><StatusBadge state={row.status}/></div><p className="text-sm text-muted-foreground">{formatDisplayDate(row.operatingDate)} · {row.slotCount} {row.slotCount === 1 ? "slot" : "slots"} · {pesos(row.total)}</p><p className="text-xs text-muted-foreground">Approved {dateTime(row.approvedAt)}</p></Link></li>)}</ul></>}</section>
       <section><h2 className="mb-3 text-sm font-medium text-muted-foreground">Quick access</h2><div className="flex flex-wrap gap-2">{[{ href: "/admin/bookings", label: "Manage Bookings", desc: "Review reservations", icon: BookOpen }, { href: "/admin/calendar", label: "Calendar", desc: "See the schedule", icon: CalendarDays }, { href: "/admin/activity", label: "Activity", desc: "View action history", icon: ScrollText }, { href: "/admin/courts", label: "Court Setup", desc: "Courts and rates", icon: Settings }, ...((owner) ? [{ href: "/admin/finance", label: "Finance", desc: "Collections and expenses", icon: DollarSign }, { href: "/admin/settings", label: "Settings", desc: "Manage venue settings", icon: Settings }] : [])].map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"><Icon className="size-4" aria-hidden="true"/><span>{label}</span></Link>)}</div></section>
     </>}

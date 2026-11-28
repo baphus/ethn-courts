@@ -14,13 +14,14 @@ export type ChartData = {
   collections?: { totals: { collected: string; averagePerDay: string }; daily: { date: string; collected: string; average: string }[] };
 };
 export type OverviewData = {
-  range: Range; from: string; to: string; asOf: string; operatingDate: string;
+  range: Range | "custom"; from: string; to: string; asOf: string; operatingDate: string;
   kpis: { reservedHours: number; capacityHours: number; occupiedPercent: number | null; blockedHours: number; peak: HourStat | null; averageReservationMinutes: number | null; reservationCount: number };
   courts: { id: string; name: string; percent: number | null; reservedHours: number; blockedHours: number; capacityHours: number }[];
   heatmap: { hours: number[]; rows: Cell[][] };
   insight: { from: string; to: string; days: number; busiest: HourStat; quietest: HourStat } | { reason: string };
 };
 export type MonthlyData = ChartData & { overview: OverviewData };
+export type OccupancyData = OverviewData & { range: "custom"; days: ChartData["occupancy"]["days"] };
 export type MethodsData = { range: Range; from: string; to: string; collected: string; paymentMethods: { id: string; name: string; amount: string }[] };
 export type ScheduleItem = { id: string; bookingId: string; guestName: string | null; status: string; operatingDate: string; startsAt: string; endsAt: string; courts: string[] };
 export type ScheduleData = { operatingDate: string; truncated: boolean; items: ScheduleItem[] };

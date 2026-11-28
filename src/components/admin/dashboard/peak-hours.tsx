@@ -9,7 +9,7 @@ export function PeakHours({ state }: { state: AnalyticsState<OverviewData> }) {
   return <Card title="Peak hours" subtitle="Share of open court time reserved by customers, by weekday and hour of the operating day">
     <Body state={state} skeleton="h-64">{d => {
       const { hours, rows } = d.heatmap;
-      if (!hours.length) return <p className="py-6 text-center text-sm text-muted-foreground">No opening hours have elapsed in this range.</p>;
+      if (!hours.length) return <p className="py-6 text-center text-sm text-muted-foreground">No opening hours in this range.</p>;
       const i = d.insight;
       return <>
         <div className="overflow-x-auto">
@@ -20,7 +20,7 @@ export function PeakHours({ state }: { state: AnalyticsState<OverviewData> }) {
               <th scope="row" className="pr-1 text-left font-normal text-muted-foreground">{days[r]}</th>
               {row.map((cell, c) => cell
                 ? <td key={hours[c]} title={`${days[r]} ${hourLabel(hours[c], true)}: ${cell.percent}% (${cell.reservedHours} of ${cell.capacityHours} h reserved)`} className="cv-pop h-7 rounded-md tabular-nums transition-transform motion-safe:hover:scale-110" style={{ animationDelay: `${Math.min(c, 20) * 12}ms`, backgroundColor: `color-mix(in oklab, var(--primary) ${Math.round(8 + cell.percent * 0.82)}%, transparent)`, color: cell.percent > 55 ? "var(--primary-foreground)" : undefined }}>{Math.round(cell.percent)}</td>
-                : <td key={hours[c]} title={`${days[r]} ${hourLabel(hours[c], true)}: closed or no elapsed hours`} className="h-7 rounded-md bg-muted/40 text-muted-foreground/50">·</td>)}
+                : <td key={hours[c]} title={`${days[r]} ${hourLabel(hours[c], true)}: closed`} className="h-7 rounded-md bg-muted/40 text-muted-foreground/50">·</td>)}
             </tr>)}</tbody>
           </table>
         </div>

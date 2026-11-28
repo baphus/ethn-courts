@@ -5,16 +5,16 @@ import { getAvailability } from "../booking/ethn-availability";
 import { scheduleWindows } from "../booking/schedule";
 import { approvedBookingSource } from "./ethn-finance";
 import { getStaff, type StaffVerifier } from "./ethn-payments";
-import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analyticsParams } from "./dashboard-analytics-helpers";
+import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analyticsParams, operatingMonthPeriod, validOccupancyPeriod } from "./dashboard-analytics-helpers";
 
 /**
  * Dashboard analytics on ETHN tables. Every section is a bounded, read-only aggregate.
  * Financial figures are produced only for owners and are never part of a staff payload.
  *
  * Definitions (also shown in the UI):
- * - Reserved time: customer booking allocations in confirmed/completed.
+ * - Reserved time: confirmed/completed booking allocations, including internal bookings.
  * - Blocked time: maintenance/private/Open Play blocks, kept separate from booking utilisation.
- * - Capacity: current configured opening windows (scheduleWindows), active courts only, clipped to "now"; historical schedules may differ.
+ * - Capacity: current opening windows for active courts; the occupancy report uses full days, legacy reports clip to now.
  * - Collections: verified original payments for confirmed or completed bookings, by Manila approval date.
  */
 
@@ -95,26 +95,30 @@ WHERE b.e > b.s
 GROUP BY 1, 2, 3
 ORDER BY 2, 3, 1`;
 
-async function loadOccupancy(client: PoolClient, { now, anchor, operatingDate }: Awaited<ReturnType<typeof clock>>, from: string, to: string): Promise<Occupancy> {
+async function loadOccupancy(client: PoolClient, { now, anchor, operatingDate }: Awaited<ReturnType<typeof clock>>, from: string, to: string, includeUpcoming = false): Promise<Occupancy> {
   const courts = (await client.query("SELECT id::text AS id, name FROM ethn.courts WHERE active ORDER BY id")).rows as { id: string; name: string }[];
   const empty = { operatingDate, now, from, to, courts, rows: [] as OccRow[], avgMinutes: null, reservationCount: 0 };
   if (from > to || !courts.length) return empty;
   if ((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 > 31) invalid();
   const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
   const ids: string[] = [], days: string[] = [], opens: string[] = [], closes: string[] = [];
-  for (let day = from; day <= to; day = addDays(day, 1)) for (const court of courts) {
-    const resolved = scheduleWindows(day, anchor, court.id, hours);
-    if ("error" in resolved) throw new Error("INVALID_SCHEDULE");
-    for (const w of resolved.windows) {
-      const open = new Date(w.opens).getTime(), close = Math.min(new Date(w.closes).getTime(), now.getTime());
-      if (open >= close) continue; // not elapsed yet
-      if (ids.length >= MAX_WINDOWS) invalid();
-      ids.push(court.id); days.push(day); opens.push(new Date(open).toISOString()); closes.push(new Date(close).toISOString());
+  for (let day = from; day <= to; day = addDays(day, 1)) {
+    for (const court of courts) {
+      const resolved = scheduleWindows(day, anchor, court.id, hours);
+      if ("error" in resolved) throw new Error("INVALID_SCHEDULE");
+      for (const w of resolved.windows) {
+        const close = includeUpcoming ? w.closes : Math.min(w.closes, now.getTime());
+        if (w.opens >= close) continue;
+        if (ids.length >= MAX_WINDOWS) invalid();
+        ids.push(court.id); days.push(day); opens.push(new Date(w.opens).toISOString()); closes.push(new Date(close).toISOString());
+      }
     }
+    if (day === to) break;
   }
   const rows = ids.length ? (await client.query(OCCUPANCY_SQL, [ids, days, opens, closes])).rows.map(r => ({ courtId: r.court_id as string, opDate: r.op_date as string, hourOffset: Number(r.hour_offset), capacityS: Number(r.capacity_s), reservedS: Number(r.reserved_s), blockedS: Number(r.blocked_s) })) : [];
   const avg = (await client.query(`SELECT avg(i.duration_minutes)::float8 AS avg_minutes, count(*)::int AS n FROM ethn.booking_items i JOIN ethn.bookings b ON b.id = i.booking_id
-    WHERE b.operating_date BETWEEN $1::date AND $2::date AND b.status IN ('confirmed','completed') AND i.starts_at < $3::timestamptz`, [from, to, now])).rows[0];
+    WHERE b.operating_date BETWEEN $1::date AND $2::date AND b.status IN ('confirmed','completed')
+      AND ($3::timestamptz IS NULL OR i.starts_at < $3::timestamptz)`, [from, to, includeUpcoming ? null : now])).rows[0];
   return { ...empty, rows, avgMinutes: avg.avg_minutes === null ? null : Number(avg.avg_minutes), reservationCount: Number(avg.n) };
 }
 
@@ -135,8 +139,7 @@ function aggregate(o: Occupancy) {
   return { total, byCourt, byDay, byHour, heat };
 }
 
-function overviewPayload(range: Range, o: Occupancy) {
-  const { total, byCourt, byHour, heat } = aggregate(o);
+function overviewPayload(range: Range | "custom", o: Occupancy, { total, byCourt, byHour, heat } = aggregate(o)) {
   const hourOffsets = [...new Set(o.rows.filter(r => r.capacityS > 0).map(r => r.hourOffset))].sort((a, b) => a - b);
   const heatmap = { hours: hourOffsets, rows: Array.from({ length: 7 }, (_, weekday) => hourOffsets.map(h => {
     const s = heat.get(`${weekday}:${h}`);
@@ -203,22 +206,30 @@ async function hero(pool: Db, owner: boolean, userId: string) {
   });
 }
 
+function occupancyDays({ from, to }: Occupancy, byDay: Map<string, Sum>) {
+  const days: { date: string; percent: number | null; reservedHours: number; capacityHours: number }[] = [];
+  for (let day = from; day <= to; day = addDays(day, 1)) {
+    const s = byDay.get(day) ?? { cap: 0, res: 0 };
+    days.push({ date: day, percent: pct(s.res, s.cap), reservedHours: hrs(s.res), capacityHours: hrs(s.cap) });
+    if (day === to) break;
+  }
+  return days;
+}
+
 async function chart(client: PoolClient, time: Awaited<ReturnType<typeof clock>>, owner: boolean, userId: string, params: URLSearchParams, includeOverview = false) {
   const { calendarDate: today, operatingDate } = time;
   const month = analyticsMonth(params.get("month") ?? today.slice(0, 7), today.slice(0, 7));
-  const monthStart = `${month}-01`, monthEnd = `${month}-${pad(lastDayOfMonth(Number(month.slice(0, 4)), Number(month.slice(5))))}`;
+  const { from: monthStart, to: monthEnd } = operatingMonthPeriod(`${month}-01`);
   const to = monthEnd < today ? monthEnd : today;
   const occupancy = await loadOccupancy(client, time, monthStart, monthEnd < operatingDate ? monthEnd : operatingDate);
-  const byDay = aggregate(occupancy).byDay;
-  const days: { date: string; percent: number | null; reservedHours: number; capacityHours: number }[] = [];
-  for (let day = occupancy.from; day <= occupancy.to; day = addDays(day, 1)) { const s = byDay.get(day) ?? { cap: 0, res: 0, blk: 0 }; days.push({ date: day, percent: pct(s.res, s.cap), reservedHours: hrs(s.res), capacityHours: hrs(s.cap) }); }
-  const result: Record<string, unknown> = { month, today, occupancy: { days } };
+  const groups = aggregate(occupancy);
+  const result: Record<string, unknown> = { month, today, occupancy: { days: occupancyDays(occupancy, groups.byDay) } };
   if (includeOverview) {
     // Before the operating-day anchor, the calendar month can be one month ahead.
     const from = `${operatingDate.slice(0, 7)}-01`;
     const overview = occupancy.from === from && occupancy.to === operatingDate
       ? occupancy : await loadOccupancy(client, time, from, operatingDate);
-    result.overview = overviewPayload("month", overview);
+    result.overview = overviewPayload("month", overview, overview === occupancy ? groups : undefined);
   }
   if (!owner) return result;
   await requireOwner(client, userId);
@@ -290,6 +301,19 @@ export async function ethnDashboardAnalytics(pool: Db, verify: StaffVerifier, pa
     case "hero": check(params, ["section"]); return hero(pool, owner, actor.userId);
     case "chart": check(params, ["section", "month"]); return readOnly(pool, async client => chart(client, await clock(client), owner, actor.userId, params));
     case "monthly": check(params, ["section"]); return readOnly(pool, async client => chart(client, await clock(client), owner, actor.userId, params, true));
+    case "occupancy": {
+      check(params, ["section", "from", "to"]);
+      const from = params.get("from"), to = params.get("to");
+      const requested = from !== null || to !== null;
+      if (requested && (from === null || to === null || !validOccupancyPeriod(from, to))) invalid();
+      return readOnly(pool, async client => {
+        const time = await clock(client);
+        const period = from !== null && to !== null ? { from, to } : operatingMonthPeriod(time.operatingDate);
+        const occupancy = await loadOccupancy(client, time, period.from, period.to, true);
+        const groups = aggregate(occupancy);
+        return { ...overviewPayload("custom", occupancy, groups), days: occupancyDays(occupancy, groups.byDay) };
+      });
+    }
     case "overview": {
       check(params, ["section", "range"]);
       const range = rangeParam(params);
