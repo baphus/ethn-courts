@@ -11,13 +11,13 @@ export const runtime='nodejs';
 export async function POST(request:Request,{params}:{params:Promise<{id:string;action:string}>}){
  if(!hasValidOrigin(request))return adminResponse({error:'FORBIDDEN'},403);
  const {id,action}=await params;
- if(action!=='cancel'&&action!=='refund'&&action!=='archive'&&action!=='delete')return adminResponse({error:'NOT_FOUND'},404);
+ if(action!=='refund'&&action!=='delete')return adminResponse({error:'NOT_FOUND'},404);
  try{
   const result=await bookingAction(staffPool,verifyStaffIdentity,id,action,await readAdminJson(request));
   if (action === 'delete' && result.proofCleanupPending) {
    try { after(async () => { try { await cleanDeletedBookingProofs(getCheckoutPool(), proofStorage.remove, id); } catch { console.warn('Deleted booking proof cleanup unavailable'); } }); } catch { /* Cron retries committed cleanup jobs. */ }
   }
-  if (action === 'cancel' || action === 'refund') {
+  if (action === 'refund') {
    try { after(() => sendEthnMailBestEffort(id)); } catch { /* Action already committed. */ }
   }
   return adminResponse(result);

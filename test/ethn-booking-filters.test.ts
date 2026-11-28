@@ -5,6 +5,7 @@ import { parseFilters, serializeFilters } from "../src/app/admin/bookings/bookin
 test("booking URL filters round trip and reject invalid bounds", () => {
   assert.deepEqual(parseFilters(new URLSearchParams("status=held&status=expired")).status, []);
   assert.deepEqual(parseFilters(new URLSearchParams("status=confirmed")).status, ["confirmed"]);
+  assert.deepEqual(parseFilters(new URLSearchParams("status=completed&status=cancelled&status=refunded")).status, ["confirmed", "refunded"]);
   const filters = parseFilters(new URLSearchParams("q=Jane&status=confirmed&status=pending&status=confirmed&archived=all&from=2026-01-01&to=2026-02-01&page=42"));
   assert.equal(filters.q, "");
   assert.deepEqual(filters.status, ["confirmed", "pending"]);

@@ -9,7 +9,7 @@ import { useSidebarActivity } from "@/components/admin/admin-shell";
 
 const success = {
   approve: "Payment approved.", reject: "Payment rejected.",
-  cancel: "Booking cancelled.", refund: "Full refund recorded.", archive: "Booking archived.", complete: "Booking marked completed."
+  refund: "Full refund recorded."
 };
 type Action = keyof typeof success;
 const rejectionReasons = [
@@ -18,8 +18,9 @@ const rejectionReasons = [
   "The payment proof is incomplete or unreadable.",
   "The payment was sent to a different account.",
 ];
-export default function BookingDecision({id,status,proof,archived,canCancel,canRefund,canComplete,onSaved,className}:{id:string;status:string;proof:boolean;archived:boolean;canCancel:boolean;canRefund:boolean;canComplete:boolean;onSaved:()=>void;className?:string}) {
- const [action,setAction]=useState<Action|null>(null);const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [pending,setPending]=useState<{url:string;body:Record<string,unknown>}|null>(null);const lock=useRef(false);
+export default function BookingDecision({id,initialAction,status,proof,canRefund,onSaved,onDelete,className}:{id:string;initialAction?: "approve" | "reject" | "refund";status:string;proof:boolean;canRefund:boolean;onSaved:()=>void;onDelete?:()=>void;className?:string}) {
+ const canReview = status === "pending" && proof;
+  const [action,setAction]=useState<Action|null>(initialAction === "refund" ? (canRefund ? initialAction : null) : canReview ? initialAction ?? null : null);const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [pending,setPending]=useState<{url:string;body:Record<string,unknown>}|null>(null);const lock=useRef(false);
  const [rejectionReason,setRejectionReason]=useState("");
  const [reference,setReference]=useState("");
   const reasonId=useId();
@@ -51,15 +52,23 @@ export default function BookingDecision({id,status,proof,archived,canCancel,canR
    void refreshCounts().catch(() => {});
    onSaved();
  }
- function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="cancel"||action==="refund")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}if(action==="refund"&&!reference.trim()){setError("Enter the external refund reference.");return;}const key=crypto.randomUUID();const url=action==="complete"?"/api/ethn/admin/outcomes":action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="complete"?{action,bookingId:id}:action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:action==="cancel"?{key,reason:decisionReason}:action==="refund"?{key,reason:decisionReason,reference:reference.trim()}:{key};setPending({url,body});void send(url,body);}
- const options:Action[]=status==="pending"&&proof?["approve","reject"]:canComplete?["complete"]:canCancel?(canRefund?["cancel","refund"]:["cancel"]):!archived&&["completed","expired","rejected","refunded","cancelled"].includes(status)?["archive"]:[];
- if(!options.length)return null;
- return <section className={`space-y-4 rounded-xl border bg-card p-5 ${className ?? ""}`}><h2 className="font-semibold">Booking actions</h2>{!action&&!pending&&<div className="flex flex-wrap gap-2">{options.map(a=><Button key={a} variant={a==="approve"?"default":"outline"} className={a==="approve"?"bg-green-700 text-white hover:bg-green-800":a==="reject"?"border-red-600 text-red-700 hover:bg-red-50 hover:text-red-800":""} onClick={()=>{setAction(a);setReference("");setReason("");setRejectionReason("");setError("");}}>{a==="approve"?<><svg aria-hidden="true" viewBox="0 0 24 24" className="mr-2 size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="m5 12 4 4L19 6" /></svg>Approve</>:a==="reject"?<><svg aria-hidden="true" viewBox="0 0 24 24" className="mr-2 size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 6 12 12M18 6 6 18" /></svg>Reject</>:a==="cancel"?"Cancel without refund":a==="refund"?"Record full refund":a==="complete"?"Mark completed":a[0].toUpperCase()+a.slice(1)}</Button>)}</div>}{action&&!pending&&<div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold capitalize">{action==="approve"?"Approve payment?":`Confirm ${action}`}</h3>{action==="cancel"&&<p className="text-sm">This releases the court time. Payment is retained; no refund is issued.</p>}{action==="refund"&&<p className="text-sm">Only record this after returning the full payment outside ETHN Courts. This releases the court time and does not send money.</p>}{action==="complete"&&<p className="text-sm">Mark this booking completed. Payment and booking history stay unchanged.</p>}{action==="archive"&&<p className="text-sm">Archive hides this terminal booking from the default list. History remains available.</p>}{action==="reject"&&<div className="grid gap-1 text-sm">
+ function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="refund")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}if(action==="refund"&&!reference.trim()){setError("Enter the external refund reference.");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:{key,reason:decisionReason,reference:reference.trim()};setPending({url,body});void send(url,body);}
+ const reviewReason = canReview ? undefined : "Only pending bookings with payment proof can be reviewed.";
+  const refundReason = canRefund ? undefined : "Requires an eligible confirmed booking with full payment, before play starts, and no active extension.";
+  return <section className={`space-y-4 rounded-xl border bg-card p-5 ${className ?? ""}`}><h2 className="font-semibold">Booking actions</h2>
+    <div className="flex flex-wrap gap-2">
+      {([["approve", "Approve", reviewReason], ["reject", "Reject", reviewReason], ["refund", "Cancel (full refund)", refundReason]] as const).map(([option, label, reasonUnavailable]) => <Button key={option} type="button" variant="outline" title={reasonUnavailable} aria-disabled={!!reasonUnavailable || !!pending} className={reasonUnavailable || pending ? "opacity-50" : undefined} onClick={() => {
+        if (reasonUnavailable || pending) return;
+        setAction(option);setReference("");setReason("");setRejectionReason("");setError("");
+      }}>{label}{reasonUnavailable && <span className="sr-only">: {reasonUnavailable}</span>}</Button>)}
+      {onDelete && <Button type="button" variant="destructive" className="sm:ml-auto" disabled={!!pending} onClick={onDelete}>Delete</Button>}
+    </div>
+    {action&&!pending&&<div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold capitalize">{action==="approve"?"Approve payment?":`Confirm ${action}`}</h3>{action==="refund"&&<p className="text-sm">Only record this after returning the full payment outside ETHN Courts. This releases the court time and does not send money.</p>}{action==="reject"&&<div className="grid gap-1 text-sm">
    <label htmlFor={reasonId}>Rejection reason (required)</label>
    <FormSelect id={reasonId} aria-describedby={`${reasonId}-hint`} required value={rejectionReason || null} placeholder="Select a reason" onValueChange={value => {setRejectionReason(value ?? "");setReason("");setError("");}} options={[...rejectionReasons.map(value => ({ value, label: value })), { value: "other", label: "Other" }]} />
    <p id={`${reasonId}-hint`} className="text-muted-foreground">The customer will see this reason. Do not include private payment details.</p>
- </div>}{(action==="cancel"||action==="refund"||(action==="reject"&&rejectionReason==="other"))&&<div className="grid gap-1 text-sm">
+ </div>}{(action==="refund"||(action==="reject"&&rejectionReason==="other"))&&<div className="grid gap-1 text-sm">
    <label htmlFor={`${reasonId}-text`}>{action==="reject"?"Other reason (required)":"Reason (required)"}</label>
    <Textarea placeholder={action==="reject"?"Why the payment could not be verified":undefined} id={`${reasonId}-text`} required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} />
- </div>}{action==="refund"&&<label className="grid gap-1 text-sm">External refund reference (required)<Input required maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} /></label>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"Approve booking":action==="complete"?"Mark completed":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
+ </div>}{action==="refund"&&<label className="grid gap-1 text-sm">External refund reference (required)<Input required maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} /></label>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"Approve booking":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
 }

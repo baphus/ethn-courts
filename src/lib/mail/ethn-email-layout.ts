@@ -18,11 +18,11 @@ export function renderEthnEmailHtml(email: {
     "'": "&#39;",
   })[char]!);
   const text = (value: string) => escape(value);
-  const lineStyle = "margin:0 0 10px;color:#314d5c;font-size:15px;line-height:1.65;overflow-wrap:anywhere;word-break:break-word;text-align:center;";
+  const lineStyle = "margin:0 0 10px;color:#314d5c;font-size:15px;line-height:1.65;overflow-wrap:anywhere;word-break:break-word;text-align:left;";
   const sections = email.sections.map((section) => `
-    <tr><td align="center" style="padding:20px 12px 0;text-align:center;">
-      <h2 style="margin:0 0 10px;color:#17252e;font-size:16px;line-height:1.4;text-align:center;">${text(section.title)}</h2>
-      ${section.lines.map((line) => `<p style="${lineStyle}">${text(line).replace(/\r\n?|\n/g, "<br>")}</p>`).join("")}
+    <tr><td style="padding:20px 12px 0;text-align:left;">
+      <h2 style="margin:0 0 10px;color:#17252e;font-size:16px;line-height:1.4;text-align:left;">${text(section.title)}</h2>
+      ${(section.title === "Booking invoice" || section.title === "Booking breakdown") && section.lines.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;border-collapse:collapse;">${section.lines.map((line) => { const split = line.lastIndexOf(" · Subtotal: "); const label = split > 0 ? line.slice(0, split) : line; const amount = split > 0 ? line.slice(split + " · Subtotal: ".length) : ""; return `<tr><td style="padding:8px 0;border-bottom:1px solid #d9e1ec;color:#314d5c;font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${text(label).replace(/\r\n?|\n/g, "<br>")}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #d9e1ec;color:#17252e;font-size:14px;font-weight:bold;line-height:1.5;white-space:nowrap;">${text(amount)}</td></tr>`; }).join("")}</table>` : section.lines.map((line) => `<p style="${lineStyle}">${text(line).replace(/\r\n?|\n/g, "<br>")}</p>`).join("")}
     </td></tr>`).join("");
   const links = email.links.map((link) => `<a href="${escape(link.href)}" style="color:#447244;text-decoration:underline;overflow-wrap:anywhere;">${text(link.label)}</a>`).join(" &nbsp;·&nbsp; ");
   const footer = email.footer.map((line) => `<p style="margin:0 0 6px;color:#596b75;font-size:12px;line-height:1.6;overflow-wrap:anywhere;text-align:center;">${text(line)}</p>`).join("");
@@ -37,11 +37,11 @@ export function renderEthnEmailHtml(email: {
 <meta name="x-apple-disable-message-reformatting">
 <title>${text(email.title)}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f3f6fa;font-family:Arial,Helvetica,sans-serif;">
+<body style="margin:0;padding:0;background-color:#f3f6fa;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;">
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${text(email.preheader)}&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f6fa;"><tr><td align="center" style="padding:28px 12px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #d9e1ec;">
-<tr><td align="center" style="padding:24px 22px 22px;background-color:#00288e;border-bottom:4px solid #65a30d;text-align:center;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f6fa;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#ffffff;border:1px solid #d9e1ec;">
+<tr><td align="center" style="padding:24px 22px 22px;background-color:#26422a;border-bottom:4px solid #ea662c;text-align:center;">
 ${brand}
 <p style="margin:0 0 10px;color:#eaf0ff;font-size:12px;font-weight:bold;line-height:1.4;letter-spacing:1.5px;">ETHN COURTS</p>
 <h1 style="margin:0;color:#ffffff;font-size:25px;line-height:1.25;text-align:center;">${text(email.title)}</h1>

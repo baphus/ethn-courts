@@ -19,7 +19,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     { id: "4", kind: "booking_rejected", payload: { ...base, reason: "", trackingToken: "bad" }, attempts: 0 },
     { id: "5", kind: "booking_cancelled", payload: { email: base.email, staff: true, total: base.total, reason: "private note" }, attempts: 0 },
     { id: "6", kind: "booking_refunded", payload: { ...base, trackingToken: "a".repeat(64), reference: "private reference" }, attempts: 0 },
-    { id: "7", kind: "booking_approved", payload: { email: base.email, staff: true, total: base.total, trackingToken: token }, attempts: 0 },
+    { id: "7", kind: "booking_approved", payload: { email: "previous@example.com", staff: true, total: base.total, trackingToken: token }, attempts: 0 },
     { id: "8", kind: "booking_approved", payload: { ...base, email: "one,two@example.com" }, attempts: 0 },
     { id: "9", kind: "booking_approved", payload: { ...base, trackingToken: token, openPlayPublished: true }, attempts: 0 },
     { id: "10", kind: "booking_submission", payload: { ...base, trackingToken: token }, attempts: 0 },
@@ -28,8 +28,7 @@ test("decision mail validates kinds and optional token without breaking submissi
   let released = false;
   const query = async (sql: string, args?: unknown[]) => {
     if (sql.includes("SELECT id, kind")) return { rows };
-    if (sql.includes("AS booking_date")) return { rows: items.map(item => ({ ...item, booking_date: "2026-01-01", method_name: "GCash" })) };
-    if (sql.includes("FROM ethn.booking_items")) return { rows: items };
+    if (sql.includes("AS booking_date")) return { rows: items.map(item => ({ ...item, booking_date: "2026-01-01", method_name: "GCash", guest_name: "Guest <Name>", guest_email: base.email })) };
     if (sql.includes("SET status = $3")) statuses.push(args?.[2]);
     return { rows: [] };
   };
@@ -63,15 +62,18 @@ test("decision mail validates kinds and optional token without breaking submissi
       assert.equal(image.content.subarray(1, 4).toString(), "PNG");
     }
     if (qr) assert.match(message.html, /not for check-in/);
-    if (approved || submitted) {
-      assert.ok(message.text.includes(`${approved ? "Booking invoice" : "Booking breakdown"}\nBooking date: January 1, 2026`));
-      assert.match(message.text, /8PM–1AM \(\+1 day\)\n10 × 30-min slots · ₱10\.00\/slot · Subtotal: ₱100\.00/i);
-      assert.match(message.text, /3 × 30-min slots · approx\. ₱0\.01\/slot · Subtotal: ₱0\.02/);
-      assert.match(message.text, /Total slots: 13\n\nPayment\nPayment method: GCash/);
-      assert.match(message.html, /Court &lt;1&gt;/);
+    assert.deepEqual(message.from, { name: "ETHN Courts", address: "mail@example.com" });
+    if (message.to === base.email) {
+      assert.match(message.text, /Customer details\nName: Guest <Name>\nEmail: guest@example\.com/);
+      assert.match(message.html, /Guest &lt;Name&gt;/);
     } else {
-      assert.match(message.text, /Court schedule\nCourt <1>: Jan 1, 2026 · 8PM–1AM \(\+1 day\)/);
+      assert.doesNotMatch(`${message.text}\n${message.html}`, /Customer details|guest@example\.com|Guest (?:<Name>|&lt;Name&gt;)/);
     }
+    assert.ok(message.text.includes(`${approved ? "Booking invoice" : "Booking breakdown"}\nBooking date: January 1, 2026`));
+    assert.match(message.text, /8PM–1AM \(\+1 day\)\n300 min · 10 × 30-min slots · ₱20\.00\/hr · ₱10\.00\/slot · Subtotal: ₱100\.00/i);
+    assert.match(message.text, /3 × 30-min slots · ₱0\.01\/hr · approx\. ₱0\.01\/slot · Subtotal: ₱0\.02/);
+    assert.match(message.text, /Total slots: 13\n\nPayment\nPayment method: GCash/);
+    assert.match(message.html, /Court &lt;1&gt;/);
     const calendar = message.text.match(/Add to Google Calendar: (\S+)/);
     assert.equal(!!calendar, approved);
     if (calendar) {
@@ -92,7 +94,7 @@ test("decision mail validates kinds and optional token without breaking submissi
   assert.match(messages[2].html!, /Receipt &lt;unclear&gt; &amp; cropped\.<br>Please resubmit/);
   assert.match(messages[2].html!, /href="https:\/\/example\.com\/track"/);
   assert.match(messages[3].text, /No refund has been recorded/);
-  assert.match(messages[4].text, /outside the booking site[\s\S]*Refund recorded\n₱100\.02/);
+  assert.match(messages[4].text, /outside the booking site[\s\S]*Refund recorded: ₱100\.02/);
   assert.match(messages[5].text, /recorded your payment in full/);
   assert.doesNotMatch(`${messages[3].text}\n${messages[3].html}`, /\/track|Booking code/);
   assert.doesNotMatch(messages[5].text, /Booking code/);

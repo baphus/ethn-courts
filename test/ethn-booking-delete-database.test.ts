@@ -35,11 +35,15 @@ test('owner deletion removes records, preserves running slots and retries proof 
    const deletion = {key:randomUUID(),reason:'Duplicate booking entered in error'};
    const search = (bookingId: string) => searchEthnBookings(pool, verify, new URLSearchParams({q:bookingId}));
    const { rows: [refunded] } = await search(paidOnline.checkoutId);
-   assert.equal(refunded.canDelete,false);
-   assert.equal(refunded.canArchive,true);
-   assert.equal(refunded.canCancel,false);
-   await assert.rejects(bookingAction(pool,verify,paidOnline.checkoutId,'delete',deletion),/ACTION_CONFLICT/);
-   assert.equal((await pool.query("SELECT 1 FROM ethn.booking_refunds WHERE booking_id=$1",[paidOnline.checkoutId])).rowCount,1);
+   assert.equal(refunded.canDelete,true);
+   assert.equal((await pool.query('SELECT state FROM ethn.proof_reservations WHERE id=$1',[proof.reservationId])).rows[0].state,'attached');
+   assert.equal(refunded.canApprove,false);
+   const paidDeletion = {...deletion,key:randomUUID()};
+   assert.equal((await bookingAction(pool,verify,paidOnline.checkoutId,'delete',paidDeletion)).status,'deleted');
+   assert.deepEqual((await search(paidOnline.checkoutId)).rows,[]);
+   assert.equal((await admin.query('SELECT 1 FROM ethn.payments WHERE booking_id=$1',[paidOnline.checkoutId])).rowCount,0);
+   assert.deepEqual((await admin.query("SELECT actor,detail FROM ethn.audit WHERE action='booking.delete' AND detail->>'bookingId'=$1",[paidOnline.checkoutId])).rows,[{actor,detail:{bookingId:paidOnline.checkoutId,reason:deletion.reason}}]);
+   assert.equal((await pool.query("SELECT 1 FROM ethn.booking_refunds WHERE booking_id=$1",[paidOnline.checkoutId])).rowCount,0);
    await assert.rejects(pool.query('SELECT ethn.permanently_delete_unpaid_booking_rows($1,$2,$3)',[paidOnline.checkoutId,actor,deletion.reason]),/permission denied/);
    const unpaidInput = {...onlineInput,idempotencyKey:randomUUID()};
    const {checkoutId:id} = await createCheckout(pool,unpaidInput);
@@ -55,7 +59,7 @@ test('owner deletion removes records, preserves running slots and retries proof 
      assert.equal((await admin.query(`SELECT 1 FROM ethn.${table} WHERE ${table==='bookings'?'id':'booking_id'}=$1`,[id])).rowCount,0,table);
    }
    assert.equal((await listInbox(pool,verify)).some(item=>item.link===`/admin/bookings/${id}`),false);
-   assert.deepEqual((await admin.query("SELECT actor,detail FROM ethn.audit WHERE action='booking.delete'")).rows,[{actor,detail:{bookingId:id,reason:deletion.reason}}]);
+   assert.deepEqual((await admin.query("SELECT actor,detail FROM ethn.audit WHERE action='booking.delete' AND detail->>'bookingId'=$1",[id])).rows,[{actor,detail:{bookingId:id,reason:deletion.reason}}]);
    await assert.rejects(createCheckout(pool,unpaidInput),/IDEMPOTENCY_INCOMPLETE/);
    assert.deepEqual(await cleanDeletedBookingProofs(pool,async()=>{throw Error('offline');},id),{attempted:1,failed:1});
    await admin.query("UPDATE ethn.deleted_booking_proofs SET next_attempt=now()-interval '1 minute',final_after=now()-interval '1 minute' WHERE booking_id=$1",[id]);
@@ -71,7 +75,6 @@ test('owner deletion removes records, preserves running slots and retries proof 
    await admin.query("UPDATE ethn.bookings SET expires_at=now()-interval '91 days' WHERE id=$1",[expired.checkoutId]);
    await pool.query('SELECT ethn.queue_abandoned_booking_proofs()');
    assert.equal((await pool.query('SELECT state FROM ethn.proof_reservations WHERE id=$1',[abandoned.reservationId])).rows[0].state,'deleted');
-   assert.equal((await pool.query('SELECT state FROM ethn.proof_reservations WHERE id=$1',[proof.reservationId])).rows[0].state,'attached');
    assert.deepEqual(await cleanDeletedBookingProofs(pool,async path=>assert.equal(path,abandoned.objectPath),expired.checkoutId),{attempted:1,failed:0});
    const paid = await createCheckout(pool,{...onlineInput,date:anotherDate,ranges:[current],displayedTotal:'400.00',idempotencyKey:randomUUID()});
    const bookingId = paid.checkoutId;

@@ -11,6 +11,7 @@ import {submitBooking} from '../src/lib/booking/submission';
 import {decidePayment} from '../src/lib/admin/ethn-payment-decision';
 import {listInbox} from '../src/lib/admin/ethn-notifications';
 import {getFinance} from '../src/lib/admin/ethn-finance';
+import {searchEthnBookings} from '../src/lib/admin/ethn-booking-read';
 const url=process.env.ETHN_UNIFIED_TEST_DATABASE_URL,adminUrl=process.env.ETHN_UNIFIED_TEST_ADMIN_URL;
 test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async()=>{
  const pool=new Pool({connectionString:url}),admin=new Pool({connectionString:adminUrl});
@@ -54,7 +55,6 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
     assert.match(trackingToken,/^[0-9a-f]{64}$/);
     assert.deepEqual(await queued(booking.bookingId),[{kind:'booking_approved',payload:{email:'guest@example.test',staff:true,total:'600.00',trackingToken}},{kind:'booking_refunded',payload:{email:'guest@example.test',staff:true,total:'600.00',trackingToken}}]);
    assert.equal((await pool.query('SELECT guest_email FROM ethn.bookings WHERE id=$1',[booking.bookingId])).rows[0].guest_email,'guest@example.test');
-  await bookingAction(pool,verify,booking.bookingId,'archive',{key:randomUUID()});
   const finance=await getFinance(pool,verify,null,null);
   assert.equal(finance.totals.other,'600.00');assert.equal(finance.totals.refunds,'600.00');assert.equal(finance.totals.net,'0.00');
   const noEmail=await createInternalBooking(pool,verify,{...input,guestEmail:null,ranges:[first],displayedTotal:'200.00',method:'cash',idempotencyKey:randomUUID()});
@@ -88,7 +88,11 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
    const submitted=await submitBooking(pool,{inspect:async()=>({bytes:10,mimeType:'image/png'})},{ownerToken,checkoutId:checkout.checkoutId,reservationId:proof.reservationId,idempotencyKey:randomUUID(),paymentMethodId:'metrobank',customer:{name:'Online guest',email:'test@example.test',phone:'123'}});
    assert.equal(submitted.booked,true);
   assert.equal(await releaseCheckout(pool,{ownerToken,checkoutId:checkout.checkoutId}),false);
+  const listRow = async () => (await searchEthnBookings(pool, verify, new URLSearchParams())).rows.find(row => row.id === checkout.checkoutId)!;
+  assert.equal((await listRow()).canApprove,true);
   await decidePayment(pool,verify,{bookingId:checkout.checkoutId,key:randomUUID(),action:'approve',paymentReceived:true});
+  assert.equal((await listRow()).canApprove,false);
+  assert.equal((await listRow()).canDelete,true);
   const online=(await admin.query('SELECT method,claimed_reference,accepted_reference,collected_amount::text,received_at,merchant_snapshot FROM ethn.payments WHERE booking_id=$1',[checkout.checkoutId])).rows[0];
   assert.equal(online.method,'metrobank');assert.equal(online.collected_amount,'400.00');assert.equal(online.received_at,null);assert.equal(online.claimed_reference,null);assert.equal(online.accepted_reference,null);assert.ok(online.merchant_snapshot.includes('Bank account'));
   await bookingAction(pool,verify,checkout.checkoutId,'refund',{key:randomUUID(),reason:'Internal note',reference:'External transfer'});
@@ -149,6 +153,6 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   const expectedIncrease=race[0].status==='fulfilled'?400:200;
   assert.equal(Number((await getFinance(pool,verify,null,null)).totals.other)-Number(beforeRace.totals.other),expectedIncrease);
   await admin.query('UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1',[actor]);
-  await assert.rejects(bookingAction(pool,verify,next.bookingId,'archive',{key:randomUUID()}),/FORBIDDEN/);
+  await assert.rejects(bookingAction(pool,verify,next.bookingId,'cancel',{key:randomUUID(),reason:'Unauthorized'}),/FORBIDDEN/);
  }finally{await pool.end();await admin.end();}
 });

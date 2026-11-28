@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { DateField } from "@/components/ui/date-field";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useConfirm } from "@/components/ui/confirm";
+
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Archive, CalendarDays, ChevronDown, Eye, Filter, ListFilter, MoreHorizontal, RotateCcw, Trash2, Ban } from "lucide-react";
+import { Archive, CalendarDays, ChevronDown, Filter, ListFilter, MoreHorizontal, RotateCcw, Trash2, X, Check, Ban, Eye } from "lucide-react";
 import { BookingStatusBadge, bookingStatusStyle } from "@/components/booking/booking-status";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,7 +27,7 @@ import { GuestName } from "../guest-name";
 import { formatPlayTime } from "./booking-play-time";
 
 
-type Result = { rows: (BookingSummary & { canComplete: boolean; canCancel: boolean; canArchive: boolean; canDelete: boolean; trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
+type Result = { rows: (BookingSummary & { canApprove: boolean; canRefund: boolean; canDelete: boolean; trackingCode: string | null; guestEmail: string | null; guestPhone: string | null; courtNames: string[]; slotCount: number; playTimes: { startsAt: string; endsAt: string; courts: string[] }[] })[]; page: number; limit: number; total: number };
 const headers = ["Tracking no.", "Customer", "Contact", "Booking date", "Courts", "No. of slots", "Play time", "Status", "Total", "Date booked", "Actions"];
 const initial: Filters = { q: "", status: [], from: "", to: "", page: 1, archived: "" };
 const input = "h-9 rounded-sm border bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -38,44 +38,49 @@ export default function BookingsView() {
   const [search, setSearch] = useState(""); const [draft, setDraft] = useState(initial); const [open, setOpen] = useState(false);
   const [result, setResult] = useState<Result | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [refresh, setRefresh] = useState(0);
   const [selectedRow, setSelected] = useState<string | null>(null);
+  const [initialAction, setInitialAction] = useState<"approve" | "reject" | "refund" | undefined>();
+  function openBooking(id: string, action?: "approve" | "reject" | "refund") {
+    setInitialAction(action);
+    setSelected(id);
+  }
   const linkedBooking = useSearchParams().get("booking");
   const selected = selectedRow ?? linkedBooking;
 
   function closeBooking() {
     setSelected(null);
+    setInitialAction(undefined);
     if (linkedBooking) {
       const url = new URL(window.location.href);
       url.searchParams.delete("booking");
       window.history.replaceState(null, "", url);
     }
   }
-  const confirm = useConfirm();
-  const completing = useRef(false);
-  const [completingId, setCompletingId] = useState<string | null>(null);
+
+
+
   const [actionId, setActionId] = useState<string | null>(null);
   const actionLock = useRef(false);
 
-  const [change, setChange] = useState<{ id: string; action: "cancel" | "delete" } | null>(null);
+  const [change, setChange] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const keepBooking = useRef<HTMLButtonElement>(null);
-  const deleting = change?.action === "delete";
 
-  async function changeBooking(id: string, action: "cancel" | "archive" | "delete", reason = "") {
-    if (actionLock.current || completing.current) return;
-    if (action !== "archive" && (!reason.trim() || reason.length > 500)) return;
+  async function deleteBooking(id: string) {
+    if (actionLock.current) return;
+    if (!reason.trim() || reason.length > 500) return;
     actionLock.current = true;
     try {
-      if (action === "archive" && !await confirm("Archive this booking? It will be hidden from the default list. No slots are released.", { title: "Archive booking", confirmLabel: "Archive booking" })) return;
       setChange(null);
       setActionId(id);
-      const response = await fetch(`/api/ethn/admin/bookings/${id}/${action}`, {
+      const response = await fetch(`/api/ethn/admin/bookings/${id}/delete`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "archive" ? { key: crypto.randomUUID() } : { key: crypto.randomUUID(), reason: reason.trim() }),
+        body: JSON.stringify({ key: crypto.randomUUID(), reason: reason.trim() }),
       });
       const data = await response.json().catch(() => null) as { proofCleanupPending?: boolean } | null;
       if (response.ok) {
-        if (action === "delete" && data?.proofCleanupPending) toast.warning("Booking deleted. Proof cleanup is still pending.");
-        else toast.success(action === "cancel" ? "Booking cancelled." : action === "archive" ? "Booking archived." : "Booking deleted.");
+        if (selected === id) closeBooking();
+        if (data?.proofCleanupPending) toast.warning("Booking deleted. Proof cleanup is still pending.");
+        else toast.success("Booking deleted.");
       } else if (response.status >= 500) toast.warning("Outcome could not be confirmed. Check the refreshed booking before retrying.");
       else toast.error(response.status === 409 ? "This booking is no longer eligible for that action." : "Could not update this booking. Check your access and booking details.");
     } catch {
@@ -87,47 +92,32 @@ export default function BookingsView() {
     }
   }
 
-  async function complete(row: Result["rows"][number]) {
-    if (completing.current || actionLock.current || !row.canComplete) return;
-    completing.current = true;
-    try {
-      if (!await confirm("Mark this booking completed? Payment and booking history stay unchanged.", { title: "Complete booking", confirmLabel: "Complete booking" })) return;
-      setCompletingId(row.id);
-      const response = await fetch("/api/ethn/admin/outcomes", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "complete", bookingId: row.id }),
-      });
-      if (response.ok) toast.success("Booking marked completed.");
-      else if (response.status >= 500) toast.warning("Completion could not be confirmed. Check the refreshed booking before retrying.");
-      else toast.error(response.status === 409 ? "This booking is no longer eligible for completion." : "Could not complete this booking. Check your access and booking details.");
-      setRefresh(value => value + 1);
-    } catch {
-      toast.warning("Completion could not be confirmed. Check the refreshed booking before retrying.");
-      setRefresh(value => value + 1);
-    } finally {
-      completing.current = false;
-      setCompletingId(null);
-    }
+  function reviewDelete(id: string) {
+    if (actionLock.current || change) return;
+    setReason("");
+    setChange(id);
   }
 
-  function reviewChange(id: string, action: "cancel" | "delete") {
-    if (actionLock.current || completing.current || change) return;
-    setReason("");
-    setChange({ id, action });
+  function bookingReference(row: Result["rows"][number]) {
+    return <button type="button" className="text-primary underline underline-offset-4" onClick={() => openBooking(row.id)} aria-label={`View booking ${row.trackingCode || row.guestName || row.id}`}>{row.trackingCode}</button>;
   }
 
   function actions(row: Result["rows"][number]) {
+    const reviewReason = row.canApprove ? undefined : "Only pending bookings with payment proof can be reviewed.";
+    const refundReason = row.canRefund ? undefined : "Requires an eligible confirmed booking with full payment, before play starts, and no active extension.";
+    const deleteReason = row.canDelete ? undefined : "Only owners can delete bookings.";
     return <div className="flex flex-wrap gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={() => setSelected(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button>
-      {(row.canComplete || row.canCancel || row.canArchive || row.canDelete) && <DropdownMenu>
-        <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon-sm" disabled={actionId !== null || completingId !== null} aria-label={`More actions for booking ${row.guestName || "customer"}`} />}><MoreHorizontal aria-hidden="true" /></DropdownMenuTrigger>
+      <Button type="button" variant="outline" size="sm" onClick={() => openBooking(row.id)} aria-label={`View booking for ${row.guestName || "customer"}`}><Eye aria-hidden="true" /> View</Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button type="button" variant="outline" size="icon-sm" disabled={actionId !== null} aria-label={`More actions for booking ${row.guestName || "customer"}`} />}><MoreHorizontal aria-hidden="true" /></DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {row.canComplete && <DropdownMenuItem onClick={() => void complete(row)}>Complete booking</DropdownMenuItem>}
-          {row.canCancel && <DropdownMenuItem onClick={() => reviewChange(row.id, "cancel")}><Ban aria-hidden="true" /> Cancel booking</DropdownMenuItem>}
-          {row.canArchive && <DropdownMenuItem onClick={() => void changeBooking(row.id, "archive")}><Archive aria-hidden="true" /> Archive</DropdownMenuItem>}
-          {row.canDelete && <DropdownMenuItem variant="destructive" onClick={() => reviewChange(row.id, "delete")}><Trash2 aria-hidden="true" /> Delete permanently</DropdownMenuItem>}
+          <div title={reviewReason}><DropdownMenuItem disabled={!row.canApprove} onClick={() => openBooking(row.id, "approve")}><Check aria-hidden="true" /> Approve{reviewReason && <span className="sr-only">: {reviewReason}</span>}</DropdownMenuItem></div>
+          <div title={reviewReason}><DropdownMenuItem disabled={!row.canApprove} onClick={() => openBooking(row.id, "reject")}><X aria-hidden="true" /> Reject{reviewReason && <span className="sr-only">: {reviewReason}</span>}</DropdownMenuItem></div>
+          <div title={refundReason}><DropdownMenuItem disabled={!row.canRefund} onClick={() => openBooking(row.id, "refund")}><Ban aria-hidden="true" /> Cancel (full refund){refundReason && <span className="sr-only">: {refundReason}</span>}</DropdownMenuItem></div>
+          <DropdownMenuSeparator />
+          <div title={deleteReason}><DropdownMenuItem disabled={!row.canDelete} variant={row.canDelete ? "destructive" : "default"} onClick={() => reviewDelete(row.id)}><Trash2 aria-hidden="true" /> Delete{deleteReason && <span className="sr-only">: {deleteReason}</span>}</DropdownMenuItem></div>
         </DropdownMenuContent>
-      </DropdownMenu>}
+      </DropdownMenu>
     </div>;
   }
   useEffect(() => { const read = () => { const params = new URLSearchParams(window.location.search); const f = parseFilters(params); if (params.has("q")) { params.delete("q"); const qs = params.toString(); window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`); } setFilters(previous => ({ ...f, q: previous.q })); setReady(true); }; read(); window.addEventListener("popstate", read); return () => window.removeEventListener("popstate", read); }, []);
@@ -138,30 +128,7 @@ export default function BookingsView() {
   const active = Number(!!filters.status.length || !!filters.archived) + Number(!!filters.from || !!filters.to);
   const legacyMode = filters.archived === "all" || (filters.archived === "true" && filters.status.length > 0);
   return <div className="w-full space-y-5 pb-24">
-    <Dialog open={change !== null} onOpenChange={next => { if (!next) setChange(null); }} disablePointerDismissal>
-      <DialogContent initialFocus={keepBooking} showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{deleting ? "Delete booking permanently" : "Cancel booking"}</DialogTitle>
-          <DialogDescription>{deleting
-            ? "This permanently deletes the booking and its proofs. Bookings with accepted payments or recorded refunds cannot be deleted. The current slot stays blocked until it ends; future slots are released. No notice is sent."
-            : "Cancelling releases the booking’s slots. Payment is retained and no refund is issued."}</DialogDescription>
-        </DialogHeader>
-        <form className="grid gap-4" onSubmit={event => {
-          event.preventDefault();
-          if (change) void changeBooking(change.id, change.action, reason);
-        }}>
-          <label className="grid gap-2">
-            <span>{deleting ? "Reason for permanent deletion" : "Reason for cancellation"} (required)</span>
-            <Textarea required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} aria-describedby="booking-change-reason-hint" />
-          </label>
-          <p id="booking-change-reason-hint" className="text-sm text-muted-foreground">Up to 500 characters.{deleting && " Do not include customer or payment details."}</p>
-          <DialogFooter>
-            <DialogClose render={<Button ref={keepBooking} type="button" variant="outline" />}>Keep booking</DialogClose>
-            <Button type="submit" variant="destructive" disabled={!reason.trim()}>{deleting ? "Delete permanently" : "Cancel booking"}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+
     <header className="border-b pb-6"><h1 className="text-2xl font-semibold tracking-tight">Bookings</h1><p className="mt-2 text-sm text-muted-foreground">Find and review reservations.</p></header>
     <section aria-label="Booking controls" className="flex flex-wrap items-end gap-2">
       <div className="flex min-w-0 flex-wrap items-end gap-2 [&_button]:rounded-sm [&_button]:h-9">
@@ -237,7 +204,29 @@ export default function BookingsView() {
       {!loading && !error && result?.rows.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No bookings match these filters.</p>}
       {!error && result && <div className="border-t px-3 [&_nav]:border-0"><TablePager page={result.page} pageSize={result.limit} total={result.total} onPageChange={page => update({ ...filters, page })} busy={loading} /></div>}
     </section>
-    <StaffOccupancy revision={refresh} onBooking={setSelected} />
-    <Dialog open={!!selected} onOpenChange={value => { if (!value) closeBooking(); }}><DialogContent className="grid h-[min(90dvh,52rem)] max-h-[calc(100dvh-2rem)] grid-rows-[auto_auto_minmax(0,1fr)] gap-2 overflow-hidden sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} allowCompletion onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
+    <StaffOccupancy revision={refresh} onBooking={openBooking} />
+    <Dialog open={!!selected} onOpenChange={value => { if (!value) closeBooking(); }}><DialogContent className="grid h-[min(90dvh,52rem)] max-h-[calc(100dvh-2rem)] grid-rows-[auto_auto_minmax(0,1fr)] gap-2 overflow-hidden sm:max-w-3xl"><DialogTitle>Booking details</DialogTitle><DialogDescription>Review reservation and payment information.</DialogDescription>{selected && <BookingDetail key={selected} id={selected} initialAction={initialAction} onDelete={() => reviewDelete(selected)} onSaved={() => setRefresh(n => n + 1)} />}</DialogContent></Dialog>
+    <Dialog open={change !== null} onOpenChange={next => { if (!next) setChange(null); }} disablePointerDismissal>
+      <DialogContent initialFocus={keepBooking} showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Delete booking permanently</DialogTitle>
+          <DialogDescription>This permanently deletes the booking and its proofs. Payments and refunds are also deleted, which can change past finance totals. Deleting does not return money. The current slot stays blocked until it ends; future slots are released. No notice is sent.</DialogDescription>
+        </DialogHeader>
+        <form className="grid gap-4" onSubmit={event => {
+          event.preventDefault();
+          if (change) void deleteBooking(change);
+        }}>
+          <label className="grid gap-2">
+            <span>Reason for permanent deletion (required)</span>
+            <Textarea required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} aria-describedby="booking-change-reason-hint" />
+          </label>
+          <p id="booking-change-reason-hint" className="text-sm text-muted-foreground">Up to 500 characters. Do not include customer or payment details.</p>
+          <DialogFooter>
+            <DialogClose render={<Button ref={keepBooking} type="button" variant="outline" />}>Keep booking</DialogClose>
+            <Button type="submit" variant="destructive" disabled={!reason.trim()}>Delete permanently</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   </div>;
 }

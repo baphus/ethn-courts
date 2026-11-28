@@ -14,14 +14,17 @@ test("legacy booking detail links open the bookings list modal", () => {
   assert.match(bookings, /url\.searchParams\.delete\("booking"\)/);
 });
 
-test("booking cancellation and deletion collect a reason in the app dialog before submitting", () => {
+test("booking menu offers payment decisions and confirms permanent deletion with a reason", () => {
   const bookings = source("app/admin/bookings/bookings-view.tsx");
-  assert.doesNotMatch(bookings, /window\.prompt\(/);
-  assert.match(bookings, /reviewChange\(row\.id, "cancel"\)/);
-  assert.match(bookings, /reviewChange\(row\.id, "delete"\)/);
+  assert.doesNotMatch(bookings, /window\.prompt\(|> Complete</);
+  assert.match(bookings, /openBooking\(row\.id, "approve"\)/);
+  assert.match(bookings, /openBooking\(row\.id, "reject"\)/);
+  assert.match(bookings, /disabled=\{!row.canRefund\}/);
+  assert.match(bookings, /onDelete=\{\(\) => reviewDelete\(selected\)\}/);
+  assert.match(bookings, /reviewDelete\(row\.id\)/);
   assert.match(bookings, /<Dialog open=\{change !== null\}/);
   assert.match(bookings, /<Textarea required maxLength=\{500\}/);
-  assert.match(bookings, /onSubmit=\{event => \{\s*event\.preventDefault\(\);\s*if \(change\) void changeBooking\(change\.id, change\.action, reason\)/);
+  assert.match(bookings, /onSubmit=\{event => \{\s*event\.preventDefault\(\);\s*if \(change\) void deleteBooking\(change\)/);
 });
 
 test("bookings and finance keep labels visible while loading values", () => {

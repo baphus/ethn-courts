@@ -26,21 +26,29 @@ export async function listInbox(pool: Db, verify: StaffVerifier, unreadOnly = fa
       FROM ethn.notifications WHERE ${inboxRecipient} AND ($2::boolean=false OR read_at IS NULL)
       ORDER BY created_at DESC,id DESC LIMIT $3
     )
-    SELECT n.*, b.guest_name, COALESCE(b.tracking_code, b.id::text) AS reference,
+    SELECT n.*, b.guest_name, b.guest_email, b.guest_phone, b.operating_date::text AS booking_date,
+      COALESCE(b.tracking_code, b.id::text) AS reference, b.total::text AS booking_total,
       CASE WHEN n.kind='refund_recorded' THEN r.amount ELSE b.total END::text AS amount,
-      (SELECT jsonb_agg(jsonb_build_object('courtName',c.name,'startsAt',i.starts_at,'endsAt',i.ends_at) ORDER BY i.starts_at,c.name,i.id)
+      COALESCE(m.value->>'name', pm.name, CASE p.method WHEN 'cash' THEN 'Cash' WHEN 'gcash' THEN 'GCash' ELSE p.method END) AS payment_method,
+      (SELECT jsonb_agg(jsonb_build_object('courtName',c.name,'startsAt',i.starts_at,'endsAt',i.ends_at,
+         'durationMinutes',i.duration_minutes,'hourlyRate',i.hourly_rate::text,'lineAmount',i.amount::text) ORDER BY i.starts_at,c.name,i.id)
        FROM ethn.booking_items i JOIN ethn.courts c ON c.id=i.court_id WHERE i.booking_id=b.id) AS slots
     FROM inbox n LEFT JOIN ethn.bookings b ON b.id = CASE
       WHEN n.kind IN ('proof_submitted','booking_confirmed','booking_cancelled','refund_recorded') AND n.booking_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       THEN n.booking_id::uuid END AND n.link='/admin/bookings/' || b.id::text
     LEFT JOIN ethn.booking_refunds r ON r.booking_id=b.id AND n.kind='refund_recorded'
+    LEFT JOIN LATERAL (SELECT method FROM ethn.payments WHERE booking_id=b.id AND extension_id IS NULL
+      ORDER BY (status='accepted') DESC,id LIMIT 1) p ON true
+    LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(b.payment_methods_snapshot) WHERE value->>'id'=p.method LIMIT 1) m ON true
+    LEFT JOIN ethn.payment_methods pm ON pm.id=p.method
     ORDER BY n.created_at DESC,n.id DESC`, [userId, unreadOnly, limit]);
     return rows.map(row => ({
       id: row.id as string, title: row.title as string, body: row.body as string, link: row.link as string,
       createdAt: (row.created_at as Date).toISOString(), readAt: row.read_at ? (row.read_at as Date).toISOString() : null,
       kind: row.reference ? row.kind : null,
       booking: row.reference && row.amount !== null ? {
-        customerName: row.guest_name || "Customer name unavailable", reference: row.reference,
+        customerName: row.guest_name || "Customer name unavailable", customerEmail: row.guest_email, customerPhone: row.guest_phone,
+        reference: row.reference, bookingDate: row.booking_date, paymentMethod: row.payment_method, bookingTotal: row.booking_total,
         slots: row.slots ?? [], amount: row.amount, amountKind: row.kind === "refund_recorded" ? "refund_amount" : "booking_total",
       } : null,
     }));

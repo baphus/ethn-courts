@@ -13,7 +13,7 @@ import { renderEthnEmailHtml } from "./ethn-email-layout";
 
 type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?: boolean };
 type InlineImage = { filename: string; cid: string; content: Buffer; contentType: "image/png" };
-type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html: string; messageId: string; attachments: InlineImage[] }): Promise<unknown> };
+type Transport = { sendMail(message: { from: { name: string; address: string }; to: string; subject: string; text: string; html: string; messageId: string; attachments: InlineImage[] }): Promise<unknown> };
 const notices: Record<string, { title: string; preheader: string; status: string; amount?: string }> = {
   booking_submission: { title: "Booking submitted!", preheader: "Your booking isn’t confirmed yet.", status: "We’ll review your payment before confirming your booking.", amount: "Booking total" },
   open_play_submitted: { title: "Booking submitted!", preheader: "Your booking isn’t confirmed yet.", status: "We’ll review your payment before confirming your booking. Your Open Play listing stays private until your booking is confirmed.", amount: "Booking total" },
@@ -120,15 +120,12 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
         claims.push({ ...row, attempts: row.attempts + 1, token });
       }
     }
-    const schedule = claims.length ? (await client.query<ScheduleItem>(`SELECT c.name AS court, i.starts_at, i.ends_at
-      FROM ethn.booking_items i JOIN ethn.courts c ON c.id = i.court_id
-      WHERE i.booking_id = $1 ORDER BY i.starts_at, c.name, i.ends_at`, [config.bookingId])).rows : [];
     stage = "invoice lookup";
-    const invoice = claims.some(row => row.kind === "booking_approved" || row.kind === "booking_submission" || row.kind === "open_play_submitted") ? (await client.query<{
-      court: string; starts_at: Date; ends_at: Date; duration_minutes: number; interval_minutes: number;
-      hourly_rate: string; amount: string; booking_date: string; method_name: string | null;
+    const invoice = claims.length ? (await client.query<ScheduleItem & {
+      duration_minutes: number; interval_minutes: number; hourly_rate: string; amount: string;
+      booking_date: string; method_name: string | null; guest_name: string | null; guest_email: string | null;
     }>(`SELECT c.name AS court, i.starts_at, i.ends_at, i.duration_minutes, i.interval_minutes,
-        i.hourly_rate::text, i.amount::text, b.operating_date::text AS booking_date,
+        i.hourly_rate::text, i.amount::text, b.operating_date::text AS booking_date, b.guest_name, b.guest_email,
         COALESCE(m.value->>'name', pm.name, CASE p.method WHEN 'cash' THEN 'Cash' WHEN 'gcash' THEN 'GCash' ELSE p.method END) AS method_name
       FROM ethn.booking_items i JOIN ethn.bookings b ON b.id = i.booking_id JOIN ethn.courts c ON c.id = i.court_id
       LEFT JOIN LATERAL (SELECT method FROM ethn.payments WHERE booking_id = b.id AND extension_id IS NULL
@@ -142,8 +139,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
     stage = "delivery processing";
     const contact = { label: "Contact ETHN Courts", href: new URL("/contact", origin).href };
     const directions = { label: "Get directions", href: VENUE_MAP_LINK };
-    const scheduleSections = schedule.length ? [{ title: "Court schedule", lines: schedule.map(scheduleLine) }] : [];
-    const calendar = claims.some(row => row.kind === "booking_approved") ? googleCalendarLink(schedule) : null;
+    const calendar = claims.some(row => row.kind === "booking_approved") ? googleCalendarLink(invoice) : null;
     const footer = ["ETHN Courts", VENUE_ADDRESS];
     for (const row of claims) {
       const p = row.payload as Record<string, unknown> | null;
@@ -163,24 +159,26 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
           const tracking = token
             ? { label: submission ? "Track booking" : "View booking", href: new URL(`/checkout/track/${token}`, origin).href }
             : code ? { label: "Track with your code and email", href: new URL("/track", origin).href } : null;
-          const hasInvoice = (approved || submission) && invoice.length > 0;
           const sections: EmailContent["sections"] = [];
           if (rejected) sections.push({ title: "Reason", lines: [p.reason as string] });
           if (code) sections.push({ title: "Booking code", lines: [code] });
-          if (hasInvoice) {
+          const customer = invoice[0];
+          if (customer?.guest_name && customer.guest_email?.toLowerCase() === p.email.toLowerCase()) {
+            sections.push({ title: "Customer details", lines: [`Name: ${customer.guest_name}`, `Email: ${p.email}`] });
+          }
+          if (invoice.length) {
             const slots = invoice.map(item => gridSlotCount(item.duration_minutes, item.interval_minutes));
             sections.push({ title: approved ? "Booking invoice" : "Booking breakdown", lines: [
               `Booking date: ${formatDisplayDate(invoice[0].booking_date)}`,
-              ...invoice.map((item, index) => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)}\n${invoiceSlotRate(item.duration_minutes, item.interval_minutes)}${slotPrice(item, slots[index])} · Subtotal: ${invoiceMoney(item.amount)}`),
+              ...invoice.map((item, index) => `${item.court} · ${invoiceTimeRange(item.booking_date, item.starts_at, item.ends_at)}\n${item.duration_minutes} min · ${invoiceSlotRate(item.duration_minutes, item.interval_minutes, item.hourly_rate)}${slotPrice(item, slots[index])} · Subtotal: ${invoiceMoney(item.amount)}`),
               `Total slots: ${slots.every(count => count !== undefined) ? slots.reduce((total, count) => total + count, 0) : "Unavailable"}`,
             ] });
             sections.push({ title: "Payment", lines: [
               ...(invoice[0].method_name ? [`Payment method: ${invoice[0].method_name}`] : []),
-              `${approved ? "Total paid" : "Booking total"}: ${invoiceMoney(p.total as string)}`,
+              `${notice.amount ?? "Booking total"}: ${invoiceMoney(p.total as string)}`,
             ] });
-          } else {
-            sections.push(...scheduleSections);
-            if (notice.amount) sections.push({ title: notice.amount, lines: [invoiceMoney(p.total as string)] });
+          } else if (notice.amount) {
+            sections.push({ title: notice.amount, lines: [invoiceMoney(p.total as string)] });
           }
           const action = rejected ? contact : tracking ?? (approved ? directions : contact);
           const links = [contact];
@@ -196,7 +194,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
             audience: "Booking update", sections, action, links: links.filter(link => link !== action), footer,
           }, approved || submission ? notice.title : undefined, token && (submission || approved) ? tracking?.href : undefined);
           deliveryStage = "SMTP";
-          await transport.sendMail({ from: config.from, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
+          await transport.sendMail({ from: { name: "ETHN Courts", address: config.from }, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
           status = "sent";
         } catch (error) {
           logDeliveryFailure(row.kind, deliveryStage, error);

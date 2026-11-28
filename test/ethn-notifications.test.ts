@@ -7,6 +7,7 @@ import { lockBookingAlertOwners, recordNewBookingAlerts } from "../src/lib/booki
 test("sidebar counts and bulk read reject unauthenticated requests without a database connection", async () => {
   const pool = { connect: async () => assert.fail("must authenticate before accessing the database") };
   await assert.rejects(getSidebarCounts(pool, async () => null), /UNAUTHENTICATED/);
+  await assert.rejects(listInbox(pool, async () => null), /UNAUTHENTICATED/);
   await assert.rejects(markAllInboxRead(pool, async () => null), /UNAUTHENTICATED/);
 });
 
@@ -19,7 +20,7 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
   const a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", booking = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
   try {
     await admin.query("INSERT INTO ethn.staff_access(user_id,role,enabled) VALUES($1,'owner',true),($2,'owner',true)", [a,b]);
-    await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version) VALUES($1,'h',current_date,'pending',now()+interval '1 hour',10,1)", [booking]);
+    await admin.query("INSERT INTO ethn.bookings(id,owner_hash,operating_date,status,expires_at,total,settings_version,guest_name,guest_email,guest_phone) VALUES($1,'h',current_date,'pending',now()+interval '1 hour',10,1,'Test Guest','guest@example.test','09123456789')", [booking]);
     const verify = async () => a;
     const client = await staff.connect();
     try {
@@ -33,7 +34,8 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     assert.equal(rows.length, 1);
     assert.equal(rows[0].title, "Payment proof submitted");
     assert.equal(rows[0].kind, "proof_submitted");
-    assert.deepEqual(rows[0].booking && { ...rows[0].booking }, { customerName: "Customer name unavailable", reference: booking, slots: [], amount: "10.00", amountKind: "booking_total" });
+    assert.deepEqual(rows[0].booking, { customerName: "Test Guest", customerEmail: "guest@example.test", customerPhone: "09123456789", reference: booking, bookingDate: rows[0].booking?.bookingDate, paymentMethod: null, bookingTotal: "10.00", slots: [], amount: "10.00", amountKind: "booking_total" });
+    assert.match(rows[0].booking!.bookingDate, /^\d{4}-\d{2}-\d{2}$/);
     const { rows: emails } = await admin.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_owner_alert' ORDER BY payload->>'ownerId'", [booking]);
     assert.deepEqual(emails, []);
     const grants = await admin.query(`SELECT privilege_type, column_name FROM information_schema.column_privileges WHERE table_schema='ethn' AND table_name='notifications' AND grantee='ethn_checkout'`);

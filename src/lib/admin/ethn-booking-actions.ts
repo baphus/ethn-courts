@@ -3,15 +3,14 @@ import { isEthnMailAddress } from '../mail/ethn-address';
 import type { Pool } from 'pg';
 import type { StaffVerifier } from './ethn-payments';
 import { lockBookingAlertOwners, recordBookingAlert } from '../booking/ethn-booking-alerts';
-export type BookingAction='cancel'|'refund'|'archive'|'delete';
-export const archivableBookingStatuses = ['expired','rejected','completed','cancelled','refunded'];
+export type BookingAction='cancel'|'refund'|'delete';
 export function validateBookingAction(action:BookingAction,body:unknown){
  if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('INVALID_INPUT');const b=body as Record<string,unknown>;
- const fields=action==='refund'?['key','reason','reference']:action==='archive'?['key']:['key','reason'];
+ const fields=action==='refund'?['key','reason','reference']:['key','reason'];
  if(Object.keys(b).some(k=>!fields.includes(k))||typeof b.key!=='string'||! /^[\x21-\x7e]{1,200}$/.test(b.key))throw new Error('INVALID_INPUT');
- if(action!=='archive'&&(typeof b.reason!=='string'||!b.reason.trim()||b.reason.trim().length>500))throw new Error('INVALID_INPUT');
+ if(typeof b.reason!=='string'||!b.reason.trim()||b.reason.trim().length>500)throw new Error('INVALID_INPUT');
  if(action==='refund'&&(typeof b.reference!=='string'||!b.reference.trim()||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
- return {key:b.key,reason:typeof b.reason==='string'?b.reason.trim():null,reference:typeof b.reference==='string'?b.reference.trim():null};
+ return {key:b.key,reason:b.reason.trim(),reference:typeof b.reference==='string'?b.reference.trim():null};
 }
 export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifier,id:string,action:BookingAction,body:unknown){
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))throw new Error('INVALID_INPUT');
@@ -36,39 +35,34 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
    return result;
   }
   await c.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
-  const b=(await c.query('SELECT id,status,archived_at,total::text,guest_email,tracking_code,tracking_hash FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
+  const b=(await c.query('SELECT id,status,total::text,guest_email,tracking_code,tracking_hash FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
   const now=(await c.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
-  if(action==='archive'){
-   if(!archivableBookingStatuses.includes(b.status))throw new Error('ACTION_CONFLICT');
-   await c.query('UPDATE ethn.bookings SET archived_at=coalesce(archived_at,$2),archived_by=coalesce(archived_by,$3) WHERE id=$1',[id,now,actor]);
-  }else{
-   if(b.status!=='confirmed')throw new Error('ACTION_CONFLICT');
-   // Cancellation/refund of extension-bearing bookings requires a separate financial policy.
-   if((await c.query("SELECT id FROM ethn.extensions WHERE booking_id=$1 AND status IN ('held','pending','confirmed') LIMIT 1",[id])).rowCount)throw new Error('ACTION_CONFLICT');
-   const slots=(await c.query('SELECT min(starts_at) AS first_start FROM ethn.booking_items WHERE booking_id=$1',[id])).rows[0];
-   if(!slots.first_start||slots.first_start<=now)throw new Error('ACTION_CONFLICT');
-   if(action==='refund'){
-    const payments=(await c.query("SELECT id,method,collected_amount::text FROM ethn.payments WHERE booking_id=$1 AND status='accepted' ORDER BY id FOR UPDATE",[id])).rows;
-    if(payments.length!==1||payments[0].collected_amount!==b.total)throw new Error('ACTION_CONFLICT');const p=payments[0];
-    await c.query('INSERT INTO ethn.booking_refunds(booking_id,payment_id,amount,method,reason,reference,recorded_at,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,p.id,p.collected_amount,p.method,input.reason,input.reference,now,actor]);
+  if(b.status!=='confirmed')throw new Error('ACTION_CONFLICT');
+  // Cancellation/refund of extension-bearing bookings requires a separate financial policy.
+  if((await c.query("SELECT id FROM ethn.extensions WHERE booking_id=$1 AND status IN ('held','pending','confirmed') LIMIT 1",[id])).rowCount)throw new Error('ACTION_CONFLICT');
+  const slots=(await c.query('SELECT min(starts_at) AS first_start FROM ethn.booking_items WHERE booking_id=$1',[id])).rows[0];
+  if(!slots.first_start||slots.first_start<=now)throw new Error('ACTION_CONFLICT');
+  if(action==='refund'){
+   const payments=(await c.query("SELECT id,method,collected_amount::text FROM ethn.payments WHERE booking_id=$1 AND status='accepted' ORDER BY id FOR UPDATE",[id])).rows;
+   if(payments.length!==1||payments[0].collected_amount!==b.total)throw new Error('ACTION_CONFLICT');const p=payments[0];
+   await c.query('INSERT INTO ethn.booking_refunds(booking_id,payment_id,amount,method,reason,reference,recorded_at,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,p.id,p.collected_amount,p.method,input.reason,input.reference,now,actor]);
+  }
+  const status=action==='refund'?'refunded':'cancelled';
+  await c.query('UPDATE ethn.bookings SET status=$2 WHERE id=$1',[id,status]);
+  await c.query("UPDATE ethn.court_allocations SET state=$2 WHERE state='confirmed' AND starts_at>$3 AND item_id IN(SELECT id FROM ethn.booking_items WHERE booking_id=$1)",[id,status,now]);
+  await recordBookingAlert(c, id, action === 'refund' ? 'refund_recorded' : 'booking_cancelled', owners);
+  if (isEthnMailAddress(b.guest_email)) {
+   let trackingToken: string | undefined;
+   if (b.tracking_hash) {
+    const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind IN ('booking_submission','open_play_submitted','booking_approved') AND payload ? 'trackingToken' ORDER BY id LIMIT 1",[id])).rows[0];
+    const token = submission?.payload?.trackingToken;
+    if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token) && createHash('sha256').update(token).digest('hex') === b.tracking_hash) trackingToken = token;
    }
-   const status=action==='refund'?'refunded':'cancelled';
-   await c.query('UPDATE ethn.bookings SET status=$2 WHERE id=$1',[id,status]);
-   await c.query("UPDATE ethn.court_allocations SET state=$2 WHERE state='confirmed' AND starts_at>$3 AND item_id IN(SELECT id FROM ethn.booking_items WHERE booking_id=$1)",[id,status,now]);
-   await recordBookingAlert(c, id, action === 'refund' ? 'refund_recorded' : 'booking_cancelled', owners);
-   if (isEthnMailAddress(b.guest_email)) {
-    let trackingToken: string | undefined;
-    if (b.tracking_hash) {
-     const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind IN ('booking_submission','open_play_submitted','booking_approved') AND payload ? 'trackingToken' ORDER BY id LIMIT 1",[id])).rows[0];
-     const token = submission?.payload?.trackingToken;
-     if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token) && createHash('sha256').update(token).digest('hex') === b.tracking_hash) trackingToken = token;
-    }
-    const payload = {email:b.guest_email,total:b.total,...(b.tracking_code ? {code:b.tracking_code} : {staff:true}),trackingToken};
-    await c.query('INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,$3,$4::jsonb)',[randomUUID(),id,`booking_${status}`,JSON.stringify(payload)]);
-   }
+   const payload = {email:b.guest_email,total:b.total,...(b.tracking_code ? {code:b.tracking_code} : {staff:true}),trackingToken};
+   await c.query('INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,$3,$4::jsonb)',[randomUUID(),id,`booking_${status}`,JSON.stringify(payload)]);
   }
   await c.query('INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,$3,$4::jsonb)',[id,actor,`booking.${action}`,JSON.stringify({reason:input.reason,reference:input.reference})]);
-  const result={bookingId:id,status:action==='archive'?b.status:action==='refund'?'refunded':'cancelled',archived:action==='archive'};
+  const result={bookingId:id,status,archived:false};
   await c.query('UPDATE ethn.idempotency SET result=$4::jsonb WHERE owner_hash=$1 AND operation=$2 AND key=$3',[actor,operation,input.key,JSON.stringify(result)]);
   committing=true;await c.query('COMMIT');return result;
  }catch(e){if(committing)discard=true;else try{await c.query('ROLLBACK');}catch{discard=true;}throw e;}finally{c.release(discard?new Error('discard transaction'):undefined);}
