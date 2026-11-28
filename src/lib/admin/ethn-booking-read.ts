@@ -116,6 +116,11 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
       (b.status = 'pending' AND (SELECT count(*) = 1 AND bool_and(p.status='unverified' AND r.id IS NOT NULL)
         FROM ethn.payments p LEFT JOIN ethn.proof_reservations r ON r.id=p.proof_id AND r.booking_id=b.id AND r.owner_hash=b.owner_hash AND r.state='attached'
         WHERE p.booking_id=b.id)) AS can_approve,
+      (b.status = 'confirmed'
+        AND (SELECT min(i.starts_at) > statement_timestamp() FROM ethn.booking_items i WHERE i.booking_id = b.id) IS TRUE
+        AND NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id = b.id AND e.status IN ('held','pending','confirmed'))
+        AND (SELECT count(*) = 1 AND bool_and(p.collected_amount::text = b.total::text)
+          FROM ethn.payments p WHERE p.booking_id = b.id AND p.status = 'accepted')) AS can_refund,
       (SELECT count(*)::int FROM ethn.booking_items i WHERE i.booking_id = b.id) AS item_count
       FROM ethn.bookings b ${where} ORDER BY b.created_at DESC, b.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset]);

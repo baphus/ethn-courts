@@ -46,7 +46,7 @@ test('unified booking restricted SQL transactions', {skip:!url||!adminUrl},async
   const freeFirst={...first,start:end,end:second.end};
   await assert.rejects(createInternalBooking(pool,verify,{...input,ranges:[freeFirst,second],idempotencyKey:randomUUID()}),/SLOT_TAKEN/);
   assert.deepEqual((await counts()).rows[0],before);
-  const refund={key:randomUUID(),reason:'Customer cancellation',reference:'external-return'};
+  const refund={key:randomUUID(),reason:'Customer cancellation'};
   assert.equal((await bookingAction(pool,verify,booking.bookingId,'refund',refund)).status,'refunded');
   await bookingAction(pool,verify,booking.bookingId,'refund',refund);
   assert.equal((await admin.query('SELECT count(*)::int AS n FROM ethn.booking_refunds')).rows[0].n,1);

@@ -9,7 +9,7 @@ export function validateBookingAction(action:BookingAction,body:unknown){
  const fields=action==='refund'?['key','reason','reference']:['key','reason'];
  if(Object.keys(b).some(k=>!fields.includes(k))||typeof b.key!=='string'||! /^[\x21-\x7e]{1,200}$/.test(b.key))throw new Error('INVALID_INPUT');
  if(typeof b.reason!=='string'||!b.reason.trim()||b.reason.trim().length>500)throw new Error('INVALID_INPUT');
- if(action==='refund'&&(typeof b.reference!=='string'||!b.reference.trim()||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
+ if(action==='refund'&&Object.hasOwn(b,'reference')&&(typeof b.reference!=='string'||!b.reference.trim()||b.reference.trim().length>200))throw new Error('INVALID_INPUT');
  return {key:b.key,reason:b.reason.trim(),reference:typeof b.reference==='string'?b.reference.trim():null};
 }
 export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifier,id:string,action:BookingAction,body:unknown){
@@ -45,7 +45,7 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
   if(action==='refund'){
    const payments=(await c.query("SELECT id,method,collected_amount::text FROM ethn.payments WHERE booking_id=$1 AND status='accepted' ORDER BY id FOR UPDATE",[id])).rows;
    if(payments.length!==1||payments[0].collected_amount!==b.total)throw new Error('ACTION_CONFLICT');const p=payments[0];
-   await c.query('INSERT INTO ethn.booking_refunds(booking_id,payment_id,amount,method,reason,reference,recorded_at,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,p.id,p.collected_amount,p.method,input.reason,input.reference,now,actor]);
+   await c.query('INSERT INTO ethn.booking_refunds(booking_id,payment_id,amount,method,reason,reference,recorded_at,recorded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,p.id,p.collected_amount,p.method,input.reason,input.reference??'Not provided',now,actor]);
   }
   const status=action==='refund'?'refunded':'cancelled';
   await c.query('UPDATE ethn.bookings SET status=$2 WHERE id=$1',[id,status]);

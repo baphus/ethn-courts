@@ -22,9 +22,10 @@ test('range validation normalizes court order and rejects gaps represented by du
  for(const ranges of [[],[first,first],[{...first,start:'2026-12-01T00:30:00.000Z'}],[{...first,courtId:'9223372036854775808'}]]) assert.throws(()=>validateInternalBooking({...input,ranges}),/INVALID_INPUT/);
  assert.throws(()=>validateInternalBooking({...input,...first}),/INVALID_INPUT/);
 });
-test('refund requires reason and external reference',()=>{
+test('refund requires reason; old clients may still supply a reference',()=>{
  assert.deepEqual(validateBookingAction('refund',{key:'r1',reason:' Customer cancelled ',reference:'return-1'}),{key:'r1',reason:'Customer cancelled',reference:'return-1'});
- assert.throws(()=>validateBookingAction('refund',{key:'r1',reason:'Customer cancelled'}),/INVALID_INPUT/);
+ assert.deepEqual(validateBookingAction('refund',{key:'r1',reason:'Customer cancelled'}),{key:'r1',reason:'Customer cancelled',reference:null});
+ assert.throws(()=>validateBookingAction('refund',{key:'r1',reason:' '}),/INVALID_INPUT/);
  assert.throws(()=>validateBookingAction('cancel',{key:'c1',reason:' '}),/INVALID_INPUT/);
  assert.equal(methodId.test('metrobank'),true);assert.equal(methodId.test('../secret'),false);
 });

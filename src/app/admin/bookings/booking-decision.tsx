@@ -1,5 +1,4 @@
 "use client";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormSelect } from "@/components/ui/form-select";
 import { useId, useRef, useState } from "react";
@@ -52,14 +51,14 @@ export default function BookingDecision({id,initialAction,status,proof,canRefund
    void refreshCounts().catch(() => {});
    onSaved();
  }
- function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="refund")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}if(action==="refund"&&!reference.trim()){setError("Enter the external refund reference.");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:{key,reason:decisionReason,reference:reference.trim()};setPending({url,body});void send(url,body);}
+ function confirm(){if(!action)return;setAnnounceError(true);if((action==="reject"||action==="refund")&&!decisionReason){setError(action==="reject"&&!rejectionReason?"Select a reason.":"Enter a reason.");return;}const key=crypto.randomUUID();const url=action==="approve"||action==="reject"?`/api/ethn/admin/payments/${encodeURIComponent(id)}/decision`:`/api/ethn/admin/bookings/${encodeURIComponent(id)}/${action}`;const body=action==="approve"?{key,action,paymentReceived:true}:action==="reject"?{key,action,reason:decisionReason}:{key,reason:decisionReason};setPending({url,body});void send(url,body);}
  const reviewReason = canReview ? undefined : "Only pending bookings with payment proof can be reviewed.";
   const refundReason = canRefund ? undefined : "Requires an eligible confirmed booking with full payment, before play starts, and no active extension.";
   return <section className={`space-y-4 rounded-xl border bg-card p-5 ${className ?? ""}`}><h2 className="font-semibold">Booking actions</h2>
     <div className="flex flex-wrap gap-2">
       {([["approve", "Approve", reviewReason], ["reject", "Reject", reviewReason], ["refund", "Cancel (full refund)", refundReason]] as const).map(([option, label, reasonUnavailable]) => <Button key={option} type="button" variant="outline" title={reasonUnavailable} aria-disabled={!!reasonUnavailable || !!pending} className={reasonUnavailable || pending ? "opacity-50" : undefined} onClick={() => {
         if (reasonUnavailable || pending) return;
-        setAction(option);setReference("");setReason("");setRejectionReason("");setError("");
+        setAction(option);setReason("");setRejectionReason("");setError("");
       }}>{label}{reasonUnavailable && <span className="sr-only">: {reasonUnavailable}</span>}</Button>)}
       {onDelete && <Button type="button" variant="destructive" className="sm:ml-auto" disabled={!!pending} onClick={onDelete}>Delete</Button>}
     </div>
@@ -70,5 +69,5 @@ export default function BookingDecision({id,initialAction,status,proof,canRefund
  </div>}{(action==="refund"||(action==="reject"&&rejectionReason==="other"))&&<div className="grid gap-1 text-sm">
    <label htmlFor={`${reasonId}-text`}>{action==="reject"?"Other reason (required)":"Reason (required)"}</label>
    <Textarea placeholder={action==="reject"?"Why the payment could not be verified":undefined} id={`${reasonId}-text`} required maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} />
- </div>}{action==="refund"&&<label className="grid gap-1 text-sm">External refund reference (required)<Input required maxLength={200} value={reference} onChange={e=>setReference(e.target.value)} /></label>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"Approve booking":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
+ </div>}<div className="flex gap-2"><Button disabled={busy} onClick={confirm}>{action==="approve"?"Approve booking":`Confirm ${action}`}</Button><Button variant="outline" disabled={busy} onClick={()=>setAction(null)}>Go back</Button></div></div>}{error&&<p role={announceError ? "alert" : undefined} className="text-sm text-destructive">{error}</p>}{pending&&!busy&&<Button variant="outline" onClick={()=>void send(pending.url,pending.body)}>Retry same request</Button>}</section>;
 }

@@ -61,7 +61,7 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     const all = await searchEthnBookings(pool, async () => staff, new URLSearchParams());
     assert.equal(all.total, 5);
     const confirmedRows = await searchEthnBookings(pool, async () => staff, new URLSearchParams("status=confirmed"));
-    assert.deepEqual(confirmedRows.rows.map(row => row.status).sort(), ["completed", "confirmed"]);
+    assert.deepEqual(confirmedRows.rows.map(row => [row.status, row.canRefund]).sort(), [["completed", false], ["confirmed", false]]);
     await admin.query("UPDATE ethn.staff_access SET enabled=false WHERE user_id=$1", [staff]);
     await assert.rejects(searchEthnBookings(pool, async () => staff, new URLSearchParams(`q=${confirmed}`)), /FORBIDDEN/);
     await admin.query("UPDATE ethn.staff_access SET enabled=true WHERE user_id=$1", [staff]);
@@ -128,5 +128,12 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
     assert.equal(await ethnBookingDetail(pool, async () => staff, uuid()), null);
     await assert.rejects(ethnBookingDetail(pool, async () => staff, "invalid"), /INVALID_INPUT/);
     assert.equal((await admin.query("SELECT status FROM ethn.bookings WHERE id=$1", [futurePending])).rows[0].status, "pending");
+    const refundable = await booking("confirmed", { start: new Date(Date.parse(future) + 7_200_000).toISOString() });
+    await admin.query(`INSERT INTO ethn.payments(id,booking_id,method,merchant_snapshot,status,collected_amount,received_at,verified_at,verified_by)
+      VALUES($1,$2,'cash','Cash','accepted',100,$3,$3,$4)`, [uuid(), refundable, past, owner]);
+    const refundFilter = new URLSearchParams({ q: refundable });
+    assert.equal((await searchEthnBookings(pool, async () => owner, refundFilter)).rows[0].canRefund, true);
+    assert.equal((await ethnBookingDetail(pool, async () => owner, refundable))?.canRefund, true);
+
   } finally { await pool.end(); await admin.end(); }
 });
