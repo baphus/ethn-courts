@@ -22,6 +22,8 @@ test("staff dashboard excludes finance and counts approved bookings on the opera
   } }) };
   const data = await ethnDashboard(pool as never, async () => actor);
   assert.equal("finance" in data, false);
+  assert.equal("pendingReview" in data, false);
+  assert.ok(!queries.some(q => q.sql.includes('AS "pastStart"')));
   assert.equal(data.recentBookings[0].slotCount, 4);
   assert.deepEqual(data.counts, { confirmed: 1, completed: 2 });
   const counts = queries.find(q => q.sql.includes("AS completed"))!;

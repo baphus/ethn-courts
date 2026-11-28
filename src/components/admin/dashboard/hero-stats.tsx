@@ -33,7 +33,6 @@ export function HeroStats({ overview, owner, overviewError, retryOverview }: { o
       </KpiCard>)}
     </div>
     {overviewError && <div role="alert" className="text-sm">{overviewError} <Button type="button" variant="link" className="h-auto p-0" onClick={retryOverview}>Retry</Button></div>}
-    {data?.collections && <p className="text-[11px] text-muted-foreground">Verified booking payments by Manila approval date. Before expenses; not net profit.</p>}
   </section>;
 }
 

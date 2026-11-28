@@ -4,6 +4,7 @@ export type DashboardOverview = {
   operatingDate: string;
   calendarDate: string;
   counts: { confirmed: number; completed: number };
+  pendingReview?: { today: number; total: number; pastStart: number };
   recentBookings: (BookingSummary & { slotCount: number; approvedAt: string })[];
 };
 

@@ -11,7 +11,7 @@ export type HeroStatsData = {
 export type ChartData = {
   month: string; today: string;
   occupancy: { days: { date: string; percent: number | null; reservedHours: number; capacityHours: number }[] };
-  collections?: { included: string; totals: { collected: string; averagePerDay: string }; daily: { date: string; collected: string; average: string }[] };
+  collections?: { totals: { collected: string; averagePerDay: string }; daily: { date: string; collected: string; average: string }[] };
 };
 export type OverviewData = {
   range: Range; from: string; to: string; asOf: string; operatingDate: string;

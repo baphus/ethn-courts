@@ -42,7 +42,7 @@ export function CollectionsChart({ owner, currentMonth }: { owner: boolean; curr
     <span className="min-w-28 text-center text-xs font-medium">{activeMonth ? monthName(activeMonth) : "—"}</span>
     <button type="button" aria-label="Next month" disabled={!activeMonth || !latestMonth || activeMonth >= latestMonth} onClick={() => { const next = shiftMonth(activeMonth, 1); setMonth(owner && next === latestMonth ? "" : next); }} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronRight className="size-4" /></button>
   </div>;
-  return <Card title={owner && metric === "collections" ? "Approved booking payments" : "Occupancy"} subtitle={metric === "collections" ? data?.collections?.included : "Daily share of open hours reserved by approved bookings (court blocks excluded)"}
+  return <Card title={owner && metric === "collections" ? "Approved booking payments" : "Occupancy"} subtitle={metric === "collections" ? undefined : "Daily share of open hours reserved by approved bookings (court blocks excluded)"}
     action={<div className="flex flex-wrap items-center gap-2">{owner && <Segmented label="Chart metric" value={metric} onChange={setMetric} options={[{ value: "collections", label: "Approved booking payments" }, { value: "occupancy", label: "Occupancy" }]} />}{nav}</div>}>
     <Body state={state} skeleton="h-72">{() => !view ? <p role="alert" className="text-sm text-muted-foreground">Approved booking payments unavailable. Please try again.</p> : <>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">

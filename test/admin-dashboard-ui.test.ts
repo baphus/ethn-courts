@@ -9,7 +9,10 @@ test('dashboard leads with approved statuses and keeps full finance reporting of
   assert.doesNotMatch(page, /aria-label="Needs attention"|Needs payment review/);
   const statuses = page.match(/<section aria-label="Today booking status"[\s\S]*?<\/section>/)?.[0] ?? '';
   for (const state of ['confirmed', 'completed']) assert.match(statuses, new RegExp(`"${state}"`));
-  assert.doesNotMatch(statuses, /"(?:expired|pending)"/);
+  assert.doesNotMatch(statuses, /"expired"/);
+  assert.match(statuses, /data\?\.pendingReview && .*<StatusBadge state="pending"/);
+  assert.match(page, /href="\/admin\/bookings\?status=pending"/);
+  assert.match(page, /No bookings awaiting review/);
   assert.match(statuses, /data\.counts\[state\]/);
   assert.match(statuses, /<StatusBadge state=\{state\}/);
   assert.ok(page.indexOf('Today’s status') < page.indexOf('<HeroStats'));

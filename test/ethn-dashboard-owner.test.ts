@@ -19,10 +19,17 @@ test("dashboard overview returns approved bookings in approval order without cas
       assert.match(sql, /ORDER BY approval\.approved_at DESC, b\.id DESC/);
       return { rows: [{ id, status: "confirmed", guest_name: null, operating_date: "2026-03-01", created_at: new Date("2026-02-28T00:00:00Z"), approved_at: approved, total: "100.00", item_count: 1, slot_count: 2 }] };
     }
+    if (sql.includes('AS "pastStart"')) {
+      assert.match(sql, /b\.status = 'pending' AND b\.archived_at IS NULL/);
+      assert.match(sql, /i\.starts_at <= \$2::timestamptz/);
+      assert.match(sql, /HAVING EXISTS .*enabled AND role = 'owner'/);
+      return { rows: [{ today: 2, total: 4, pastStart: 1 }] };
+    }
     assert.match(sql, /^(BEGIN |COMMIT$)/);
     return { rows: [] };
   } }) };
   const result = await ethnDashboard(pool as never, async () => id);
   assert.deepEqual(result.counts, { confirmed: 1, completed: 0 });
+  assert.deepEqual(result.pendingReview, { today: 2, total: 4, pastStart: 1 });
   assert.equal(result.recentBookings[0].approvedAt, approved.toISOString());
 });

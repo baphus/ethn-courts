@@ -52,6 +52,7 @@ test("restricted staff dashboard and booking reads on disposable ETHN database",
       VALUES($1,$2,'cash','Cash','accepted',100,$5,$5,$6),($3,$4,'cash','Cash','accepted',100,$5,clock_timestamp(),$6)`, [uuid(), confirmed, uuid(), completed, past, owner]);
     const dashboard = await ethnDashboard(pool, async () => owner);
     assert.deepEqual(dashboard.counts, { confirmed: 1, completed: 1 });
+    assert.deepEqual(dashboard.pendingReview, { today: 2, total: 2, pastStart: 1 });
     assert.deepEqual(dashboard.recentBookings.map(row => row.id), [completed, confirmed]);
     assert.equal(dashboard.recentBookings[1].approvedAt, past);
     assert.ok(dashboard.operatingDate === day || dashboard.operatingDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10));

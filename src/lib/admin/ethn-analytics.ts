@@ -20,7 +20,6 @@ import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analy
 
 type Db = Pick<Pool, "connect">;
 export type Range = "week" | "month";
-const COLLECTIONS_SCOPE = "Verified payments for approved bookings, by Manila approval date. Before expenses. Not net profit.";
 const MAX_WINDOWS = 4000;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -228,7 +227,7 @@ async function chart(pool: Db, owner: boolean, userId: string, params: URLSearch
     return { date: day.date, collected: day.collected, average: analyticsAverage(total, window.length) };
   });
   const collected = totalPayments(current);
-  result.collections = { included: COLLECTIONS_SCOPE, totals: { collected, averagePerDay: analyticsAverage(analyticsCents(collected), daily.length) }, daily };
+  result.collections = { totals: { collected, averagePerDay: analyticsAverage(analyticsCents(collected), daily.length) }, daily };
   return result;
 }
 

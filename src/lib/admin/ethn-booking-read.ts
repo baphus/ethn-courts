@@ -25,7 +25,7 @@ function date(value: string): boolean {
 }
 
 export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
-  await getStaff(pool, verify);
+  const actor = await getStaff(pool, verify);
   const client = await pool.connect();
   let discardClient = false;
   try {
@@ -49,8 +49,19 @@ export async function ethnDashboard(pool: Db, verify: StaffVerifier) {
       ) x
       WHERE b.status IN ('confirmed','completed') AND b.archived_at IS NULL AND approval.approved_at IS NOT NULL
       ORDER BY approval.approved_at DESC, b.id DESC LIMIT 8`);
+    let pendingReview: { today: number; total: number; pastStart: number } | undefined;
+    if (actor.role === "owner") {
+      pendingReview = (await client.query<NonNullable<typeof pendingReview>>(`SELECT
+        count(*) FILTER (WHERE b.operating_date = $1::date)::int AS today,
+        count(*)::int AS total,
+        count(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM ethn.booking_items i WHERE i.booking_id = b.id AND i.starts_at <= $2::timestamptz
+        ))::int AS "pastStart"
+        FROM ethn.bookings b WHERE b.status = 'pending' AND b.archived_at IS NULL
+        HAVING EXISTS (SELECT 1 FROM ethn.staff_access WHERE user_id = $3 AND enabled AND role = 'owner')`, [operatingDate, now, actor.userId])).rows[0];
+    }
     await client.query("COMMIT");
-    return { operatingDate, calendarDate: manilaDateStr(now), counts: { confirmed, completed },
+    return { operatingDate, calendarDate: manilaDateStr(now), counts: { confirmed, completed }, ...(pendingReview && { pendingReview }),
       recentBookings: recent.rows.map(row => ({ ...summary(row), slotCount: row.slot_count, approvedAt: row.approved_at.toISOString() })) };
   } catch (error) { discardClient = await rollback(client); throw error; }
   finally { client.release(discardClient); }

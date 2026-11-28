@@ -39,7 +39,14 @@ function NormalDashboard({ data, error, retry, owner }: { data: DashboardOvervie
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">{data ? `Operating date ${formatDisplayDate(data.operatingDate)}` : "Overview"}</p></div></header>
     {!owner && error && <ErrorNotice message={error} />}
     {!owner && !data ? (!error && <LoadingAnimation label="Loading dashboard" className="py-8"/>) : <>
-      <section aria-label="Today booking status" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border bg-card px-4 py-3"><h2 className="text-sm font-semibold">Today’s status</h2>{(["confirmed", "completed"] as const).map(state => <div key={state} className="flex items-center gap-2"><StatusBadge state={state}/><div className="text-sm font-semibold">{data ? data.counts[state] : error ? "Unavailable" : <Skeleton className="h-4 w-6 motion-reduce:animate-none" />}</div></div>)}</section>
+      <section aria-label="Today booking status" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border bg-card px-4 py-3"><h2 className="text-sm font-semibold">Today’s status</h2>{(["confirmed", "completed"] as const).map(state => <div key={state} className="flex items-center gap-2"><StatusBadge state={state}/><div className="text-sm font-semibold">{data ? data.counts[state] : error ? "Unavailable" : <Skeleton className="h-4 w-6 motion-reduce:animate-none" />}</div></div>)}{data?.pendingReview && <div className="flex items-center gap-2"><StatusBadge state="pending"/><div className="text-sm font-semibold">{data.pendingReview.today}</div></div>}</section>
+      {data?.pendingReview && <section className="rounded-xl border bg-card px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Pending review</h2>
+          <Link href="/admin/bookings?status=pending" className="text-sm font-medium text-primary hover:underline">View pending bookings</Link>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{data.pendingReview.total === 0 ? "No bookings awaiting review." : `${data.pendingReview.total} awaiting review · ${data.pendingReview.pastStart} at or past scheduled start`}</p>
+      </section>}
       <HeroStats overview={data} owner={owner} overviewError={error} retryOverview={retry}/>
       <CollectionsChart owner={owner} currentMonth={data?.calendarDate.slice(0, 7)}/>
       <GlanceKpis state={overview} range={range} onRange={setRange}/>
