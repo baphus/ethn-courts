@@ -30,10 +30,16 @@ test('refund requires reason and external reference; archive rejects deletion fl
  assert.equal(methodId.test('metrobank'),true);assert.equal(methodId.test('../secret'),false);
 });
 test('direct internal creation writes every court and one payment, or rolls back a later conflict',async()=>{
- const queries:string[]=[];let failSecond=false,allocations=0;
+ const queries:string[]=[];let failSecond=false,allocations=0; let trackingHash: unknown;
  const request={...input,guestEmail:'guest@example.test'};
  const client={async query(sql:string,args?:unknown[]){queries.push(sql);
-  if(sql.startsWith('INSERT INTO ethn.email_outbox')) assert.deepEqual(JSON.parse(String(args?.[2])),{email:request.guestEmail,total:'500.00',staff:true});
+  if(sql.startsWith('INSERT INTO ethn.bookings')) trackingHash=args?.[11];
+  if(sql.startsWith('INSERT INTO ethn.email_outbox')) {
+   const {trackingToken,...payload}=JSON.parse(String(args?.[2]));
+   assert.deepEqual(payload,{email:request.guestEmail,total:'500.00',staff:true});
+   assert.match(trackingToken,/^[0-9a-f]{64}$/);
+   assert.equal(createHash('sha256').update(trackingToken).digest('hex'),trackingHash);
+  }
   if(sql.startsWith('INSERT INTO ethn.court_allocations') && ++allocations === 2 && failSecond) throw Object.assign(new Error('overlap'),{code:'23P01'});
   if(sql.includes('SELECT user_id'))return{rowCount:1,rows:[{user_id:'00000000-0000-4000-8000-000000000001'}]};
   if(sql.startsWith('INSERT INTO ethn.idempotency'))return{rowCount:1,rows:[{key:'create-one'}]};
@@ -52,7 +58,7 @@ test('direct internal creation writes every court and one payment, or rolls back
  assert.equal(allocations,2);
  assert.equal(queries.filter(q=>q.startsWith('INSERT INTO ethn.payments')).length,1);
  assert.equal(queries.filter(q=>q.startsWith('INSERT INTO ethn.email_outbox')).length,1);
- assert.equal(queries.filter(q=>q.includes('INSERT INTO ethn.notifications') && q.includes("'booking_owner_alert'")).length,1);
+ assert.equal(queries.filter(q=>q.includes('INSERT INTO ethn.notifications')).length,1);
   assert.equal(queries.at(-1),'COMMIT');
  failSecond=true;allocations=0;queries.length=0;
  await assert.rejects(createInternalBooking({connect:async()=>client} as never,async()=>'00000000-0000-4000-8000-000000000001',request),/SLOT_TAKEN/);
@@ -69,10 +75,10 @@ test('booking actions queue one customer notice with no staff notes or refund re
   const sent:unknown[]=[], alerts:unknown[]=[];let result:unknown;
   const client={async query(sql:string,args?:unknown[]){
    if(sql.startsWith('SELECT user_id'))return{rows:[{user_id:actor}]};
-   if(sql.includes('INSERT INTO ethn.notifications'))alerts.push(args?.[4]);
+   if(sql.includes('INSERT INTO ethn.notifications'))alerts.push(args?.[3]);
    if(sql.startsWith('INSERT INTO ethn.idempotency'))return{rowCount:result?0:1};
    if(sql.startsWith('SELECT fingerprint'))return{rows:[{fingerprint,result}]};
-   if(sql.includes('FROM ethn.bookings WHERE id='))return{rows:[{status:'confirmed',walk_in_actor:scenario.action==='cancel'?actor:null,total,guest_email:scenario.email,tracking_code:scenario.token?'ABCDE':null,tracking_hash:createHash('sha256').update(trackingToken).digest('hex')}]};
+   if(sql.includes('FROM ethn.bookings WHERE id='))return{rows:[{status:'confirmed',total,guest_email:scenario.email,tracking_code:scenario.token?'ABCDE':null,tracking_hash:createHash('sha256').update(trackingToken).digest('hex')}]};
    if(sql.includes('clock_timestamp() AS now'))return{rows:[{now:new Date('2026-11-24T00:00:00Z')}]};
    if(sql.includes('min(starts_at)'))return{rows:[{first_start:new Date('2026-12-01T00:00:00Z')}]};
    if(sql.includes('FROM ethn.payments'))return{rows:[{id,method:'cash',collected_amount:total}]};

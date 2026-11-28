@@ -5,7 +5,7 @@ export type HourStat = { hourOffset: number; percent: number };
 export type HeroStatsData = {
   operatingDate: string; calendarDate: string;
   bookings: { month: number; priorMonthToDate: number };
-  bookingRevenue?: { todayCents: number; monthCents: number };
+  bookingCollections?: { today: string; month: string };
   collections?: { today: string; month: string; priorMonthToDate: string; included: string };
 };
 // Occupancy uses operating dates and current court hours; collections use Manila calendar dates.

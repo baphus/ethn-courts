@@ -25,7 +25,7 @@ test("submission checks storage before the transaction and timeliness under lock
         throw Object.assign(new Error("duplicate"), { code: "23505", constraint: "bookings_tracking_code_key" });
       }
       if (sql.includes("FOR SHARE")) return { rows: [{ user_id: input.ownerToken }] };
-      if (sql.includes("INSERT INTO ethn.notifications")) assert.equal(params[4], scenario === "expired" ? "late_payment_recorded" : scenario === "open-play" ? "open_play_submitted" : "proof_submitted");
+      if (sql.includes("INSERT INTO ethn.notifications")) assert.equal(params[3], scenario === "expired" ? "late_payment_recorded" : scenario === "open-play" ? "open_play_submitted" : "proof_submitted");
       if (sql.startsWith("INSERT INTO ethn.idempotency")) fingerprint = params[2];
       const rows = sql.startsWith("INSERT INTO ethn.idempotency") ? [{ key: input.idempotencyKey }]
         : sql.startsWith("SELECT fingerprint") ? (fingerprint ? [{ fingerprint }] : [])

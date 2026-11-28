@@ -35,10 +35,7 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     assert.equal(rows[0].kind, "proof_submitted");
     assert.deepEqual(rows[0].booking && { ...rows[0].booking }, { customerName: "Customer name unavailable", reference: booking, slots: [], amount: "10.00", amountKind: "booking_total" });
     const { rows: emails } = await admin.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind='booking_owner_alert' ORDER BY payload->>'ownerId'", [booking]);
-    assert.deepEqual(emails.map(row => row.payload), [a, b].map(ownerId => ({ ownerId, source: "online" })));
-    assert.ok(rows.every(r => r.link === `/admin/bookings/${booking}`));
-    await admin.query("INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link) VALUES(gen_random_uuid(),$1,'exception:retired','Late payment exception','Retired review notice.','/admin/exceptions')", [a]);
-    assert.deepEqual(await listInbox({ connect }, verify), rows);
+    assert.deepEqual(emails, []);
     const grants = await admin.query(`SELECT privilege_type, column_name FROM information_schema.column_privileges WHERE table_schema='ethn' AND table_name='notifications' AND grantee='ethn_checkout'`);
     assert.deepEqual(grants.rows.map(r => `${r.privilege_type}:${r.column_name}`).sort(), ["INSERT:body", "INSERT:event_key", "INSERT:id", "INSERT:link", "INSERT:recipient", "INSERT:title", "SELECT:body", "SELECT:created_at", "SELECT:event_key", "SELECT:id", "SELECT:link", "SELECT:read_at", "SELECT:recipient", "SELECT:title", "UPDATE:read_at"].sort());
     assert.equal(rows.some(r => /owner_hash|trackingToken|guest_email|guest_phone|proof_id/i.test(JSON.stringify(r))), false);

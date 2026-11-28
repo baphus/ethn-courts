@@ -36,11 +36,6 @@ export async function authUserExists(userId: string): Promise<boolean> {
   return !!(await getAuthUser(userId));
 }
 
-export async function getOwnerAlertEmail(userId: string): Promise<string | null> {
-  const user = await getAuthUser(userId);
-  return user?.id === userId && user.email_confirmed_at && !isDeactivated(user) ? user.email ?? null : null;
-}
-
 export const staffPool = { connect: () => getCheckoutPool().connect() };
 
 export async function getCurrentStaff() {

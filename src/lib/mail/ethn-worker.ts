@@ -11,7 +11,7 @@ import { VENUE_ADDRESS, VENUE_MAP_LINK } from "../venue";
 import { isEthnMailAddress } from "./ethn-address";
 import { renderEthnEmailHtml } from "./ethn-email-layout";
 
-type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?: boolean; ownerEmail?: (id: string) => Promise<string | null> };
+type Config = { from: string; appUrl: string; bookingId: string; allowLocalHttp?: boolean };
 type InlineImage = { filename: string; cid: string; content: Buffer; contentType: "image/png" };
 type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html: string; messageId: string; attachments: InlineImage[] }): Promise<unknown> };
 const notices: Record<string, { title: string; preheader: string; status: string; amount?: string }> = {
@@ -151,38 +151,13 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
       const submission = row.kind === "booking_submission" || row.kind === "open_play_submitted", approved = row.kind === "booking_approved", rejected = row.kind === "booking_rejected";
       const code = typeof p?.code === "string" && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/.test(p.code) ? p.code : undefined;
       const token = typeof p?.trackingToken === "string" && /^[0-9a-f]{64}$/.test(p.trackingToken) ? p.trackingToken : undefined;
-      let valid = !!notice && !!p && (p.code === undefined || !!code) && (!!code || (p.staff === true && !submission && !rejected && !token)) &&
+      let valid = !!notice && !!p && (p.code === undefined || !!code) && (!!code || (p.staff === true && !submission && !rejected)) &&
         (!!token || (!submission && p.trackingToken === undefined)) && typeof p.total === "string" &&
         (!rejected || (typeof p.reason === "string" && p.reason.trim().length > 0 && p.reason.length <= 500));
       if (valid) { try { parsePesos(p!.total as string); } catch { valid = false; } }
       let status: "sent" | "pending" | "dead" = "dead";
-      let deliveryStage = "owner lookup";
-      if (row.kind === "booking_owner_alert" && typeof p?.ownerId === "string" && uuid.test(p.ownerId) && (p.source === "online" || p.source === "internal")) {
-        try {
-          if (!config.ownerEmail) throw new Error("OWNER_LOOKUP_UNAVAILABLE");
-          const enabled = (await pool.query("SELECT user_id FROM ethn.staff_access WHERE user_id=$1 AND enabled AND role='owner'", [p.ownerId])).rows.length > 0;
-          const email = enabled ? await config.ownerEmail(p.ownerId) : null;
-          if (isEthnMailAddress(email)) {
-            deliveryStage = "message rendering";
-            const online = p.source === "online";
-            const message = await renderEmail({
-              title: p.event === "open_play_submitted" ? "New booking with Open Play" : p.event === "open_play_added" ? "Open Play added to booking" : online ? "Payment review needed" : "Staff booking confirmed",
-              preheader: p.event === "open_play_added" ? "A customer updated their booking listing." : online ? "An online booking is waiting for payment review." : "No payment review is needed.",
-              status: p.event === "open_play_submitted" ? "Review payment proof. Booking approval publishes the Open Play." : p.event === "open_play_added" ? "A customer added an Open Play through booking tracking." : online ? "A customer submitted payment proof. Open the booking to review it." : "Your team added a confirmed booking. No payment review is needed.",
-              audience: "Owner notification",
-              sections: scheduleSections,
-              action: { label: online && p.event !== "open_play_added" ? "Review payment" : "View booking", href: new URL(`/admin/bookings/${config.bookingId}`, origin).href },
-              links: [], footer: ["ETHN Courts"],
-            });
-            deliveryStage = "SMTP";
-            await transport.sendMail({ from: config.from, to: email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
-            status = "sent";
-          }
-        } catch (error) {
-          logDeliveryFailure(row.kind, deliveryStage, error);
-          status = row.attempts >= 8 ? "dead" : "pending";
-        }
-      } else if (valid && notice && p && isEthnMailAddress(p.email)) {
+      let deliveryStage = "message rendering";
+      if (valid && notice && p && isEthnMailAddress(p.email)) {
         deliveryStage = "message rendering";
         try {
           const tracking = token
@@ -219,7 +194,7 @@ export async function drainEthnOutbox(pool: Pick<Pool, "connect" | "query">, tra
             ...notice,
             status: approved && p.staff === true ? "Our team booked your court time and recorded your payment in full." : approved && p.openPlayPublished === true ? `${notice.status} Your Open Play is now listed on our site.` : notice.status,
             audience: "Booking update", sections, action, links: links.filter(link => link !== action), footer,
-          }, approved || submission ? notice.title : undefined, token && p.staff !== true && (submission || approved) ? tracking?.href : undefined);
+          }, approved || submission ? notice.title : undefined, token && (submission || approved) ? tracking?.href : undefined);
           deliveryStage = "SMTP";
           await transport.sendMail({ from: config.from, to: p.email, ...message, messageId: `<${row.id}@${origin.hostname.replace(/^\[|\]$/g, "")}>` });
           status = "sent";

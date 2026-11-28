@@ -19,7 +19,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     { id: "4", kind: "booking_rejected", payload: { ...base, reason: "", trackingToken: "bad" }, attempts: 0 },
     { id: "5", kind: "booking_cancelled", payload: { email: base.email, staff: true, total: base.total, reason: "private note" }, attempts: 0 },
     { id: "6", kind: "booking_refunded", payload: { ...base, trackingToken: "a".repeat(64), reference: "private reference" }, attempts: 0 },
-    { id: "7", kind: "booking_approved", payload: { email: base.email, staff: true, total: base.total }, attempts: 0 },
+    { id: "7", kind: "booking_approved", payload: { email: base.email, staff: true, total: base.total, trackingToken: token }, attempts: 0 },
     { id: "8", kind: "booking_approved", payload: { ...base, email: "one,two@example.com" }, attempts: 0 },
     { id: "9", kind: "booking_approved", payload: { ...base, trackingToken: token, openPlayPublished: true }, attempts: 0 },
     { id: "10", kind: "booking_submission", payload: { ...base, trackingToken: token }, attempts: 0 },
@@ -41,8 +41,8 @@ test("decision mail validates kinds and optional token without breaking submissi
   assert.deepEqual(messages.map(m => m.subject), ["Booking submitted!", "You’re booked at ETHN Courts", "Your booking wasn’t confirmed — ETHN Courts", "Booking cancelled — ETHN Courts", "Refund recorded — ETHN Courts", "You’re booked at ETHN Courts", "You’re booked at ETHN Courts", "Booking submitted!"]);
   const actions = [
     `/checkout/track/${token}`, "/track", "/contact", "/contact", `/checkout/track/${token}`,
-  ].map(path => `https://example.com${path}`).concat(VENUE_MAP_LINK, `https://example.com/checkout/track/${token}`, `https://example.com/checkout/track/${token}`);
-  const actionLabels = ["Track booking", "Track with your code and email", "Contact ETHN Courts", "Contact ETHN Courts", "View booking", "Get directions", "View booking", "Track booking"];
+  ].map(path => `https://example.com${path}`).concat(`https://example.com/checkout/track/${token}`, `https://example.com/checkout/track/${token}`, `https://example.com/checkout/track/${token}`);
+  const actionLabels = ["Track booking", "Track with your code and email", "Contact ETHN Courts", "Contact ETHN Courts", "View booking", "View booking", "View booking", "Track booking"];
   for (const [index, message] of messages.entries()) {
     assert.match(message.html!, /<!doctype html>[\s\S]*mso-hide:all/);
     assert.equal(message.html!.match(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/)?.slice(1).join(" "), `${actions[index].replaceAll("&", "&amp;")} ${actionLabels[index]}`);
@@ -50,7 +50,7 @@ test("decision mail validates kinds and optional token without breaking submissi
     assert.ok(message.html!.includes('href="https://example.com/contact"'));
     const approved = [1, 5, 6].includes(index);
     const submitted = [0, 7].includes(index);
-    const qr = submitted || index === 6;
+    const qr = submitted || index === 5 || index === 6;
     if (submitted) {
       assert.match(message.html, /<h1[^>]*>Booking submitted!<\/h1>/);
       assert.match(message.text, /We’ll review your payment before confirming your booking\./);
@@ -94,7 +94,8 @@ test("decision mail validates kinds and optional token without breaking submissi
   assert.match(messages[3].text, /No refund has been recorded/);
   assert.match(messages[4].text, /outside the booking site[\s\S]*Refund recorded\n₱100\.02/);
   assert.match(messages[5].text, /recorded your payment in full/);
-  for (const index of [3, 5]) assert.doesNotMatch(`${messages[index].text}\n${messages[index].html}`, /\/track|Booking code/);
+  assert.doesNotMatch(`${messages[3].text}\n${messages[3].html}`, /\/track|Booking code/);
+  assert.doesNotMatch(messages[5].text, /Booking code/);
 });
 
 test("tracking exposes rejection reason only for rejected payment and booking", async () => {

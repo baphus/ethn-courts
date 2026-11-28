@@ -38,7 +38,7 @@ test("a first listing can omit Reclub and notifies both sides only once", async 
       assert.equal(values?.[3], "");
       if (!exists) { exists = true; return { rows: [{}] }; }
     }
-    if (sql.includes("INSERT INTO ethn.notifications")) kinds.push(values?.[4]);
+    if (sql.includes("INSERT INTO ethn.notifications")) kinds.push(values?.[3]);
     if (sql.startsWith("INSERT INTO ethn.email_outbox")) {
       assert.match(sql, /'open_play_added'/);
       assert.equal(JSON.parse(String(values?.[1])).email, credential.email);

@@ -16,7 +16,7 @@ npm run build
 
 Availability needs `ETHN_DATABASE_URL` for a restricted `ethn_checkout` login, not a postgres, owner, or migration credential. Remote database connections require verified TLS using `ETHN_DATABASE_CA_FILE`; the explicit local exception is for development/test loopback only. Browser Auth and private Storage must use the same ETHN Supabase project. Keep `ETHN_STORAGE_SERVICE_ROLE_KEY` server-only. See `.env.example` for configuration; legacy variable names there are not active ETHN fallbacks.
 
-Mail is opt-in (`ETHN_MAIL_ENABLED`); configure sender, origin and transport deliberately. Vercel schedules daily email retries and weekly keepalive. See `docs/ethn-mail.md` for mail setup and [Supabase Cron setup](docs/ethn-push.md#supabase-cron-setup) for optional minute-by-minute push.
+Mail is opt-in (`ETHN_MAIL_ENABLED`); configure sender, origin and transport deliberately. Vercel schedules daily email retries and weekly keepalive. See `docs/ethn-mail.md` for mail setup.
 
 ## First owner setup
 
@@ -30,7 +30,7 @@ Supabase Auth and SQL cannot commit atomically. If Auth succeeds but SQL fails, 
 
 For a fresh ETHN database, use the active SQL-first chain in `db/ethn-migrations/`, with separate migration credentials. `db/ethn/00*.sql` is reference and test SQL; do not apply both chains. See `docs/LOCAL-CUTOVER-STATUS.md` and dated `docs/checks/` for scope and actual verification; historical hosted evidence stops before these new modules. Provision and verify a restricted `ethn_checkout` login separately; SQL grants do not replace server-side authorization. Never apply this chain to a legacy database without a separately reviewed migration plan. `db/ethn/README.md` contains historical offline-draft notes; current verification and cutover documents supersede its claims that services are disconnected.
 
-Active ETHN services use server-side SQL transactions, not the old RPC implementation. See `docs/ETHN-CUTOVER-API.md` for availability and retired endpoints returning 410; other legacy reads are not proof of supported workflows. Owner settings/staff, held walk-ins, calendar blocks, audit, finance/XLSX, sales/corrections, Open Plays, outcomes and extension services now have local implementation slices; use their dated checks for coverage and gaps. Persistent inbox exists; browser push is not configured. None of these statements establish hosted deployment or full browser acceptance. `supabase/` and `drizzle/` are legacy reference/archive, not ETHN setup instructions. `docs/DECISIONS.md` and other fork-era documents are historical references, not current requirements.
+Active ETHN services use server-side SQL transactions, not the old RPC implementation. See `docs/ETHN-CUTOVER-API.md` for availability and retired endpoints returning 410; other legacy reads are not proof of supported workflows. Owner settings/staff, held walk-ins, calendar blocks, audit, finance/XLSX, sales/corrections, Open Plays, outcomes and extension services now have local implementation slices; use their dated checks for coverage and gaps. Owner booking alerts appear in the in-app inbox only. Customer email remains opt-in. None of these statements establish hosted deployment or full browser acceptance. `supabase/` and `drizzle/` are legacy reference/archive, not ETHN setup instructions. `docs/DECISIONS.md` and other fork-era documents are historical references, not current requirements.
 
 ## Drizzle-managed ETHN upgrades
 
@@ -42,7 +42,7 @@ Contact details require `db/ethn/0026_contact_settings.sql` after the preceding 
 
 ## Removed features
 
-Booking refunds and extension management are retired. Before deploying that change, follow the [extension reconciliation checklist](docs/ethn-extension-refund-retirement.md).
+Extension management is retired. Owners can cancel eligible confirmed bookings or record a full refund already sent outside the app; history is retained. Before deploying that change, follow the [extension reconciliation checklist](docs/ethn-extension-refund-retirement.md).
 
 The old late-payment queue and decision APIs are retired. Owners can open late proof from their private inbox or search by checkout ID and reconcile outside the app. Court time is not restored. See `docs/ethn-exceptions-api.md`.
 
@@ -51,6 +51,6 @@ The old late-payment queue and decision APIs are retired. Owners can open late p
 - Use a commercial hosting plan that supports the checked-in sub-daily jobs (not Vercel Hobby), or configure equivalent authenticated jobs on another eligible host. Verify the deployed runtime can read the trusted database CA file.
 - Before an existing-site upgrade, verify a restorable backup, review the Owner roster, reconcile held checkouts without payment snapshots, and complete the extension retirement checklist. Do not deploy if any extension is held or pending.
 - Approve real payment instructions before taking money. Keep the same payment method ID when changing instructions for the same receiving account. Online approvals require owner review of an attached screenshot, not a transfer ID. Screenshots can be reused or altered; approvals without an ID cannot be checked for duplicate transfers. Non-cash internal bookings still require a verified transfer ID and migration `0010`.
-- From the exact release commit, run the build, suite, and restricted-role database checks against a disposable target. In staging, verify checkout, proof, approval, tracking, late-payment reconciliation, and finance. Verify authenticated scheduled delivery for any enabled mail or push.
+- From the exact release commit, run the build, suite, and restricted-role database checks against a disposable target. In staging, verify checkout, proof, approval, tracking, late-payment reconciliation, and finance. Verify authenticated scheduled delivery for enabled customer mail.
 
 `docs/checks/2026-11-20-browser-verification-repair.md` records previous hosted verification and regression results; it is not deployment approval. Real GCash recipient instructions and rates, production hosting and commercial eligibility, database pool lifecycle/limits, scheduler, and live mail delivery remain unresolved. Origin repair covers a narrow loopback development case, not production proxy or Host validation. Review those boundaries before deployment. Browser verification requires explicit permission for each request; users may verify UI themselves.

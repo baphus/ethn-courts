@@ -18,23 +18,18 @@ export async function lockBookingAlertOwners(client: Client) {
   return rows.map(row => row.user_id);
 }
 
-export async function recordBookingAlert(client: Client, bookingId: string, kind: BookingAlert, owners: string[], source?: "online" | "internal") {
-  return recordBookingAlerts(client, [bookingId], kind, owners, source);
+export async function recordBookingAlert(client: Client, bookingId: string, kind: BookingAlert, owners: string[]) {
+  return recordBookingAlerts(client, [bookingId], kind, owners);
 }
 
-export async function recordBookingAlerts(client: Client, bookingIds: string[], kind: BookingAlert, owners: string[], source?: "online" | "internal") {
+export async function recordBookingAlerts(client: Client, bookingIds: string[], kind: BookingAlert, owners: string[]) {
   if (!bookingIds.length || !owners.length) return;
-  await client.query(`WITH alerts AS (
-    INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link)
-    SELECT gen_random_uuid(),user_id,$5 || ':' || booking_id::text,$2,$6,'/admin/bookings/' || booking_id::text
-    FROM unnest($4::uuid[]) AS owners(user_id) CROSS JOIN unnest($1::uuid[]) AS bookings(booking_id)
-    ON CONFLICT(recipient,event_key) DO NOTHING RETURNING recipient,event_key
-  )
-  INSERT INTO ethn.email_outbox(id,booking_id,kind,payload)
-  SELECT gen_random_uuid(),split_part(event_key,':',2)::uuid,'booking_owner_alert',jsonb_build_object('ownerId',recipient,'source',$3::text,'event',$5::text)
-  FROM alerts WHERE $3::text IS NOT NULL`, [bookingIds, alerts[kind][0], source ?? null, owners, kind, alerts[kind][1]]);
+  await client.query(`INSERT INTO ethn.notifications(id,recipient,event_key,title,body,link)
+    SELECT gen_random_uuid(),user_id,$4 || ':' || booking_id::text,$2,$5,'/admin/bookings/' || booking_id::text
+    FROM unnest($3::uuid[]) AS owners(user_id) CROSS JOIN unnest($1::uuid[]) AS bookings(booking_id)
+    ON CONFLICT(recipient,event_key) DO NOTHING`, [bookingIds, alerts[kind][0], owners, kind, alerts[kind][1]]);
 }
 
 export function recordNewBookingAlerts(client: Client, bookingId: string, source: "online" | "internal", owners: string[], openPlay = false) {
-  return recordBookingAlert(client, bookingId, source === "online" ? openPlay ? "open_play_submitted" : "proof_submitted" : "booking_confirmed", owners, source);
+  return recordBookingAlert(client, bookingId, source === "online" ? openPlay ? "open_play_submitted" : "proof_submitted" : "booking_confirmed", owners);
 }

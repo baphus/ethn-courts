@@ -12,7 +12,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/admin/dashboard/section-card";
 import { useSidebarActivity } from "@/components/admin/admin-shell";
-import PushControls from "./push-controls";
 
 type Notification = { id: string; title: string; body: string; link: string; createdAt: string; readAt: string | null; kind?: "proof_submitted" | "booking_confirmed" | "booking_cancelled" | "refund_recorded" | null; booking?: { customerName: string; reference: string; slots: { courtName: string; startsAt: string; endsAt: string }[]; amount: string; amountKind: "booking_total" | "refund_amount" } | null };
 const eventLabels: Record<NonNullable<Notification["kind"]>, string> = { proof_submitted: "Review requested", booking_confirmed: "Booking confirmed · FYI", booking_cancelled: "Booking cancelled · FYI", refund_recorded: "Refund recorded · FYI" };
@@ -28,7 +27,7 @@ export default function NotificationsPage() {
   const [error, setError] = useState("");
   const sequence = useRef(0);
   const { counts, refreshCounts } = useSidebarActivity();
-  const unreadCount = counts?.unreadNotifications ?? items?.filter(item => !item.readAt).length ?? 0;
+  const unreadCount = Math.max(counts?.unreadNotifications ?? 0, items?.filter(item => !item.readAt).length ?? 0);
 
   const load = useCallback(async (unread: boolean, background = false) => {
     const current = ++sequence.current;
@@ -82,15 +81,15 @@ export default function NotificationsPage() {
       const response = await fetch("/api/ethn/admin/notifications/read-all", { method: "PATCH" });
       if (response.status >= 500) throw new Error();
       if (!response.ok) { toast.error("Notifications were not marked as read."); setError(message(response.status)); return; }
+      setItems(current => current && (unreadOnly ? [] : current.map(item => ({ ...item, readAt: item.readAt ?? new Date().toISOString() }))));
       toast.success("All notifications marked as read.");
-      void Promise.all([refreshCounts(), load(unreadOnly, true)]).catch(() => setError("Notifications were marked as read, but the inbox could not refresh."));
+      await Promise.all([refreshCounts(), load(unreadOnly, true)]).catch(() => setError("Notifications were marked as read, but the inbox could not refresh."));
     } catch { toast.warning("Read status could not be confirmed."); setError("Reload the inbox to check the current read status."); }
     finally { setBusy(false); }
   }
 
   return <div className="w-full space-y-6 pb-24">
     <header className="flex flex-wrap items-end justify-between gap-4"><div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Staff updates</p><h1 className="text-3xl font-semibold tracking-tight">Notifications</h1><p className="max-w-2xl text-muted-foreground">Review payment proofs and keep up with booking changes.</p></div><div className="rounded-xl border bg-card px-4 py-3"><p className="text-xs text-muted-foreground">Your unread</p><p className="text-2xl font-semibold tabular-nums" aria-live="polite">{unreadCount}</p></div></header>
-    <PushControls />
     <section aria-label="Notifications" className="overflow-hidden rounded-xl border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b p-5"><div><h2 className="text-lg font-semibold">Inbox</h2><p className="text-sm text-muted-foreground">Latest 50 · newest first</p></div><div className="flex flex-wrap items-center gap-3"><Segmented label="Filter notifications" disabled={busy} value={unreadOnly ? "unread" : "all"} onChange={value => setUnreadOnly(value === "unread")} options={[{ value: "all", label: "All" }, { value: "unread", label: "Unread" }]} /><Button type="button" variant="outline" disabled={busy || !unreadCount} onClick={() => void markAllRead()}>Mark all read</Button></div></div>
       {error && <p role="alert" className="m-5 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</p>}

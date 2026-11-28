@@ -38,7 +38,6 @@ export default function AdminSidebar({ email, name, counts }: { email: string; n
   const pathname = usePathname();
 
   async function logout() {
-    try { const id=localStorage.getItem('ethn-push-subscription-id'); if(id) await fetch('/api/ethn/admin/push',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscriptionId:id})}); if('serviceWorker' in navigator){const registration=await navigator.serviceWorker.getRegistration('/ethn-push-sw.js');await (await registration?.pushManager.getSubscription())?.unsubscribe();} localStorage.removeItem('ethn-push-subscription-id'); } catch { /* Sign-out must still proceed; delivery rechecks current staff access. */ }
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();

@@ -46,7 +46,7 @@ export async function trackBooking(pool: Pick<Pool, "connect">, input: unknown, 
             ON CONFLICT (booking_id) DO NOTHING RETURNING booking_id`, args)).rows.length > 0;
           if (!first) await client.query("UPDATE ethn.booking_open_plays SET title=$2,description=$3,event_url=$4,removed=false WHERE booking_id=$1", args);
           else {
-            await recordBookingAlert(client, booking.id, "open_play_added", owners, "online");
+            await recordBookingAlert(client, booking.id, "open_play_added", owners);
             await client.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES (gen_random_uuid(),$1,'open_play_added',$2::jsonb)", [booking.id, JSON.stringify({ email: booking.guest_email, code: booking.tracking_code, total: booking.total })]);
             mailQueued = true;
           }

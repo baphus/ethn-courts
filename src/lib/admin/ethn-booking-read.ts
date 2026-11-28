@@ -131,8 +131,8 @@ export async function searchEthnBookings(pool: Db, verify: StaffVerifier, params
             WHERE e.booking_id=b.id AND e.status='confirmed'
         ) AS reserved) <= statement_timestamp(), false)
       ELSE false END AS can_complete,
-      (b.status = 'confirmed' AND b.walk_in_actor IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('pending','confirmed'))
+      (b.status = 'confirmed'
+        AND NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending','confirmed'))
         AND COALESCE((SELECT min(i.starts_at) FROM ethn.booking_items i WHERE i.booking_id=b.id) > statement_timestamp(), false)) AS can_cancel,
        (NOT EXISTS (SELECT 1 FROM ethn.payments p WHERE p.status = 'accepted'
          AND (p.booking_id = b.id OR p.extension_id IN (SELECT e.id FROM ethn.extensions e WHERE e.booking_id = b.id)))
@@ -170,7 +170,8 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const b = (await client.query(`SELECT id, operating_date::text, status, no_show, expires_at, total::text, guest_name, guest_email, guest_phone, created_at, walk_in_actor, archived_at,
-      statement_timestamp() AS now, EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending')) AS unresolved_extension
+      statement_timestamp() AS now, EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending')) AS unresolved_extension,
+      NOT EXISTS (SELECT 1 FROM ethn.extensions e WHERE e.booking_id=b.id AND e.status IN ('held','pending','confirmed')) AS extensions_clear
       FROM ethn.bookings b WHERE b.id = $1 AND (${visibleBooking} OR (${latePayment}))`, [id])).rows[0];
     if (!b) { await client.query("COMMIT"); return null; }
     const [items, payments] = await Promise.all([
@@ -191,7 +192,10 @@ export async function ethnBookingDetail(pool: Db, verify: StaffVerifier, id: str
     await client.query("COMMIT");
     const paymentMethod = [...new Set(payments.rows.filter(p => p.extension_id === null).map(p => p.method_name))].join(", ") || null;
     const canComplete = b.status === 'confirmed' && !b.unresolved_extension && items.rows.length > 0 && items.rows.every(item => item.ends_at <= b.now);
-    return { id: b.id, canComplete, paymentMethod, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
+    const canCancel = b.status === 'confirmed' && b.extensions_clear && items.rows.length > 0 && items.rows.every(item => item.starts_at > b.now);
+    const accepted = payments.rows.filter(payment => payment.status === 'accepted');
+    const canRefund = canCancel && accepted.length === 1 && accepted[0].collected_amount === b.total;
+    return { id: b.id, canComplete, canCancel, canRefund, paymentMethod, internal: !!b.walk_in_actor, archivedAt: iso(b.archived_at), operatingDate: b.operating_date, status: b.status, noShow: b.no_show as boolean, expiresAt: iso(b.expires_at), total: b.total, guestName: b.guest_name, guestEmail: b.guest_email, guestPhone: b.guest_phone, createdAt: iso(b.created_at), items: items.rows.map(i => ({ courtId: i.court_id, courtName: i.court_name, startsAt: iso(i.starts_at), endsAt: iso(i.ends_at), durationMinutes: i.duration_minutes, intervalMinutes: i.interval_minutes, isExtension: i.is_extension, hourlyRate: i.hourly_rate, amount: i.amount })), payments: payments.rows.map(p => ({ id: p.id, method: p.method, status: p.status, claimedAmount: p.claimed_amount, claimedReference: p.claimed_reference, receivedAt: iso(p.received_at), verifiedAt: iso(p.verified_at), collectedAmount: p.collected_amount, acceptedReference: p.accepted_reference, reviewedAt: iso(p.reviewed_at), reviewReason: p.review_reason, proofAvailable: p.proofAvailable })) };
   } catch (error) { await client.query("ROLLBACK").catch(() => { discard = error instanceof Error ? error : new Error("DB_ERROR"); }); if (discard) (client as typeof client & { release(error?: Error): void }).release(discard); throw error; }
   finally { if (!discard) client.release(); }
 }

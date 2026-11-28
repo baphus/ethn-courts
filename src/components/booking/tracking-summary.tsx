@@ -17,6 +17,8 @@ const statusCopy: Record<string, { heading: string; detail: string; Icon: typeof
   confirmed: { heading: "Booking confirmed", detail: "Your reservation is confirmed. See your court schedule below.", Icon: CircleCheck, tone: "bg-success/10 text-success" },
   completed: { heading: "Booking complete", detail: "Your reservation has been completed.", Icon: CalendarDays, tone: "bg-muted text-foreground" },
   rejected: { heading: "Booking not confirmed", detail: "See payment details below for any available reason.", Icon: XCircle, tone: "bg-destructive/10 text-destructive" },
+  cancelled: { heading: "Booking cancelled", detail: "Your court time was released. No refund was recorded.", Icon: XCircle, tone: "bg-destructive/10 text-destructive" },
+  refunded: { heading: "Refund recorded", detail: "Your court time was released. The venue recorded a refund made outside the booking site.", Icon: XCircle, tone: "bg-muted text-foreground" },
 };
 
 export function TrackingSummary({ booking, proofHref }: { booking: Tracking; proofHref?: string }) {

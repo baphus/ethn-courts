@@ -36,15 +36,15 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
    return result;
   }
   await c.query('SELECT id FROM ethn.courts ORDER BY id FOR UPDATE');
-  const b=(await c.query('SELECT id,status,walk_in_actor,archived_at,total::text,guest_email,tracking_code,tracking_hash FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
+  const b=(await c.query('SELECT id,status,archived_at,total::text,guest_email,tracking_code,tracking_hash FROM ethn.bookings WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!b)throw new Error('BOOKING_NOT_FOUND');
   const now=(await c.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
   if(action==='archive'){
    if(!archivableBookingStatuses.includes(b.status))throw new Error('ACTION_CONFLICT');
    await c.query('UPDATE ethn.bookings SET archived_at=coalesce(archived_at,$2),archived_by=coalesce(archived_by,$3) WHERE id=$1',[id,now,actor]);
   }else{
-   if(b.status!=='confirmed'||(action==='cancel'&&!b.walk_in_actor))throw new Error('ACTION_CONFLICT');
+   if(b.status!=='confirmed')throw new Error('ACTION_CONFLICT');
    // Cancellation/refund of extension-bearing bookings requires a separate financial policy.
-   if((await c.query("SELECT id FROM ethn.extensions WHERE booking_id=$1 AND status IN ('pending','confirmed') LIMIT 1",[id])).rowCount)throw new Error('ACTION_CONFLICT');
+   if((await c.query("SELECT id FROM ethn.extensions WHERE booking_id=$1 AND status IN ('held','pending','confirmed') LIMIT 1",[id])).rowCount)throw new Error('ACTION_CONFLICT');
    const slots=(await c.query('SELECT min(starts_at) AS first_start FROM ethn.booking_items WHERE booking_id=$1',[id])).rows[0];
    if(!slots.first_start||slots.first_start<=now)throw new Error('ACTION_CONFLICT');
    if(action==='refund'){
@@ -58,12 +58,12 @@ export async function bookingAction(pool:Pick<Pool,'connect'>,verify:StaffVerifi
    await recordBookingAlert(c, id, action === 'refund' ? 'refund_recorded' : 'booking_cancelled', owners);
    if (isEthnMailAddress(b.guest_email)) {
     let trackingToken: string | undefined;
-    if (b.tracking_code) {
-     const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind IN ('booking_submission','open_play_submitted') ORDER BY id LIMIT 1",[id])).rows[0];
+    if (b.tracking_hash) {
+     const submission = (await c.query("SELECT payload FROM ethn.email_outbox WHERE booking_id=$1 AND kind IN ('booking_submission','open_play_submitted','booking_approved') AND payload ? 'trackingToken' ORDER BY id LIMIT 1",[id])).rows[0];
      const token = submission?.payload?.trackingToken;
      if (typeof token === 'string' && /^[0-9a-f]{64}$/.test(token) && createHash('sha256').update(token).digest('hex') === b.tracking_hash) trackingToken = token;
     }
-    const payload = {email:b.guest_email,total:b.total,...(b.tracking_code ? {code:b.tracking_code,trackingToken} : {staff:true})};
+    const payload = {email:b.guest_email,total:b.total,...(b.tracking_code ? {code:b.tracking_code} : {staff:true}),trackingToken};
     await c.query('INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,$3,$4::jsonb)',[randomUUID(),id,`booking_${status}`,JSON.stringify(payload)]);
    }
   }

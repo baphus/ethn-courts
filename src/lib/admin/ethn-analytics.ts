@@ -3,7 +3,7 @@ import { addDaysManilaStr as addDays } from "../courts";
 import { manilaDateStr } from "../booking/slots";
 import { getAvailability } from "../booking/ethn-availability";
 import { scheduleWindows } from "../booking/schedule";
-import { getApprovalFinance, getFinance, listCollectionMethods } from "./ethn-finance";
+import { getFinance, listCollectionMethods } from "./ethn-finance";
 import { getStaff, type StaffVerifier } from "./ethn-payments";
 import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analyticsParams } from "./dashboard-analytics-helpers";
 
@@ -20,7 +20,7 @@ import { analyticsAverage, analyticsCents, analyticsMoney, analyticsMonth, analy
 
 type Db = Pick<Pool, "connect">;
 export type Range = "week" | "month";
-const COLLECTIONS_SCOPE = "Verified booking and extension collections plus manual sales after corrections. Expenses excluded.";
+const COLLECTIONS_SCOPE = "Verified booking and extension payments plus manual sales after corrections. Before refunds and expenses. Not net profit.";
 const MAX_WINDOWS = 4000;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -178,14 +178,16 @@ async function hero(pool: Db, verify: StaffVerifier, owner: boolean) {
   });
   if (!owner) return base;
   const [priorFrom, priorTo] = priorEquivalent(base.calendarDate);
-  const [today, month, prior, bookingToday, bookingMonth] = await Promise.all([
+  const [today, month, prior] = await Promise.all([
     getFinance(pool, verify, base.calendarDate, base.calendarDate),
     getFinance(pool, verify, `${base.calendarDate.slice(0, 7)}-01`, base.calendarDate),
     getFinance(pool, verify, priorFrom, priorTo),
-    getApprovalFinance(pool, verify, base.calendarDate, base.calendarDate),
-    getApprovalFinance(pool, verify, `${base.calendarDate.slice(0, 7)}-01`, base.calendarDate),
   ]);
-  return { ...base, bookingRevenue: { todayCents: bookingToday.revenueCents, monthCents: bookingMonth.revenueCents }, collections: { today: today.totals.collected, month: month.totals.collected, priorMonthToDate: prior.totals.collected, included: COLLECTIONS_SCOPE } };
+  return {
+    ...base,
+    bookingCollections: { today: today.components.bookingAndExtensionCollections, month: month.components.bookingAndExtensionCollections },
+    collections: { today: today.totals.collected, month: month.totals.collected, priorMonthToDate: prior.totals.collected, included: COLLECTIONS_SCOPE },
+  };
 }
 
 async function chart(pool: Db, verify: StaffVerifier, owner: boolean, params: URLSearchParams) {

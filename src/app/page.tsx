@@ -18,7 +18,7 @@ export default async function Home() {
     <section aria-labelledby="upcoming-open-plays" className="landing-type bg-background px-5 py-12 text-foreground sm:py-16">
       <div className="mx-auto max-w-[70rem]">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 id="upcoming-open-plays" className="landing-heading">Upcoming Open Plays</h2>
+          <h2 id="upcoming-open-plays" className="landing-heading">Open Plays</h2>
           <Link href="/open-plays" className="font-semibold underline underline-offset-4">View all Open Plays</Link>
         </div>
         <div className={`mt-7 grid gap-4 ${events.length === 2 ? "md:grid-cols-2" : events.length > 2 ? "md:grid-cols-3" : ""}`}>

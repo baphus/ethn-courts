@@ -3,7 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/*": ["./certs/supabase-ca.crt"],
+    "/*": ["./certs/supabase-ca.crt", "./public/ethn-courts-email-mark.png"],
   },
 };
 

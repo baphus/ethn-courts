@@ -7,27 +7,25 @@ import { cents, pesos, type DashboardOverview } from "@/app/admin/dashboard-over
 import type { HeroStatsData } from "@/app/admin/dashboard-analytics-types";
 import { Chip, deltaChip, useAnalytics } from "./section-card";
 
-const centavosToPesos = (cents: number) => String(cents).padStart(3, "0").replace(/(..)$/, ".$1");
-
 type Stat = Kpi & { chip?: ReturnType<typeof deltaChip>; chipTitle?: string };
 
 export function HeroStats({ overview, owner, overviewError, retryOverview }: { overview: DashboardOverview | null; owner: boolean; overviewError: string; retryOverview: () => void }) {
   const { data, error, retry } = useAnalytics<HeroStatsData>("section=hero");
   const stats: Stat[] = data ? [
     ...((owner || overview?.finance) && data.collections ? [
-      { label: "Collections today", value: pesos(data.collections.today), href: "/admin/finance", Icon: Wallet },
-      { label: "Collections this month", value: pesos(data.collections.month), chip: deltaChip(cents(data.collections.month), cents(data.collections.priorMonthToDate)), chipTitle: "vs same dates last month", href: "/admin/finance", Icon: DollarSign },
+      { label: "Total collections today", value: pesos(data.collections.today), href: "/admin/finance", Icon: Wallet },
+      { label: "Total collections this month", value: pesos(data.collections.month), chip: deltaChip(cents(data.collections.month), cents(data.collections.priorMonthToDate)), chipTitle: "vs same dates last month", href: "/admin/finance", Icon: DollarSign },
     ] : []),
-    ...(data.bookingRevenue ? [
-      { label: "Booking revenue today", value: pesos(centavosToPesos(data.bookingRevenue.todayCents)), href: "/admin/finance", Icon: DollarSign },
-      { label: "Booking revenue this month", value: pesos(centavosToPesos(data.bookingRevenue.monthCents)), href: "/admin/finance", Icon: DollarSign },
+    ...(data.bookingCollections ? [
+      { label: "Booking collections today", value: pesos(data.bookingCollections.today), href: "/admin/finance", Icon: DollarSign },
+      { label: "Booking collections this month", value: pesos(data.bookingCollections.month), href: "/admin/finance", Icon: DollarSign },
     ] : []),
     { label: "Bookings this month", value: data.bookings.month, chip: deltaChip(BigInt(data.bookings.month), BigInt(data.bookings.priorMonthToDate)), chipTitle: "vs same dates last month", href: "/admin/bookings", Icon: BookOpen },
   ] : (owner || overview?.finance ? [
-    { label: "Collections today", Icon: Wallet, href: "/admin/finance" },
-    { label: "Collections this month", Icon: DollarSign, href: "/admin/finance" },
-    { label: "Booking revenue today", Icon: DollarSign, href: "/admin/finance" },
-    { label: "Booking revenue this month", Icon: DollarSign, href: "/admin/finance" },
+    { label: "Total collections today", Icon: Wallet, href: "/admin/finance" },
+    { label: "Total collections this month", Icon: DollarSign, href: "/admin/finance" },
+    { label: "Booking collections today", Icon: DollarSign, href: "/admin/finance" },
+    { label: "Booking collections this month", Icon: DollarSign, href: "/admin/finance" },
     { label: "Bookings this month", Icon: BookOpen, href: "/admin/bookings" },
   ] : [{ label: "Bookings this month", Icon: BookOpen, href: "/admin/bookings" }]).map(item => ({
     ...item, value: error ? "Unavailable" : <Skeleton className="h-7 w-16 motion-reduce:animate-none" />,
@@ -41,7 +39,7 @@ export function HeroStats({ overview, owner, overviewError, retryOverview }: { o
       </KpiCard>)}
     </div>
     {overviewError && <div role="alert" className="text-sm">{overviewError} <Button type="button" variant="link" className="h-auto p-0" onClick={retryOverview}>Retry</Button></div>}
-    {overview?.finance && data?.collections && <p className="text-[11px] text-muted-foreground">Collections: {data.collections.included}</p>}
+    {data?.collections && <p className="text-[11px] text-muted-foreground">Booking collections include verified booking and extension payments only. Total collections also include manual sales after corrections. Both are before refunds and expenses, not net profit.</p>}
   </section>;
 }
 
