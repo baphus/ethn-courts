@@ -3,9 +3,9 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { pesos } from "@/app/admin/dashboard-overview-types";
-import type { ChartData } from "@/app/admin/dashboard-analytics-types";
+import type { ChartData, MonthlyData } from "@/app/admin/dashboard-analytics-types";
 import { formatDisplayDate } from "@/lib/display-date";
-import { Body, Card, Segmented, useAnalytics, usePrefersReducedMotion } from "./section-card";
+import { Body, Card, Segmented, useAnalytics, usePrefersReducedMotion, type AnalyticsState } from "./section-card";
 
 type Point = { date: string; day: string; value: number; label: string; extra: string };
 const monthName = (month: string) => new Intl.DateTimeFormat("en-PH", { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(`${month}-01T00:00:00Z`));
@@ -18,15 +18,15 @@ function Tip({ active, payload }: { active?: boolean; payload?: readonly { paylo
   return <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md"><p className="text-muted-foreground">{formatDisplayDate(p.date)}</p><p className="mt-0.5 text-sm font-semibold tabular-nums">{p.label}</p><p className="text-muted-foreground">{p.extra}</p></div>;
 }
 
-export function CollectionsChart({ owner, currentMonth }: { owner: boolean; currentMonth?: string }) {
+export function CollectionsChart({ owner, monthly }: { owner: boolean; monthly: AnalyticsState<MonthlyData> }) {
   const [month, setMonth] = useState("");
   const [metric, setMetric] = useState<"collections" | "occupancy">(owner ? "collections" : "occupancy");
-  const requestedMonth = month || (!owner ? currentMonth : undefined);
-  const state = useAnalytics<ChartData>(requestedMonth ? `section=chart&month=${requestedMonth}` : "section=chart");
+  const history = useAnalytics<ChartData>(month ? `section=chart&month=${month}` : null);
+  const state = month ? history : monthly;
   const reduce = usePrefersReducedMotion();
   const data = state.data;
-  const activeMonth = month || data?.month || currentMonth || "";
-  const latestMonth = data?.today.slice(0, 7) || currentMonth || "";
+  const activeMonth = month || data?.month || "";
+  const latestMonth = data?.today.slice(0, 7) || monthly.data?.month || "";
   const earliest = latestMonth ? shiftMonth(latestMonth, -23) : "";
   const view = useMemo(() => {
     if (!data || (metric === "collections" && !data.collections)) return null;
@@ -40,7 +40,7 @@ export function CollectionsChart({ owner, currentMonth }: { owner: boolean; curr
   const nav = <div className="flex items-center gap-1">
     <button type="button" aria-label="Previous month" disabled={!activeMonth || !earliest || activeMonth <= earliest} onClick={() => setMonth(shiftMonth(activeMonth, -1))} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronLeft className="size-4" /></button>
     <span className="min-w-28 text-center text-xs font-medium">{activeMonth ? monthName(activeMonth) : "—"}</span>
-    <button type="button" aria-label="Next month" disabled={!activeMonth || !latestMonth || activeMonth >= latestMonth} onClick={() => { const next = shiftMonth(activeMonth, 1); setMonth(owner && next === latestMonth ? "" : next); }} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronRight className="size-4" /></button>
+    <button type="button" aria-label="Next month" disabled={!activeMonth || !latestMonth || activeMonth >= latestMonth} onClick={() => { const next = shiftMonth(activeMonth, 1); setMonth(next === latestMonth ? "" : next); }} className="grid size-7 place-items-center rounded-md border hover:bg-muted disabled:opacity-40"><ChevronRight className="size-4" /></button>
   </div>;
   return <Card title={owner && metric === "collections" ? "Approved booking payments" : "Occupancy"} subtitle={metric === "collections" ? undefined : "Daily share of open hours reserved by approved bookings (court blocks excluded)"}
     action={<div className="flex flex-wrap items-center gap-2">{owner && <Segmented label="Chart metric" value={metric} onChange={setMetric} options={[{ value: "collections", label: "Approved booking payments" }, { value: "occupancy", label: "Occupancy" }]} />}{nav}</div>}>

@@ -1,4 +1,5 @@
 "use client";
+import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 
 import { formatScheduleRange, formatScheduleTime, formatWeeklyHours } from "@/lib/booking/schedule-label";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +44,7 @@ const hourOrder = (a: HourWindow, b: HourWindow) => a.weekday - b.weekday || hhm
 const message = (status: number) => status === 401 ? "Your session ended. Please sign in again." : status === 403 ? "Owner access is no longer enabled. You cannot save these changes." : status === 400 ? "Some values are invalid. Check the days, times and rates, then try again." : status === 409 ? "Settings changed elsewhere or a court name conflicts. Reload before saving; unsaved changes will be lost." : "Settings are unavailable. Please try again later.";
 
 export default function CourtSetup() {
+  const invalidate = useInvalidateOwnerResources();
   const confirm = useConfirm();
   const [data, setData] = useState<Snapshot | null>(null);
   const [busy, setBusy] = useState(true);
@@ -123,6 +125,7 @@ export default function CourtSetup() {
       }
       const { version } = await response.json() as { version: string };
       if (!version) throw new Error();
+      invalidate?.();
       setData({ ...snapshot, version });
       setDetails(previous => previous?.map(detail => ({ ...detail, active: snapshot.courts.find(court => court.id === detail.id)?.active ?? detail.active })) ?? null);
       return "";
@@ -164,6 +167,7 @@ export default function CourtSetup() {
           } else setDialogError(message(response.status));
           return;
         }
+        invalidate?.();
         const updated: CourtDetails = await response.json();
         const version = courtDetailsVersion(snapshot, updated);
         snapshot = { ...snapshot, version: version ?? snapshot.version, courts: snapshot.courts.map(court => court.id === updated.id ? { ...court, name: updated.name } : court) };

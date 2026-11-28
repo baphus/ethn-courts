@@ -30,6 +30,6 @@ export async function recordBookingAlerts(client: Client, bookingIds: string[], 
     ON CONFLICT(recipient,event_key) DO NOTHING`, [bookingIds, alerts[kind][0], owners, kind, alerts[kind][1]]);
 }
 
-export function recordNewBookingAlerts(client: Client, bookingId: string, source: "online" | "internal", owners: string[], openPlay = false) {
-  return recordBookingAlert(client, bookingId, source === "online" ? openPlay ? "open_play_submitted" : "proof_submitted" : "booking_confirmed", owners);
+export function recordNewBookingAlerts(client: Client, bookingId: string, owners: string[], openPlay = false) {
+  return recordBookingAlert(client, bookingId, openPlay ? "open_play_submitted" : "proof_submitted", owners);
 }

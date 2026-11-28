@@ -4,7 +4,7 @@ export type HourStat = { hourOffset: number; percent: number };
 
 export type HeroStatsData = {
   operatingDate: string; calendarDate: string;
-  bookings: { month: number; priorMonthToDate: number };
+  bookings: { today: number; month: number; priorMonthToDate: number };
   collections?: { today: string; month: string; priorMonthToDate: string };
 };
 // Occupancy uses operating dates and current court hours; collections use Manila calendar dates.
@@ -20,6 +20,7 @@ export type OverviewData = {
   heatmap: { hours: number[]; rows: Cell[][] };
   insight: { from: string; to: string; days: number; busiest: HourStat; quietest: HourStat } | { reason: string };
 };
+export type MonthlyData = ChartData & { overview: OverviewData };
 export type MethodsData = { range: Range; from: string; to: string; collected: string; paymentMethods: { id: string; name: string; amount: string }[] };
 export type ScheduleItem = { id: string; bookingId: string; guestName: string | null; status: string; operatingDate: string; startsAt: string; endsAt: string; courts: string[] };
 export type ScheduleData = { operatingDate: string; truncated: boolean; items: ScheduleItem[] };

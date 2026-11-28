@@ -30,13 +30,17 @@ test('refund requires reason; old clients may still supply a reference',()=>{
  assert.equal(methodId.test('metrobank'),true);assert.equal(methodId.test('../secret'),false);
 });
 test('direct internal creation writes every court and one payment, or rolls back a later conflict',async()=>{
- const queries:string[]=[];let failSecond=false,allocations=0; let trackingHash: unknown;
- const request={...input,guestEmail:'guest@example.test'};
+ const queries:string[]=[];let failSecond=false,allocations=0,collide=true; let trackingHash: unknown, trackingCode: unknown;
+ let request: typeof input & {guestEmail?: string}={...input,guestEmail:'guest@example.test'};
  const client={async query(sql:string,args?:unknown[]){queries.push(sql);
-  if(sql.startsWith('INSERT INTO ethn.bookings')) trackingHash=args?.[11];
+  if(sql.startsWith('INSERT INTO ethn.bookings')) {
+   if (collide) { collide=false; throw Object.assign(new Error('duplicate code'),{code:'23505',constraint:'bookings_tracking_code_key'}); }
+   trackingHash=args?.[11]; trackingCode=args?.[12];
+   assert.match(String(trackingCode),/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/);
+  }
   if(sql.startsWith('INSERT INTO ethn.email_outbox')) {
    const {trackingToken,...payload}=JSON.parse(String(args?.[2]));
-   assert.deepEqual(payload,{email:request.guestEmail,total:'500.00',staff:true});
+   assert.deepEqual(payload,{email:request.guestEmail,total:'500.00',staff:true,code:trackingCode});
    assert.match(trackingToken,/^[0-9a-f]{64}$/);
    assert.equal(createHash('sha256').update(trackingToken).digest('hex'),trackingHash);
   }
@@ -52,14 +56,21 @@ test('direct internal creation writes every court and one payment, or rolls back
   return{rowCount:0,rows:[]};},release(){}};
  const result=await createInternalBooking({connect:async()=>client} as never,async()=>'00000000-0000-4000-8000-000000000001',request);
  assert.equal(result.status,'confirmed');assert.equal(result.method,'metrobank');
+ assert.equal(result.trackingCode,trackingCode);
+ assert.ok(queries.includes('ROLLBACK TO SAVEPOINT tracking_code'));
  assert.ok(queries.some(q=>q.startsWith('INSERT INTO ethn.bookings')&&q.includes("'confirmed'")));
  assert.ok(!queries.some(q=>q.startsWith('INSERT')&&q.includes("'held'")));
  assert.equal(result.total,'500.00');
  assert.equal(allocations,2);
  assert.equal(queries.filter(q=>q.startsWith('INSERT INTO ethn.payments')).length,1);
  assert.equal(queries.filter(q=>q.startsWith('INSERT INTO ethn.email_outbox')).length,1);
- assert.equal(queries.filter(q=>q.includes('INSERT INTO ethn.notifications')).length,1);
+ assert.equal(queries.filter(q=>q.includes('INSERT INTO ethn.notifications')).length,0);
   assert.equal(queries.at(-1),'COMMIT');
+ request={...input}; allocations=0; queries.length=0;
+ const noEmail=await createInternalBooking({connect:async()=>client} as never,async()=>'00000000-0000-4000-8000-000000000001',request);
+ assert.equal(noEmail.trackingCode,trackingCode);
+ assert.equal(trackingHash,null);
+ assert.ok(!queries.some(q=>q.startsWith('INSERT INTO ethn.email_outbox')));
  failSecond=true;allocations=0;queries.length=0;
  await assert.rejects(createInternalBooking({connect:async()=>client} as never,async()=>'00000000-0000-4000-8000-000000000001',request),/SLOT_TAKEN/);
  assert.ok(!queries.some(q=>q.startsWith('INSERT INTO ethn.payments') || q.includes('INSERT INTO ethn.email_outbox')));

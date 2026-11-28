@@ -1,4 +1,5 @@
-import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { writeWithTrackingCode } from "./ethn-tracking-code";
 import type { Pool } from "pg";
 import { gcashReference, parsePesos, validateGuest } from "./core";
 import { openPlayDetails } from "./ethn-tracking";
@@ -87,22 +88,9 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
     await client.query("UPDATE ethn.proof_reservations SET state = 'attached' WHERE id = $1", [reservation]);
     let result: object;
     if (timely) {
-      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
       const token = randomBytes(32).toString("hex");
-      let code: string;
-      await client.query("SAVEPOINT tracking_code");
-      for (let attempt = 1; ; attempt++) {
-        code = Array.from({ length: 5 }, () => alphabet[randomInt(alphabet.length)]).join("");
-        try {
-          await client.query("UPDATE ethn.bookings SET status = 'pending', guest_name = $2, guest_email = $3, guest_phone = $4, tracking_code = $5, tracking_hash = $6, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone, code, hash(token)]);
-          break;
-        } catch (error) {
-          const conflict = error as { code?: string; constraint?: string } | null;
-          if (attempt === 5 || conflict?.code !== "23505" || conflict.constraint !== "bookings_tracking_code_key") throw error;
-          await client.query("ROLLBACK TO SAVEPOINT tracking_code");
-        }
-      }
-      await client.query("RELEASE SAVEPOINT tracking_code");
+      const code = await writeWithTrackingCode(client, code =>
+        client.query("UPDATE ethn.bookings SET status = 'pending', guest_name = $2, guest_email = $3, guest_phone = $4, tracking_code = $5, tracking_hash = $6, price_acknowledged = true WHERE id = $1", [checkout, customer.name, customer.email, customer.phone, code, hash(token)]));
       await client.query("UPDATE ethn.court_allocations SET state = 'pending' WHERE state = 'held' AND item_id IN (SELECT id FROM ethn.booking_items WHERE booking_id = $1)", [checkout]);
       const openPlaySaved = openPlay && Boolean((await client.query(`INSERT INTO ethn.booking_open_plays (booking_id,title,description,event_url)
         SELECT booking_id,$2,$3,$4 FROM ethn.booking_open_play_sessions WHERE booking_id=$1 AND starts_at > clock_timestamp()
@@ -118,7 +106,7 @@ export async function submitBooking(pool: Pick<Pool, "connect">, storage: Inspec
     await client.query("INSERT INTO ethn.payments (id, booking_id, method, merchant_snapshot, status, claimed_reference, claimed_amount, proof_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", [randomUUID(), checkout, method.id, JSON.stringify({name:method.name,instructions:method.instructions}), timely ? "unverified" : "exception", reference, claimedAmount, reservation]);
     if (timely) {
       const hasOpenPlay = "openPlaySaved" in result && result.openPlaySaved === true;
-      await recordNewBookingAlerts(client, checkout, "online", owners, hasOpenPlay);
+      await recordNewBookingAlerts(client, checkout, owners, hasOpenPlay);
       if (owners.length) await client.query(`INSERT INTO ethn.email_outbox (id, booking_id, kind, payload)
         SELECT gen_random_uuid(), $1, 'booking_owner_proof_submitted', jsonb_build_object('ownerId', owner_id, 'openPlay', $3::boolean)
         FROM unnest($2::uuid[]) AS recipients(owner_id)`, [checkout, owners, hasOpenPlay]);

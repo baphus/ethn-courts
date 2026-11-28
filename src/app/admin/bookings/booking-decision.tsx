@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSidebarActivity } from "@/components/admin/admin-shell";
+import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 
 const success = {
   approve: "Payment approved.", reject: "Payment rejected.",
@@ -28,6 +29,7 @@ export default function BookingDecision({id,initialAction,status,proof,canRefund
  const decisionReason=(action==="reject"&&rejectionReason!=="other"?rejectionReason:reason).trim();
   const [announceError,setAnnounceError]=useState(true);
  const { refreshCounts } = useSidebarActivity();
+  const invalidate = useInvalidateOwnerResources();
  async function send(url:string,body:Record<string,unknown>){
    if(lock.current||!action)return;
    lock.current=true;setBusy(true);setError("");
@@ -50,6 +52,7 @@ export default function BookingDecision({id,initialAction,status,proof,canRefund
    }finally{lock.current=false;setBusy(false);}
    setPending(null);setAction(null);
    toast.success(success[action]);
+   invalidate?.();
    void refreshCounts().catch(() => {});
    onSaved();
  }

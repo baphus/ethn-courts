@@ -43,8 +43,8 @@ test("persistent notifications isolate recipients, deduplicate booking alerts an
     try {
       await client.query("BEGIN");
       const owners = await lockBookingAlertOwners(client);
-      await recordNewBookingAlerts(client, booking, "online", owners);
-      await recordNewBookingAlerts(client, booking, "online", owners);
+      await recordNewBookingAlerts(client, booking, owners);
+      await recordNewBookingAlerts(client, booking, owners);
       await client.query("COMMIT");
     } finally { client.release(); }
     const rows = await listInbox({ connect }, verify);

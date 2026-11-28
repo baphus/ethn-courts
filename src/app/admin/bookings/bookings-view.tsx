@@ -22,6 +22,7 @@ import { formatDisplayDate } from "@/lib/display-date";
 import { dateTime, ErrorNotice, money, request, type BookingSummary } from "./booking-list";
 import { parseFilters, serializeFilters, statuses, type Filters } from "./booking-filters";
 import StaffOccupancy from "./staff-occupancy";
+import { useSidebarActivity } from "@/components/admin/admin-shell";
 import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 import BookingDetail from "./booking-detail";
 import { GuestName } from "../guest-name";
@@ -35,6 +36,7 @@ const input = "h-9 rounded-sm border bg-background px-3 text-sm focus-visible:ou
 
 export default function BookingsView() {
   const invalidateOwnerResources = useInvalidateOwnerResources();
+  const { refreshCounts } = useSidebarActivity();
   const [view, setView] = useState<"list" | "grid">("list");
   const [filters, setFilters] = useState(initial); const [ready, setReady] = useState(false);
   const [search, setSearch] = useState(""); const [draft, setDraft] = useState(initial); const [open, setOpen] = useState(false);
@@ -91,6 +93,7 @@ export default function BookingsView() {
       actionLock.current = false;
       setActionId(null);
       invalidateOwnerResources?.();
+      void refreshCounts();
       setRefresh(value => value + 1);
     }
   }

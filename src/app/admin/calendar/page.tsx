@@ -1,4 +1,5 @@
 "use client";
+import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 
 import { formatScheduleRange } from "@/lib/booking/schedule-label";
 import { useConfirm } from "@/components/ui/confirm";
@@ -16,6 +17,7 @@ type Calendar = { date: string; serverNow: string; window: { startsAt: string; e
 const errorMessage = (status: number) => status === 400 ? "Check event details, selected courts and times. Events must start in the future within the configured horizon. Open Play must fit every selected court's opening hours." : status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : status === 404 ? "The court or block was not found. Refresh the calendar and try again." : status === 409 ? "This time overlaps another allocation. Refresh the calendar and choose another time." : status === 503 ? "Calendar service is unavailable. Try again later." : "Something went wrong. Refresh the calendar and try again.";
 
 export default function CalendarPage() {
+  const invalidate = useInvalidateOwnerResources();
   const confirm = useConfirm();
   const [date, setDate] = useState("");
   const [calendar, setCalendar] = useState<Calendar | null>(null);
@@ -56,6 +58,7 @@ export default function CalendarPage() {
         if (response.status !== 400) toast.error(eventType === "closure" ? "Court closure not created." : "Open Play not created.");
         return false;
       }
+      invalidate?.();
       toast.success(eventType === "closure" ? "Court closure created." : "Open Play created.");
       return true;
     } catch {
@@ -78,6 +81,7 @@ export default function CalendarPage() {
         toast.error("Court block not released.");
         return;
       }
+      invalidate?.();
       toast.success("Court block released.");
     } catch {
       setError({ message: "Could not confirm whether the block was released. Refresh the calendar before retrying." });

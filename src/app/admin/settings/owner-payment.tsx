@@ -1,4 +1,5 @@
 "use client";
+import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ type Form = { id?: string; name: string; instructions: string; enabled: boolean 
 const blank: Form = { name: "", instructions: "", enabled: false };
 
 export default function OwnerPayment() {
+  const invalidate = useInvalidateOwnerResources();
   const [methods, setMethods] = useState<Method[]>([]);
   const [form, setForm] = useState<Form>(blank);
   const [open, setOpen] = useState(false);
@@ -59,6 +61,7 @@ export default function OwnerPayment() {
       const r = await fetch("/api/ethn/admin/payment-methods", { method: "POST", body });
       if (r.status >= 500) throw new Error();
       if (!r.ok) { setDialogError("Method and QR were not saved. Check the details and access before retrying."); return; }
+      invalidate?.();
       setOpen(false); toast.success("Payment method saved.");
       await load();
     } catch {

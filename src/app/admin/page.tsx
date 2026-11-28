@@ -6,9 +6,9 @@ import { useState } from "react";
 import { BookOpen, CalendarDays, DollarSign, ScrollText, Settings } from "lucide-react";
 import { LoadingAnimation } from "@/components/ui/loading-animation";
 import { formatDisplayDate } from "@/lib/display-date";
-import { dateTime, ErrorNotice } from "./bookings/booking-list";
+import { dateTime } from "./bookings/booking-list";
 import { pesos, type DashboardOverview } from "./dashboard-overview-types";
-import type { OverviewData, Range } from "./dashboard-analytics-types";
+import type { MonthlyData, OverviewData, Range } from "./dashboard-analytics-types";
 import { StatusBadge } from "@/components/admin/dashboard-status";
 import { ViewToggle } from "@/components/admin/view-toggle";
 import { DashboardCourtView } from "@/components/admin/dashboard-court-view";
@@ -34,11 +34,13 @@ export default function DashboardPage() {
 
 function NormalDashboard({ data, error, retry, owner }: { data: DashboardOverview | null; error: string; retry: () => void; owner: boolean }) {
   const [range, setRange] = useState<Range>("month");
-  const overview = useAnalytics<OverviewData>(`section=overview&range=${range}`);
+  const monthly = useAnalytics<MonthlyData>("section=monthly");
+  const weekly = useAnalytics<OverviewData>(range === "week" ? "section=overview&range=week" : null);
+  const overview = range === "week" ? weekly : { ...monthly, data: monthly.data?.overview ?? null };
   const recentBookings = data?.recentBookings.filter(row => row.status !== "completed") ?? [];
   return <div className="space-y-5 pb-24">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">{data ? `Operating date ${formatDisplayDate(data.operatingDate)}` : "Overview"}</p></div></header>
-    {!owner && error && <ErrorNotice message={error} />}
+    {error && <div role="alert" className="text-sm">{error} <Button type="button" variant="link" className="h-auto p-0" onClick={retry}>Retry dashboard</Button></div>}
     {!owner && !data ? (!error && <LoadingAnimation label="Loading dashboard" className="py-8"/>) : <>
       <section aria-label="Today booking status" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border bg-card px-4 py-3"><h2 className="text-sm font-semibold">Today’s status</h2>{(["confirmed"] as const).map(state => <div key={state} className="flex items-center gap-2"><StatusBadge state={state}/><div className="text-sm font-semibold">{data ? data.counts[state] : error ? "Unavailable" : <Skeleton className="h-4 w-6 motion-reduce:animate-none" />}</div></div>)}{data?.pendingReview && <div className="flex items-center gap-2"><StatusBadge state="pending"/><div className="text-sm font-semibold">{data.pendingReview.today}</div></div>}</section>
       {data?.pendingReview && <section className="rounded-xl border bg-card px-4 py-3">
@@ -48,8 +50,8 @@ function NormalDashboard({ data, error, retry, owner }: { data: DashboardOvervie
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{data.pendingReview.total === 0 ? "No bookings awaiting review." : `${data.pendingReview.total} awaiting review · ${data.pendingReview.pastStart} at or past scheduled start`}</p>
       </section>}
-      <HeroStats overview={data} owner={owner} overviewError={error} retryOverview={retry}/>
-      <CollectionsChart owner={owner} currentMonth={data?.calendarDate.slice(0, 7)}/>
+      <HeroStats owner={owner}/>
+      <CollectionsChart owner={owner} monthly={monthly}/>
       <GlanceKpis state={overview} range={range} onRange={setRange}/>
       <UpcomingSchedule/>
       <BookingWindow/>

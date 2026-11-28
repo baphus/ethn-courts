@@ -5,8 +5,9 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { useDashboardResource } from "./dashboard-resource";
 import { Button } from "@/components/ui/button";
 
-export function useAnalytics<T>(query: string) {
-  return useDashboardResource<T>(`/api/ethn/admin/dashboard/analytics?${query}`);
+export function useAnalytics<T>(query: string | null) {
+  const reporting = query !== null && !/^section=(schedule|window)(?:&|$)/.test(query);
+  return useDashboardResource<T>(query === null ? null : `/api/ethn/admin/dashboard/analytics?${query}`, reporting ? 300_000 : undefined);
 }
 export type AnalyticsState<T> = ReturnType<typeof useAnalytics<T>>;
 

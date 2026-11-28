@@ -61,12 +61,12 @@ function DateField({ value, defaultValue = "", onValueChange, name, required, mi
   return <div className={cn("grid min-w-0 gap-1", className)}>
     <div className={cn("grid min-w-0 gap-2", dateTime && "sm:grid-cols-2")}>
       <Popover open={open} onOpenChange={(next) => setOpen(next && !disabled)}>
-        <PopoverTrigger render={<Button ref={trigger} id={id} type="button" variant="outline" size="lg" disabled={disabled} aria-invalid={!!error || undefined} aria-describedby={error ? errorId : undefined} {...aria} className="w-full min-w-0 justify-start font-normal" />}>
+        <PopoverTrigger render={<Button ref={trigger} id={id} type="button" variant="outline" size="lg" disabled={disabled} aria-invalid={!!error || undefined} aria-describedby={error ? errorId : undefined} {...aria} className={cn("w-full min-w-0 justify-start font-normal", popupClassName === "daylight" && "min-h-12 text-base hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2")} />}>
           <CalendarIcon aria-hidden="true" className="size-4 text-muted-foreground" />
           <span className={cn("truncate", !day && "text-muted-foreground")}>{triggerLabel ?? (day || "Choose date")}</span>
         </PopoverTrigger>
         <PopoverContent className={cn("w-auto p-1", popupClassName)}>
-          <Calendar mode="single" selected={selected} defaultMonth={selected ?? last} autoFocus onSelect={(next) => { if (next) { update(dateValue(next), time); setOpen(false) } }} disabled={(next) => { const value = dateValue(next); return (!!firstDay && value < firstDay) || (!!lastDay && value > lastDay) }} />
+          <Calendar className={popupClassName === "daylight" ? "[&_[role=gridcell]]:border [&_[role=gridcell]]:border-border/50 [&_[role=gridcell]]:rounded-md [&_button[data-day]:not(:disabled):not([aria-disabled=true]):not([data-selected-single=true]):hover]:bg-accent [&_button[data-day][data-selected-single=true]:hover]:bg-primary/85 [&_button[data-day]:focus-visible]:z-20 [&_button[data-day]:focus-visible]:outline-2 [&_button[data-day]:focus-visible]:outline-offset-1 [&_button[data-day]:focus-visible]:outline-ring" : undefined} mode="single" selected={selected} defaultMonth={selected ?? last} autoFocus onSelect={(next) => { if (next) { update(dateValue(next), time); setOpen(false) } }} disabled={(next) => { const value = dateValue(next); return (!!firstDay && value < firstDay) || (!!lastDay && value > lastDay) }} />
           {!required && day && <Button type="button" variant="ghost" className="w-full" onClick={() => { update(""); setOpen(false) }}>Clear date</Button>}
         </PopoverContent>
       </Popover>

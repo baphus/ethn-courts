@@ -1,4 +1,5 @@
 "use client";
+import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
 
 import { formatScheduleRange } from "@/lib/booking/schedule-label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,7 @@ type Court = { id: string; name: string; active: boolean; photoVersion?: string 
 const message = (status: number) => status === 400 ? "Check the event details and court hours. Events must be future and within the booking horizon." : status === 401 ? "Your session has expired. Sign in again." : status === 403 ? "Owner access is unavailable or has been revoked." : status === 404 ? "Event not found. Refresh and try again." : status === 409 ? "A selected court is already occupied at this time." : "Service unavailable. Try again later.";
 
 export default function AdminOpenPlaysPage() {
+  const invalidate = useInvalidateOwnerResources();
   const confirm = useConfirm();
   const [events, setEvents] = useState<Event[] | null>(null), [courts, setCourts] = useState<Court[] | null>(null);
   const [error, setError] = useState<{ message: string; inlineOnly?: boolean } | null>(null), [loadError, setLoadError] = useState(""), [busy, setBusy] = useState(false), [revision, setRevision] = useState(0);
@@ -67,6 +69,7 @@ export default function AdminOpenPlaysPage() {
         if (response.status !== 400) toast.error(editing ? "Open Play not updated." : "Open Play not created.");
         return;
       }
+      invalidate?.();
       toast.success(editing ? "Open Play updated." : "Open Play created. Courts reserved.");
       resetForm(); setOpen(false);
     } catch {
@@ -96,6 +99,7 @@ export default function AdminOpenPlaysPage() {
         toast.error("Open Play not removed.");
         return;
       }
+      invalidate?.();
       toast.success("Open Play removed. Courts released.");
     } catch {
       setError({ message: "Could not confirm removal. Refresh the list before retrying." });

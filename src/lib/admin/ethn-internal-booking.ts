@@ -2,8 +2,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { parsePesos, priceItems } from '../booking/core';
 import { generateTrackingToken } from '../booking/tracking';
+import { writeWithTrackingCode } from '../booking/ethn-tracking-code';
 import { resolveSchedule } from '../booking/schedule';
-import { lockBookingAlertOwners, recordNewBookingAlerts } from '../booking/ethn-booking-alerts';
+import { lockBookingAlertOwners } from '../booking/ethn-booking-alerts';
 import type { StaffVerifier } from './ethn-payments';
 import { isEthnMailAddress } from '../mail/ethn-address';
 const money=(v:bigint)=>`${v/BigInt(100)}.${(v%BigInt(100)).toString().padStart(2,'0')}`;
@@ -68,7 +69,9 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   const total=money(cents);if(total!==input.displayedTotal||settings.version!==input.settingsVersion)throw new Error('PRICE_CHANGED');
   const id=randomUUID(),merchant=JSON.stringify({name:method.name,instructions:method.instructions});
   const trackingToken = input.guestEmail ? generateTrackingToken() : undefined;
-   await c.query("INSERT INTO ethn.bookings(id,owner_hash,walk_in_actor,operating_date,status,expires_at,total,guest_name,guest_phone,guest_email,price_acknowledged,merchant_snapshot,settings_version,tracking_hash) VALUES($1,$2,$3,$4,'confirmed',$5,$6,$7,$8,$9,true,$10,$11,$12)",[id,owner,actor,input.date,now,total,input.guestName,input.guestPhone,input.guestEmail??null,merchant,settings.version,trackingToken ? createHash('sha256').update(trackingToken).digest('hex') : null]);
+  const trackingHash = trackingToken ? createHash('sha256').update(trackingToken).digest('hex') : null;
+  const trackingCode = await writeWithTrackingCode(c, code =>
+   c.query("INSERT INTO ethn.bookings(id,owner_hash,walk_in_actor,operating_date,status,expires_at,total,guest_name,guest_phone,guest_email,price_acknowledged,merchant_snapshot,settings_version,tracking_hash,tracking_code) VALUES($1,$2,$3,$4,'confirmed',$5,$6,$7,$8,$9,true,$10,$11,$12,$13)",[id,owner,actor,input.date,now,total,input.guestName,input.guestPhone,input.guestEmail??null,merchant,settings.version,trackingHash,code]));
   for (const range of resolved.ranges) {
    const item=randomUUID(),start=range.start.toISOString(),end=range.end.toISOString();
    await c.query('INSERT INTO ethn.booking_items(id,booking_id,court_id,starts_at,ends_at,hourly_rate,duration_minutes,amount,interval_minutes,minimum_minutes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[item,id,range.courtId,start,end,money(parsePesos(range.rate)),range.minutes,money(priceItems([range])),settings.interval_minutes,settings.minimum_minutes]);
@@ -76,9 +79,8 @@ export async function createInternalBooking(pool:Pick<Pool,'connect'>,verify:Sta
   }
   await c.query("INSERT INTO ethn.payments(id,booking_id,method,merchant_snapshot,status,accepted_reference,collected_amount,received_at,verified_at,verified_by) VALUES($1,$2,$3,$4,'accepted',$5,$6,$7,$8,$9)",[randomUUID(),id,input.method,merchant,input.reference,total,input.receivedAt,now,actor]);
   await c.query("INSERT INTO ethn.audit(booking_id,actor,action,detail) VALUES($1,$2,'internal.create',$3::jsonb)",[id,actor,JSON.stringify({method:input.method,total,paymentReceived:true})]);
-  if (input.guestEmail) await c.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,'booking_approved',$3::jsonb)", [randomUUID(),id,JSON.stringify({email:input.guestEmail,total,staff:true,trackingToken})]);
-  await recordNewBookingAlerts(c, id, "internal", owners);
-  const result={bookingId:id,status:'confirmed',total,method:input.method};
+  if (input.guestEmail) await c.query("INSERT INTO ethn.email_outbox (id,booking_id,kind,payload) VALUES ($1,$2,'booking_approved',$3::jsonb)", [randomUUID(),id,JSON.stringify({email:input.guestEmail,total,staff:true,code:trackingCode,trackingToken})]);
+  const result={bookingId:id,status:'confirmed',total,method:input.method,trackingCode};
   await c.query("UPDATE ethn.idempotency SET result=$3::jsonb WHERE owner_hash=$1 AND operation='internal.create' AND key=$2",[owner,idempotencyKey,JSON.stringify(result)]);
   committing=true;await c.query('COMMIT');return result;
  }catch(e){if(committing)discard=true;else try{await c.query('ROLLBACK');}catch{discard=true;}if ((e as {code?:string;constraint?:string})?.code === '23505' && ['payments_unique_method_transfer','payments_accepted_reference'].includes((e as {constraint?:string}).constraint ?? '')) throw new Error('REFERENCE_TAKEN');if((e as {code?:string})?.code==='23P01')throw new Error('SLOT_TAKEN');throw e;}finally{c.release(discard?new Error('discard transaction'):undefined);}

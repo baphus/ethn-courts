@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { ethnDashboardAnalytics } from "../src/lib/admin/ethn-analytics";
-import type { ChartData, HeroStatsData } from "../src/app/admin/dashboard-analytics-types";
+import type { ChartData, HeroStatsData, MonthlyData } from "../src/app/admin/dashboard-analytics-types";
 import { scheduleWindows } from "../src/lib/booking/schedule";
 import type { Pool } from "pg";
 
@@ -13,7 +13,16 @@ function mock(role: string, now = "2026-11-01T00:00:00Z", withOccupancy = false)
     queries.push(sql);
     if (sql.includes("SELECT role FROM")) return { rows: [{ role }] };
     if (sql.includes("anchor_minutes FROM ethn.settings")) return { rows: [{ now, anchor_minutes: 420 }] };
-    if (sql.includes("count(*) FILTER")) return { rows: [{ current: 1, prior: 0 }] };
+    if (sql.includes("AS current") && sql.includes("AS prior")) {
+      assert.match(sql, /\(p\.verified_at AT TIME ZONE 'Asia\/Manila'\)::date AS day/);
+      assert.match(sql, /count\(DISTINCT id\) FILTER \(WHERE day = \$2::date\)::int AS today/);
+      assert.match(sql, /count\(DISTINCT id\) FILTER \(WHERE day >= \$3::date\)::int AS current/);
+      assert.match(sql, /count\(DISTINCT id\) FILTER \(WHERE day <= \$4::date\)::int AS prior/);
+      if (now === "2026-10-31T17:00:00Z") assert.deepEqual(args, ["2026-10-01", "2026-11-01", "2026-11-01", "2026-10-01"]);
+      assert.match(sql, /p\.status='accepted' AND p\.extension_id IS NULL AND b\.status IN \('confirmed','completed'\)/);
+      assert.doesNotMatch(sql, /operating_date|received_at|collected_amount|walk_in_actor/);
+      return { rows: [{ today: 1, current: 2, prior: 1 }] };
+    }
     if (sql.includes("SELECT id::text AS id, name FROM ethn.courts")) return { rows: withOccupancy ? [{ id: "1", name: "Court 1" }] : [] };
     if (sql.includes("FROM ethn.court_hours")) return { rows: [{ court_id: "1", weekday: 0, opens: "07:00", closes: "08:00", hourly_rate: "100.00" }] };
     if (sql.includes("WITH w AS")) return { rows: [{ court_id: "1", op_date: "2026-11-01", hour_offset: 7, capacity_s: 3600, reserved_s: 1800, blocked_s: 900 }] };
@@ -49,11 +58,12 @@ test("staff cannot obtain finance; strict query validation and schedule segments
   assert.ok(db.releases() > 0);
 });
 
-test("monthly dashboard counts only confirmed and completed bookings in both periods", async () => {
-  const db = mock("staff");
-  await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=hero"));
-  const sql = db.queries.find(q => q.includes("AS current") && q.includes("AS prior"))!;
-  assert.match(sql, /FROM ethn\.bookings WHERE status IN \('confirmed', 'completed'\) AND operating_date BETWEEN/);
+test("dashboard counts approved bookings in Manila calendar periods even before the operating-day anchor", async () => {
+  const db = mock("staff", "2026-10-31T17:00:00Z");
+  const hero = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=hero")) as HeroStatsData;
+  assert.equal(hero.operatingDate, "2026-10-31");
+  assert.equal(hero.calendarDate, "2026-11-01");
+  assert.deepEqual(hero.bookings, { today: 1, month: 2, priorMonthToDate: 1 });
 });
 
 test("owner dashboard uses the same approved original payments for hero and chart", async () => {
@@ -104,6 +114,28 @@ test("overview separates booking and block utilization over elapsed capacity", a
   assert.match(sql, /booking\.status IN \('confirmed','completed'\) AND a\.state IN \('confirmed','completed'\)/);
   assert.match(sql, /a\.block_id IS NOT NULL AND a\.state = 'confirmed'/);
   assert.doesNotMatch(sql, /'held'|'pending'/);
+});
+
+test("monthly analytics shares one occupancy query and preserves the separate payloads", async () => {
+  const db = mock("owner", "2026-11-01T02:00:00Z", true);
+  const monthly = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=monthly")) as MonthlyData;
+  const { overview, ...chart } = monthly;
+  assert.equal(db.queries.filter(sql => sql.includes("WITH w AS")).length, 1);
+  assert.equal(db.queries.filter(sql => sql.includes("SELECT role FROM")).length, 1);
+  assert.deepEqual(chart, await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=chart")));
+  assert.deepEqual(overview, await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=overview&range=month")));
+  await assert.rejects(ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=monthly&month=2026-10")), /INVALID_INPUT/);
+});
+
+test("monthly analytics keeps calendar and operating months separate before the anchor", async () => {
+  const db = mock("staff", "2026-10-31T17:00:00Z", true);
+  const result = await ethnDashboardAnalytics(db.pool, verify, new URLSearchParams("section=monthly")) as MonthlyData;
+  assert.equal(result.month, "2026-11");
+  assert.deepEqual(result.occupancy.days, []);
+  assert.equal(result.overview.from, "2026-10-01");
+  assert.equal(result.overview.to, "2026-10-31");
+  assert.ok(!("collections" in result));
+  assert.ok(!db.queries.some(sql => sql.includes("WITH receipts AS")));
 });
 
 test("opening windows preserve one-hour and overnight actual duration", () => {

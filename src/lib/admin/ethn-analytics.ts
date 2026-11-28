@@ -95,31 +95,27 @@ WHERE b.e > b.s
 GROUP BY 1, 2, 3
 ORDER BY 2, 3, 1`;
 
-async function loadOccupancy(pool: Db, pick: (operatingDate: string) => [string, string]): Promise<Occupancy> {
-  return readOnly(pool, async client => {
-    const { now, anchor, operatingDate } = await clock(client);
-    const [from, to] = pick(operatingDate);
-    const courts = (await client.query("SELECT id::text AS id, name FROM ethn.courts WHERE active ORDER BY id")).rows as { id: string; name: string }[];
-    const empty = { operatingDate, now, from, to, courts, rows: [] as OccRow[], avgMinutes: null, reservationCount: 0 };
-    if (from > to || !courts.length) return empty;
-    if ((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 > 31) invalid();
-    const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
-    const ids: string[] = [], days: string[] = [], opens: string[] = [], closes: string[] = [];
-    for (let day = from; day <= to; day = addDays(day, 1)) for (const court of courts) {
-      const resolved = scheduleWindows(day, anchor, court.id, hours);
-      if ("error" in resolved) throw new Error("INVALID_SCHEDULE");
-      for (const w of resolved.windows) {
-        const open = new Date(w.opens).getTime(), close = Math.min(new Date(w.closes).getTime(), now.getTime());
-        if (open >= close) continue; // not elapsed yet
-        if (ids.length >= MAX_WINDOWS) invalid();
-        ids.push(court.id); days.push(day); opens.push(new Date(open).toISOString()); closes.push(new Date(close).toISOString());
-      }
+async function loadOccupancy(client: PoolClient, { now, anchor, operatingDate }: Awaited<ReturnType<typeof clock>>, from: string, to: string): Promise<Occupancy> {
+  const courts = (await client.query("SELECT id::text AS id, name FROM ethn.courts WHERE active ORDER BY id")).rows as { id: string; name: string }[];
+  const empty = { operatingDate, now, from, to, courts, rows: [] as OccRow[], avgMinutes: null, reservationCount: 0 };
+  if (from > to || !courts.length) return empty;
+  if ((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 > 31) invalid();
+  const hours = (await client.query("SELECT court_id::text, weekday, opens::text, closes::text, hourly_rate::text FROM ethn.court_hours")).rows;
+  const ids: string[] = [], days: string[] = [], opens: string[] = [], closes: string[] = [];
+  for (let day = from; day <= to; day = addDays(day, 1)) for (const court of courts) {
+    const resolved = scheduleWindows(day, anchor, court.id, hours);
+    if ("error" in resolved) throw new Error("INVALID_SCHEDULE");
+    for (const w of resolved.windows) {
+      const open = new Date(w.opens).getTime(), close = Math.min(new Date(w.closes).getTime(), now.getTime());
+      if (open >= close) continue; // not elapsed yet
+      if (ids.length >= MAX_WINDOWS) invalid();
+      ids.push(court.id); days.push(day); opens.push(new Date(open).toISOString()); closes.push(new Date(close).toISOString());
     }
-    const rows = ids.length ? (await client.query(OCCUPANCY_SQL, [ids, days, opens, closes])).rows.map(r => ({ courtId: r.court_id as string, opDate: r.op_date as string, hourOffset: Number(r.hour_offset), capacityS: Number(r.capacity_s), reservedS: Number(r.reserved_s), blockedS: Number(r.blocked_s) })) : [];
-    const avg = (await client.query(`SELECT avg(i.duration_minutes)::float8 AS avg_minutes, count(*)::int AS n FROM ethn.booking_items i JOIN ethn.bookings b ON b.id = i.booking_id
-      WHERE b.operating_date BETWEEN $1::date AND $2::date AND b.status IN ('confirmed','completed') AND i.starts_at < $3::timestamptz`, [from, to, now])).rows[0];
-    return { ...empty, rows, avgMinutes: avg.avg_minutes === null ? null : Number(avg.avg_minutes), reservationCount: Number(avg.n) };
-  });
+  }
+  const rows = ids.length ? (await client.query(OCCUPANCY_SQL, [ids, days, opens, closes])).rows.map(r => ({ courtId: r.court_id as string, opDate: r.op_date as string, hourOffset: Number(r.hour_offset), capacityS: Number(r.capacity_s), reservedS: Number(r.reserved_s), blockedS: Number(r.blocked_s) })) : [];
+  const avg = (await client.query(`SELECT avg(i.duration_minutes)::float8 AS avg_minutes, count(*)::int AS n FROM ethn.booking_items i JOIN ethn.bookings b ON b.id = i.booking_id
+    WHERE b.operating_date BETWEEN $1::date AND $2::date AND b.status IN ('confirmed','completed') AND i.starts_at < $3::timestamptz`, [from, to, now])).rows[0];
+  return { ...empty, rows, avgMinutes: avg.avg_minutes === null ? null : Number(avg.avg_minutes), reservationCount: Number(avg.n) };
 }
 
 type Sum = { cap: number; res: number; blk: number };
@@ -189,35 +185,44 @@ const totalPayments = (days: { collected: string }[]) => analyticsMoney(days.red
 async function hero(pool: Db, owner: boolean, userId: string) {
   return readOnly(pool, async client => {
     const { operatingDate, calendarDate } = await clock(client);
-    const [bookingPriorFrom, bookingPriorTo] = priorEquivalent(operatingDate);
-    const row = (await client.query(`SELECT count(*) FILTER (WHERE operating_date >= $1::date)::int AS current,
-      count(*) FILTER (WHERE operating_date BETWEEN $3::date AND $4::date)::int AS prior
-      FROM ethn.bookings WHERE status IN ('confirmed', 'completed') AND operating_date BETWEEN $3::date AND $2::date`, [`${operatingDate.slice(0, 7)}-01`, operatingDate, bookingPriorFrom, bookingPriorTo])).rows[0];
-    const base = { operatingDate, calendarDate, bookings: { month: Number(row.current), priorMonthToDate: Number(row.prior) } };
+    const [priorFrom, priorTo] = priorEquivalent(calendarDate);
+    const monthStart = `${calendarDate.slice(0, 7)}-01`;
+    const row = (await client.query(`WITH approvals AS (
+      SELECT b.id, (p.verified_at AT TIME ZONE 'Asia/Manila')::date AS day
+      ${approvedBookingSource}
+    ) SELECT count(DISTINCT id) FILTER (WHERE day = $2::date)::int AS today,
+      count(DISTINCT id) FILTER (WHERE day >= $3::date)::int AS current,
+      count(DISTINCT id) FILTER (WHERE day <= $4::date)::int AS prior
+      FROM approvals`, [priorFrom, calendarDate, monthStart, priorTo])).rows[0];
+    const base = { operatingDate, calendarDate, bookings: { today: Number(row.today), month: Number(row.current), priorMonthToDate: Number(row.prior) } };
     if (!owner) return base;
     await requireOwner(client, userId);
-    const [priorFrom, priorTo] = priorEquivalent(calendarDate);
-    const month = await approvedPaymentDays(client, `${calendarDate.slice(0, 7)}-01`, calendarDate);
+    const month = await approvedPaymentDays(client, monthStart, calendarDate);
     const prior = await approvedPaymentDays(client, priorFrom, priorTo);
     return { ...base, collections: { today: month.at(-1)?.collected ?? "0.00", month: totalPayments(month), priorMonthToDate: totalPayments(prior) } };
   });
 }
 
-async function chart(pool: Db, owner: boolean, userId: string, params: URLSearchParams) {
-  const today = await readOnly(pool, async client => (await clock(client)).calendarDate);
+async function chart(client: PoolClient, time: Awaited<ReturnType<typeof clock>>, owner: boolean, userId: string, params: URLSearchParams, includeOverview = false) {
+  const { calendarDate: today, operatingDate } = time;
   const month = analyticsMonth(params.get("month") ?? today.slice(0, 7), today.slice(0, 7));
   const monthStart = `${month}-01`, monthEnd = `${month}-${pad(lastDayOfMonth(Number(month.slice(0, 4)), Number(month.slice(5))))}`;
   const to = monthEnd < today ? monthEnd : today;
-  const occupancy = await loadOccupancy(pool, operatingDate => [monthStart, monthEnd < operatingDate ? monthEnd : operatingDate]);
+  const occupancy = await loadOccupancy(client, time, monthStart, monthEnd < operatingDate ? monthEnd : operatingDate);
   const byDay = aggregate(occupancy).byDay;
   const days: { date: string; percent: number | null; reservedHours: number; capacityHours: number }[] = [];
   for (let day = occupancy.from; day <= occupancy.to; day = addDays(day, 1)) { const s = byDay.get(day) ?? { cap: 0, res: 0, blk: 0 }; days.push({ date: day, percent: pct(s.res, s.cap), reservedHours: hrs(s.res), capacityHours: hrs(s.cap) }); }
   const result: Record<string, unknown> = { month, today, occupancy: { days } };
+  if (includeOverview) {
+    // Before the operating-day anchor, the calendar month can be one month ahead.
+    const from = `${operatingDate.slice(0, 7)}-01`;
+    const overview = occupancy.from === from && occupancy.to === operatingDate
+      ? occupancy : await loadOccupancy(client, time, from, operatingDate);
+    result.overview = overviewPayload("month", overview);
+  }
   if (!owner) return result;
-  const all = await readOnly(pool, async client => {
-    await requireOwner(client, userId);
-    return approvedPaymentDays(client, addDays(monthStart, -6), to);
-  });
+  await requireOwner(client, userId);
+  const all = await approvedPaymentDays(client, addDays(monthStart, -6), to);
   const leadDays = all.filter(day => day.date < monthStart).length;
   const current = all.slice(leadDays);
   const daily = current.map((day, i) => {
@@ -283,8 +288,18 @@ export async function ethnDashboardAnalytics(pool: Db, verify: StaffVerifier, pa
   const owner = actor.role === "owner";
   switch (params.get("section")) {
     case "hero": check(params, ["section"]); return hero(pool, owner, actor.userId);
-    case "chart": check(params, ["section", "month"]); return chart(pool, owner, actor.userId, params);
-    case "overview": { check(params, ["section", "range"]); const range = rangeParam(params); return overviewPayload(range, await loadOccupancy(pool, od => [range === "week" ? weekStart(od) : `${od.slice(0, 7)}-01`, od])); }
+    case "chart": check(params, ["section", "month"]); return readOnly(pool, async client => chart(client, await clock(client), owner, actor.userId, params));
+    case "monthly": check(params, ["section"]); return readOnly(pool, async client => chart(client, await clock(client), owner, actor.userId, params, true));
+    case "overview": {
+      check(params, ["section", "range"]);
+      const range = rangeParam(params);
+      return readOnly(pool, async client => {
+        const time = await clock(client);
+        const { operatingDate } = time;
+        const from = range === "week" ? weekStart(operatingDate) : `${operatingDate.slice(0, 7)}-01`;
+        return overviewPayload(range, await loadOccupancy(client, time, from, operatingDate));
+      });
+    }
     case "methods": { check(params, ["section", "range"]); if (!owner) throw new Error("FORBIDDEN"); return methods(pool, actor.userId, rangeParam(params)); }
     case "schedule": check(params, ["section"]); return schedule(pool);
     case "window": check(params, ["section", "date"]); return bookingWindow(pool, params);

@@ -22,7 +22,7 @@ export function CashActivity({ from, to }: { from: string; to: string }) {
   const { data: report, error, loading, retry } = useDashboardResource<CashReport>(`/api/ethn/admin/finance?${new URLSearchParams({ basis: "cash", from, to })}`);
   const methodTotal = report?.paymentMethods.reduce((sum, { amount }) => sum + Number(amount), 0) ?? 0;
   return <section className="space-y-4" aria-labelledby="cash-activity-heading" aria-busy={loading}>
-    <div className="flex items-center gap-2"><h2 id="cash-activity-heading" className="text-lg font-semibold">Cash activity</h2><FinanceInfo label="About cash activity">Verified receipts use receipt dates, or the verification date if no receipt time was recorded. Historical extension receipts are included. Net recorded cash subtracts expenses and recorded refunds.</FinanceInfo></div>
+    <div className="flex items-center gap-2"><h2 id="cash-activity-heading" className="text-lg font-semibold">Cash activity</h2><FinanceInfo label="About cash activity">Verified payments count on the date received. Net recorded cash is booking payments plus other sales, minus expenses and recorded refunds.</FinanceInfo></div>
     {error && <p role="alert">{error} <Button variant="link" onClick={retry}>Retry</Button></p>}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{metrics.map(([key, label]) => {
         const change = report && cashChange(report.current[key], report.previous[key]);

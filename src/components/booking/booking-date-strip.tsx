@@ -25,6 +25,6 @@ export function BookingDateStrip({ value, onChange, anchor = value, min, max, di
         </button>
       ))}
     </div>
-    <DateField className="justify-self-start sm:justify-self-end" value={value} onValueChange={onChange} min={min} max={max} disabled={disabled} required triggerLabel="Choose date" popupClassName={popupClassName} />
+    <DateField className={popupClassName === "daylight" ? "w-fit justify-self-center sm:justify-self-end" : "justify-self-start sm:justify-self-end"} value={value} onValueChange={onChange} min={min} max={max} disabled={disabled} required triggerLabel="Choose date" popupClassName={popupClassName} />
   </div>;
 }

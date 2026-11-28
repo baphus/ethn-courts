@@ -27,13 +27,14 @@ export function useInvalidateOwnerResources() {
   return useContext(DashboardCache)?.invalidate;
 }
 
-export function useDashboardResource<T>(url: string) {
+export function useDashboardResource<T>(url: string | null, ttl?: number) {
   const cache = useContext(DashboardCache);
   const revision = useSyncExternalStore(cache?.subscribe ?? noopSubscribe, cache?.revision ?? zero, zero);
   const [version, setVersion] = useState(0);
   const [state, setState] = useState<{ url: string; cache: typeof cache; revision: number; data: T | null; error: string; loading: boolean }>();
 
   useEffect(() => {
+    if (url === null) return;
     const cached = cache?.read<T>(url);
     if (cached !== undefined) {
       setState({ url, cache, revision, data: cached, error: "", loading: false });
@@ -43,7 +44,7 @@ export function useDashboardResource<T>(url: string) {
     setState(previous => ({ url, cache, revision, data: previous?.url === url && previous.cache === cache && previous.revision === revision ? previous.data : null, error: "", loading: true }));
     void request<T>(url, controller.signal).then(data => {
       if (controller.signal.aborted || (cache && cache.revision() !== revision)) return;
-      cache?.write(url, data);
+      cache?.write(url, data, Date.now(), ttl);
       setState({ url, cache, revision, data, error: "", loading: false });
     }).catch(error => {
       if (controller.signal.aborted) return;
@@ -51,12 +52,14 @@ export function useDashboardResource<T>(url: string) {
       setState(previous => ({ url, cache, revision, data: !cache && previous?.url === url ? previous.data : null, error: error instanceof Error ? error.message : "Service unavailable. Please try again.", loading: false }));
     });
     return () => controller.abort();
-  }, [cache, url, version, revision]);
+  }, [cache, url, version, revision, ttl]);
 
   const retry = useCallback(() => {
+    if (url === null) return;
     cache?.delete(url);
     setVersion(value => value + 1);
   }, [cache, url]);
+  if (url === null) return { data: null, error: "", loading: false, retry };
   if (state?.url === url && state.cache === cache && state.revision === revision) {
     return { data: state.data, error: state.error, loading: state.loading, retry };
   }

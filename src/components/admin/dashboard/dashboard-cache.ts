@@ -28,10 +28,10 @@ export function createDashboardCache() {
       const entry = entries.get(url);
       if (entry && entry.expires > now) return entry.data as T;
     },
-    write<T>(url: string, data: T, now = Date.now()) {
+    write<T>(url: string, data: T, now = Date.now(), ttlMs = ttl) {
       if (denial) return;
       entries.delete(url);
-      entries.set(url, { data, expires: now + ttl });
+      entries.set(url, { data, expires: now + ttlMs });
       if (entries.size > maxEntries) entries.delete(entries.keys().next().value!);
     },
     delete(url: string) {

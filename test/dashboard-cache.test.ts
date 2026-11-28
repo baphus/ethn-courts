@@ -16,6 +16,15 @@ test("dashboard cache isolates owners and queries, expires at 30 seconds, and su
   assert.equal(owner.read(month, 2_000), undefined);
 });
 
+test("reporting results can be reused for five minutes without changing the default TTL", () => {
+  const cache = createDashboardCache();
+  cache.write("report", 1, 0, 300_000);
+  cache.write("schedule", 2, 0);
+  assert.equal(cache.read("schedule", 30_000), undefined);
+  assert.equal(cache.read("report", 299_999), 1);
+  assert.equal(cache.read("report", 300_000), undefined);
+});
+
 test("an access denial drops every filter and blocks late responses until a new session", () => {
   for (const status of [401, 403]) {
     const cache = createDashboardCache();

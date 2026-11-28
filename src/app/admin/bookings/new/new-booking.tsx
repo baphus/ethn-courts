@@ -5,6 +5,8 @@ import { BookingDateStrip } from "@/components/booking/booking-date-strip";
 import { addDays } from "@/components/booking/ethn-selection";
 import { FormSelect } from "@/components/ui/form-select";
 import { useConfirm } from "@/components/ui/confirm";
+import { useInvalidateOwnerResources } from "@/components/admin/dashboard/dashboard-resource";
+import { useSidebarActivity } from "@/components/admin/admin-shell";
 import { LoadingRows } from "@/components/admin/loading-slots";
 import { useEffect, useRef, useState } from "react";
 import { availabilityCache } from "@/components/booking/ethn-availability-cache";
@@ -18,6 +20,8 @@ import { cellWindow, money, rows, summarize, toggleHour, type Availability, type
 type Method = { id: string; name: string };
 export default function NewBooking() {
   const confirm = useConfirm();
+  const invalidate = useInvalidateOwnerResources();
+  const { refreshCounts } = useSidebarActivity();
   const [date, setDate] = useState("");
   const [selection, setSelection] = useState<Selection>({});
   const [name, setName] = useState(""); const [phone, setPhone] = useState(""); const [email, setEmail] = useState("");
@@ -91,6 +95,8 @@ export default function NewBooking() {
       if (value?.status !== "confirmed" || typeof value.bookingId !== "string") throw Error();
       monthCache.current?.clear();
       setPending(null); setResult({ bookingId: value.bookingId, total: value.total, method: value.method }); setReceived(false);
+      invalidate?.();
+      void refreshCounts();
       toast.success("Internal booking confirmed.");
     } catch {
       setPending({ body, key }); setError("Result unknown. Retry the same request or check bookings before discarding it.", false);
